@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    /* --------------------------------------------------------
+       Base
+    -------------------------------------------------------- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #333;
+      padding: 14px 16px 24px;
+      line-height: 1.5;
+    }
+
+    /* --------------------------------------------------------
+       Headings
+    -------------------------------------------------------- */
+    h3 {
+      color: #0033a0;
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    /* --------------------------------------------------------
+       Source document section
+    -------------------------------------------------------- */
+    .source-section {
+      margin-bottom: 0;
+    }
+
+    .field-label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    #url-input {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      color: #333;
+      background: #fff;
+    }
+
+    #url-input:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0, 51, 160, 0.35);
+    }
+
+    /* --------------------------------------------------------
+       Source choice (standard template vs. custom document)
+    -------------------------------------------------------- */
+    .source-choice {
+      margin-bottom: 10px;
+    }
+
+    .radio-option {
+      display: block;
+      font-weight: normal;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 6px;
+      cursor: pointer;
+    }
+
+    .radio-option input[type="radio"] {
+      margin-right: 6px;
+    }
+
+    /* Doc name header (above URL field) */
+    .doc-name-header {
+      font-size: 14px;
+      font-weight: bold;
+      color: #0033a0;
+      margin-bottom: 6px;
+      min-height: 18px;
+    }
+
+    .doc-name-header.error {
+      color: #cc0000;
+    }
+
+    /* Doc title display (legacy — kept for fallback) */
+    #doc-title-display {
+      font-size: 12px;
+      color: #555;
+      min-height: 16px;
+      margin-bottom: 2px;
+    }
+
+    #doc-title-display.error {
+      color: #cc0000;
+    }
+
+    /* --------------------------------------------------------
+       Divider
+    -------------------------------------------------------- */
+    .divider {
+      border: none;
+      border-top: 1px solid #dde1ea;
+      margin: 14px 0;
+    }
+
+    /* --------------------------------------------------------
+       Activity dropdowns section
+    -------------------------------------------------------- */
+    .activities-section {
+      /* no extra padding needed — divider provides spacing */
+    }
+
+    .activity-row {
+      margin-bottom: 12px;
+    }
+
+    .activity-label {
+      display: block;
+      font-weight: bold;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 3px;
+    }
+
+    .tool-badge {
+      display: inline-block;
+      font-size: 11px;
+      color: #555;
+      font-weight: normal;
+      margin-left: 4px;
+    }
+
+    .activity-select {
+      width: 100%;
+      padding: 5px 7px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+    }
+
+    .activity-select:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0, 51, 160, 0.35);
+    }
+
+    .unrecognized-note {
+      font-size: 11px;
+      color: #cc0000;
+      margin-top: 3px;
+    }
+
+    /* --------------------------------------------------------
+       Buttons
+    -------------------------------------------------------- */
+    .btn-row {
+      margin-top: 16px;
+    }
+
+    .run-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #0033a0;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .run-btn:hover {
+      background: #002080;
+    }
+
+    .run-btn:disabled {
+      background: #8899cc;
+      cursor: default;
+    }
+
+    .again-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #555;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .again-btn:hover {
+      background: #333;
+    }
+
+    /* --------------------------------------------------------
+       Spinner
+    -------------------------------------------------------- */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid #ccc;
+      border-top-color: #0033a0;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner-label {
+      font-size: 13px;
+      color: #555;
+    }
+
+    .stop-btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 6px 14px;
+      background: #fff;
+      color: #cc0000;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: bold;
+      border: 1px solid #cc0000;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .stop-btn:hover {
+      background: #fff0f0;
+    }
+
+    .stop-note {
+      font-size: 11px;
+      color: #555;
+      margin-top: 6px;
+    }
+
+    /* --------------------------------------------------------
+       Summary box
+    -------------------------------------------------------- */
+    .summary-box {
+      background: #f4f6fa;
+      border: 1px solid #c8d0e0;
+      border-radius: 5px;
+      padding: 12px 14px;
+      margin-top: 14px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    /* --------------------------------------------------------
+       Error message
+    -------------------------------------------------------- */
+    .error-msg {
+      color: #cc0000;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    /* --------------------------------------------------------
+       Loading state (initial data fetch)
+    -------------------------------------------------------- */
+    #loading-notice {
+      color: #555;
+      font-size: 13px;
+    }
+
+    /* --------------------------------------------------------
+       Hidden utility
+    -------------------------------------------------------- */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Initial loading notice (shown while getSidebarData() runs) -->
+  <div id="loading-notice">Loading activity data&hellip;</div>
+
+  <!-- Main form (hidden until data loads) -->
+  <div id="main-form" class="hidden">
+
+    <!-- ── Source document ── -->
+    <div class="source-section">
+      <h3>Activity Directions Source</h3>
+
+      <div id="doc-name-header" class="doc-name-header"></div>
+
+      <div class="source-choice" role="radiogroup" aria-label="Activity Directions source">
+        <label class="radio-option">
+          <input type="radio" name="source-choice" id="source-standard" value="standard" checked>
+          Use the standard <strong>Template Activity Directions 2.0</strong>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="source-choice" id="source-custom" value="custom">
+          Use a different document
+        </label>
+      </div>
+
+      <div id="url-field-wrap" class="hidden">
+        <label class="field-label" for="url-input">Source Document URL</label>
+        <input type="text" id="url-input" placeholder="Paste Google Doc URL here&hellip;" />
+      </div>
+    </div>
+
+    <!-- ── Divider ── -->
+    <hr class="divider" />
+
+    <!-- ── Activity dropdowns ── -->
+    <div class="activities-section">
+      <h3>Activity Directions</h3>
+      <p style="font-size:12px; color:#555; margin-bottom:12px;">
+        Choose the direction text to insert for each activity type found in Module 1.
+      </p>
+
+      <div id="activity-rows">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- ── Run button ── -->
+    <div class="btn-row">
+      <button class="run-btn" id="run-btn" onclick="runScript()">Run</button>
+    </div>
+
+    <!-- ── Progress spinner (hidden until running) ── -->
+    <div id="spinner-area" class="hidden" role="status" aria-live="polite">
+      <div class="spinner-wrap">
+        <div class="spinner"></div>
+        <span class="spinner-label">Applying directions&hellip; This may take a few minutes. <span id="elapsed-time"></span></span>
+      </div>
+      <button class="stop-btn" onclick="stopScript()">&#9632; Stop</button>
+      <div class="stop-note">Stopping only cancels this sidebar&rsquo;s wait &mdash; the script may finish in the background. If it does, undo any changes before running again.</div>
+    </div>
+
+    <!-- ── Error message area ── -->
+    <div class="error-msg hidden" id="error-msg" role="alert"></div>
+
+  </div><!-- /#main-form -->
+
+  <!-- Result view (hidden until run completes) -->
+  <div id="result-view" class="hidden" role="status" aria-live="polite">
+    <h3>Done</h3>
+    <div class="summary-box" id="summary-box"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="again-btn" onclick="resetToForm()">Run Again</button>
+    </div>
+  </div>
+
+  <script>
+    // --------------------------------------------------------
+    // State
+    // --------------------------------------------------------
+    var sidebarData = null; // { defaultUrl, activities, directionOptions }
+
+    // --------------------------------------------------------
+    // Initialisation — called once on load
+    // --------------------------------------------------------
+    window.addEventListener('load', function () {
+      google.script.run
+        .withSuccessHandler(onDataLoaded)
+        .withFailureHandler(onLoadError)
+        .getSidebarData();
+    });
+
+    function onDataLoaded(data) {
+      sidebarData = data;
+
+      // Pre-fill URL input with the standard template, and keep the field
+      // hidden until the user chooses "Use a different document".
+      var urlInput = document.getElementById('url-input');
+      urlInput.value = data.defaultUrl || '';
+
+      // Fetch and show the document title for the default URL.
+      fetchDocTitle(urlInput.value);
+
+      // Build activity dropdown rows.
+      buildActivityRows(data.activities, data.directionOptions);
+
+      // Show the form.
+      document.getElementById('loading-notice').classList.add('hidden');
+      document.getElementById('main-form').classList.remove('hidden');
+    }
+
+    // --------------------------------------------------------
+    // Source choice — standard template vs. custom document
+    // --------------------------------------------------------
+    document.getElementById('source-standard').addEventListener('change', applySourceChoice);
+    document.getElementById('source-custom').addEventListener('change', applySourceChoice);
+
+    function applySourceChoice() {
+      var useCustom = document.getElementById('source-custom').checked;
+      var urlInput  = document.getElementById('url-input');
+      var urlWrap   = document.getElementById('url-field-wrap');
+
+      if (useCustom) {
+        urlWrap.classList.remove('hidden');
+        urlInput.value = '';
+        setDocTitle('', false);
+        urlInput.focus();
+      } else {
+        urlWrap.classList.add('hidden');
+        urlInput.value = (sidebarData && sidebarData.defaultUrl) || '';
+        fetchDocTitle(urlInput.value);
+      }
+    }
+
+    function onLoadError(err) {
+      document.getElementById('loading-notice').textContent =
+        'Error loading data: ' + (err.message || err);
+    }
+
+    // --------------------------------------------------------
+    // URL field — fetch doc title on blur
+    // --------------------------------------------------------
+    document.getElementById('url-input').addEventListener('blur', function () {
+      fetchDocTitle(this.value.trim());
+    });
+
+    function fetchDocTitle(url) {
+      if (!url) {
+        setDocTitle('', false);
+        return;
+      }
+      setDocTitle('Loading\u2026', false);
+      google.script.run
+        .withSuccessHandler(function (title) {
+          var isError = title && title.indexOf('Error:') === 0;
+          setDocTitle(title, isError);
+        })
+        .withFailureHandler(function (err) {
+          setDocTitle('Error: ' + (err.message || err), true);
+        })
+        .getDocTitleFromUrl(url);
+    }
+
+    function setDocTitle(text, isError) {
+      var el = document.getElementById('doc-name-header');
+      el.textContent = text || '';
+      if (isError) {
+        el.classList.add('error');
+      } else {
+        el.classList.remove('error');
+      }
+    }
+
+    // --------------------------------------------------------
+    // Build activity dropdown rows
+    // --------------------------------------------------------
+    function buildActivityRows(activities, directionOptions) {
+      var container = document.getElementById('activity-rows');
+      container.innerHTML = '';
+
+      if (!activities || activities.length === 0) {
+        container.innerHTML =
+          '<p style="color:#cc0000; font-size:12px;">No activities found in Module 1. ' +
+          'Make sure this document has a Development tab with Module 1 content.</p>';
+        return;
+      }
+
+      activities.forEach(function (act, index) {
+        var row = document.createElement('div');
+        row.className = 'activity-row';
+
+        // Label: activity title + tool badge
+        var label = document.createElement('label');
+        label.className = 'activity-label';
+
+        var titleSpan = document.createTextNode(act.title);
+        label.appendChild(titleSpan);
+
+        if (act.toolType) {
+          var badge = document.createElement('span');
+          badge.className = 'tool-badge';
+          badge.textContent = '(' + act.toolType + ')';
+          label.appendChild(badge);
+        }
+
+        row.appendChild(label);
+
+        // Check if this tool type is recognised.
+        var toolKey    = normaliseToolKey(act.toolType);
+        var optionsDef = toolKey ? directionOptions[toolKey] : null;
+
+        if (!optionsDef) {
+          // Unrecognised tool type — show note, no dropdown.
+          var note = document.createElement('div');
+          note.className = 'unrecognized-note';
+          note.textContent = act.toolType
+            ? 'Tool type \u201c' + act.toolType + '\u201d not recognized \u2014 skipped.'
+            : 'No tool type found \u2014 skipped.';
+          row.appendChild(note);
+        } else {
+          // Build select element, linked to the label above for screen readers.
+          var select = document.createElement('select');
+          select.id = 'act-select-' + index;
+          label.htmlFor = select.id;
+          select.className = 'activity-select';
+          select.dataset.activityTitle = act.title;
+
+          optionsDef.options.forEach(function (opt) {
+            var option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            if (opt === optionsDef.defaultChoice) {
+              option.selected = true;
+            }
+            select.appendChild(option);
+          });
+
+          row.appendChild(select);
+        }
+
+        container.appendChild(row);
+      });
+    }
+
+    /**
+     * Normalises a raw tool-type string from the document to the key used in
+     * DIRECTION_OPTIONS. Handles minor capitalisation differences.
+     * Returns null if not recognised.
+     */
+    function normaliseToolKey(rawToolType) {
+      if (!rawToolType) return null;
+      var lower = rawToolType.toLowerCase().trim();
+
+      var keyMap = {
+        'page':                    'Page',
+        'assignment':              'Assignment',
+        'assignment (not graded)': 'Assignment (Not Graded)',
+        'discussion':              'Discussion',
+        'quiz (classic)':          'Quiz (Classic)',
+        'quiz (new)':              'Quiz (New)'
+      };
+
+      return keyMap[lower] || null;
+    }
+
+    // --------------------------------------------------------
+    // Elapsed time timer
+    // --------------------------------------------------------
+    var elapsedTimer   = null;
+    var elapsedSeconds = 0;
+
+    function startTimer() {
+      elapsedSeconds = 0;
+      document.getElementById('elapsed-time').textContent = '(0:00)';
+      elapsedTimer = setInterval(function () {
+        elapsedSeconds++;
+        var m = Math.floor(elapsedSeconds / 60);
+        var s = elapsedSeconds % 60;
+        document.getElementById('elapsed-time').textContent =
+          '(' + m + ':' + (s < 10 ? '0' : '') + s + ')';
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (elapsedTimer) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+      }
+      document.getElementById('elapsed-time').textContent = '';
+    }
+
+    // --------------------------------------------------------
+    // Run
+    // --------------------------------------------------------
+    function runScript() {
+      // Collect selections from all dropdowns.
+      var selects    = document.querySelectorAll('.activity-select');
+      var selections = {};
+
+      selects.forEach(function (sel) {
+        var title = sel.dataset.activityTitle;
+        if (title) {
+          selections[title] = sel.value;
+        }
+      });
+
+      var sourceUrl = document.getElementById('url-input').value.trim();
+      if (!sourceUrl) {
+        showError('Please enter the source document URL.');
+        return;
+      }
+
+      // Show spinner, start timer, disable button.
+      document.getElementById('run-btn').disabled = true;
+      document.getElementById('spinner-area').classList.remove('hidden');
+      startTimer();
+      hideError();
+
+      var params = {
+        sourceUrl:  sourceUrl,
+        selections: selections
+      };
+
+      google.script.run
+        .withSuccessHandler(onRunSuccess)
+        .withFailureHandler(onRunError)
+        .applyDirections(params);
+    }
+
+    function onRunSuccess(summary) {
+      stopTimer();
+      document.getElementById('main-form').classList.add('hidden');
+      document.getElementById('spinner-area').classList.add('hidden');
+      document.getElementById('summary-box').textContent = summary;
+      document.getElementById('result-view').classList.remove('hidden');
+    }
+
+    function onRunError(err) {
+      stopTimer();
+      document.getElementById('spinner-area').classList.add('hidden');
+      document.getElementById('run-btn').disabled = false;
+      showError('Error: ' + (err.message || err));
+    }
+
+    function stopScript() {
+      stopTimer();
+      document.getElementById('spinner-area').classList.add('hidden');
+      document.getElementById('run-btn').disabled = false;
+      showError('Stopped. If the script was already running, use Ctrl+Z in the document to undo any changes before running again.');
+    }
+
+    // --------------------------------------------------------
+    // Reset
+    // --------------------------------------------------------
+    function resetToForm() {
+      document.getElementById('result-view').classList.add('hidden');
+      document.getElementById('run-btn').disabled = false;
+      hideError();
+      document.getElementById('main-form').classList.remove('hidden');
+    }
+
+    // --------------------------------------------------------
+    // Error helpers
+    // --------------------------------------------------------
+    function showError(msg) {
+      var el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('error-msg').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

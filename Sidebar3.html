@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      padding: 16px;
+      color: #333;
+      margin: 0;
+    }
+    h3 { color: #0033a0; margin: 0 0 16px; font-size: 15px; }
+    label {
+      display: block;
+      margin-top: 14px;
+      font-weight: bold;
+      font-size: 12px;
+      color: #444;
+    }
+    input[type="number"] {
+      width: 100%;
+      padding: 6px 8px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+    }
+    .run-btn {
+      margin-top: 18px;
+      width: 100%;
+      padding: 10px;
+      background: #0033a0;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+      cursor: pointer;
+    }
+    .run-btn:hover { background: #002070; }
+    .again-btn {
+      margin-top: 12px;
+      width: 100%;
+      padding: 8px;
+      background: #555;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+      cursor: pointer;
+    }
+    .again-btn:hover { background: #333; }
+
+    /* ── Progress ── */
+    #progress {
+      display: none;
+      text-align: center;
+      padding: 30px 0;
+    }
+    .spinner {
+      font-size: 28px;
+      display: inline-block;
+      animation: spin 1.2s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .prog-label { margin: 12px 0 4px; color: #555; }
+    .elapsed    { font-size: 12px; color: #666; }
+
+    /* ── Results ── */
+    #result { display: none; }
+
+    .target-banner {
+      background: #e8f0fe;
+      border-left: 4px solid #0033a0;
+      padding: 8px 10px;
+      border-radius: 0 4px 4px 0;
+      font-size: 12px;
+      color: #0033a0;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .module-card {
+      border: 1px solid #d0d8e8;
+      border-radius: 4px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: #f9fbff;
+    }
+    .mod-name {
+      font-weight: bold;
+      font-size: 12px;
+      color: #0033a0;
+      text-transform: capitalize;
+    }
+    .mod-time {
+      font-size: 14px;
+      color: #222;
+      margin: 2px 0;
+    }
+    .status-msg {
+      font-size: 11px;
+      margin-top: 3px;
+      line-height: 1.4;
+    }
+    .status-over  { color: #cc0000; }
+    .status-under { color: #b06000; }
+    .status-ok    { color: #1a7a3a; }
+
+    .avg-section {
+      border-top: 2px solid #d0d8e8;
+      padding-top: 10px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+    }
+    .avg-label { font-size: 12px; color: #555; font-weight: bold; }
+    .avg-time  { font-size: 16px; font-weight: bold; color: #222; margin: 2px 0; }
+
+    .missing-section {
+      background: #fff8f8;
+      border: 1px solid #f4c2c2;
+      border-radius: 4px;
+      padding: 8px 10px;
+      margin-top: 4px;
+    }
+    .missing-header {
+      font-size: 12px;
+      font-weight: bold;
+      color: #cc0000;
+      margin-bottom: 6px;
+    }
+    .missing-item {
+      font-size: 11px;
+      color: #555;
+      padding: 3px 0 3px 10px;
+      border-left: 2px solid #f4c2c2;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .missing-mod { font-weight: bold; color: #0033a0; }
+    .missing-why { color: #cc0000; font-style: italic; font-size: 10px; }
+
+    .error-msg { color: #cc0000; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- FORM -->
+<div id="form">
+  <h3>🎓 Time Estimator</h3>
+
+  <label for="credits">Number of credits</label>
+  <input type="number" id="credits" min="1" max="5" value="3">
+
+  <label for="weeks">Number of weeks in the course</label>
+  <input type="number" id="weeks" min="1" max="52" value="7">
+
+  <label for="modsPerWeek">How many modules should a student complete per week?</label>
+  <input type="number" id="modsPerWeek" min="1" max="10" value="1">
+
+  <button class="run-btn" onclick="runScript()">▶ Run Time Estimator</button>
+</div>
+
+<!-- PROGRESS -->
+<div id="progress" role="status" aria-live="polite">
+  <div class="spinner">⚙️</div>
+  <p class="prog-label">Scanning Development tab…</p>
+  <p class="elapsed">Elapsed: <strong><span id="clock">0:00</span></strong></p>
+</div>
+
+<!-- RESULT -->
+<div id="result" role="status" aria-live="polite">
+  <div id="summary"></div>
+  <button class="again-btn" onclick="reset()">↩ Run Again</button>
+</div>
+
+<script>
+  var timer, startTime;
+
+  function runScript() {
+    var credits     = parseInt(document.getElementById('credits').value, 10);
+    var weeks       = parseInt(document.getElementById('weeks').value, 10);
+    var modsPerWeek = parseInt(document.getElementById('modsPerWeek').value, 10);
+
+    if (!credits || credits < 1 || !weeks || weeks < 1 || !modsPerWeek || modsPerWeek < 1) {
+      alert('Please enter valid whole numbers (≥ 1) for all fields.');
+      return;
+    }
+
+    document.getElementById('form').style.display     = 'none';
+    document.getElementById('progress').style.display = 'block';
+    document.getElementById('result').style.display   = 'none';
+
+    startTime = Date.now();
+    timer = setInterval(function () {
+      var s = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('clock').textContent =
+        Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }, 1000);
+
+    google.script.run
+      .withSuccessHandler(onDone)
+      .withFailureHandler(onError)
+      .runTimeEstimator(credits, weeks, modsPerWeek);
+  }
+
+  function onDone(r) {
+    clearInterval(timer);
+    document.getElementById('progress').style.display = 'none';
+    document.getElementById('result').style.display   = 'block';
+
+    if (r.error) {
+      document.getElementById('summary').innerHTML =
+        '<span class="error-msg" role="alert">❌ ' + esc(r.error) + '</span>';
+      return;
+    }
+
+    document.getElementById('summary').innerHTML = buildHTML(r);
+  }
+
+  function onError(err) {
+    clearInterval(timer);
+    document.getElementById('progress').style.display = 'none';
+    document.getElementById('result').style.display   = 'block';
+    document.getElementById('summary').innerHTML =
+      '<span class="error-msg" role="alert">❌ Error: ' + esc(err.message) + '</span>';
+  }
+
+  function reset() {
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('form').style.display   = 'block';
+  }
+
+  /* ── HTML builder ── */
+
+  function buildHTML(r) {
+    var html = '';
+
+    // Target range banner
+    html += '<div class="target-banner">';
+    html += '<strong>Target range per module:</strong><br>';
+    html += esc(r.minTarget) + ' – ' + esc(r.maxTarget);
+    html += '</div>';
+
+    // Per-module cards
+    r.modules.forEach(function (m) {
+      html += '<div class="module-card">';
+      html += '<div class="mod-name">' + esc(m.name) + '</div>';
+      html += '<div class="mod-time">' + esc(m.total) + '</div>';
+      html += '<div class="status-msg ' + statusClass(m.status.type) + '">';
+      html += statusText(m.status, r);
+      html += '</div>';
+      html += '</div>';
+    });
+
+    // Average
+    html += '<div class="avg-section">';
+    html += '<div class="avg-label">Average across all modules</div>';
+    html += '<div class="avg-time">' + esc(r.avg) + '</div>';
+    html += '<div class="status-msg ' + statusClass(r.avgStatus.type) + '">';
+    html += statusText(r.avgStatus, r);
+    html += '</div>';
+    html += '</div>';
+
+    // Missing time entries
+    if (r.missing && r.missing.length > 0) {
+      html += '<div class="missing-section">';
+      html += '<div class="missing-header">⚠️ The following activities did not contain time entries:</div>';
+      r.missing.forEach(function (item) {
+        html += '<div class="missing-item">';
+        html += '<span class="missing-mod">' + esc(item.module) + '</span> — ';
+        html += esc(truncate(item.title, 55));
+        if (item.reason === 'TBD') {
+          html += ' <span class="missing-why">(TBD)</span>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    return html;
+  }
+
+  function statusClass(type) {
+    if (type === 'over')  return 'status-over';
+    if (type === 'under') return 'status-under';
+    return 'status-ok';
+  }
+
+  function statusText(s, r) {
+    if (s.type === 'over') {
+      return 'Student workload may exceed the recommended amount of ' +
+             esc(r.maxTarget) + ' by ' + esc(s.diff) + '.';
+    }
+    if (s.type === 'under') {
+      return 'Student workload may be below the recommended minimum of ' +
+             esc(r.minTarget) + ' by ' + esc(s.diff) + '.';
+    }
+    return 'Within the recommended range (' + esc(r.minTarget) + ' – ' + esc(r.maxTarget) + ').';
+  }
+
+  function esc(str) {
+    if (str === undefined || str === null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function truncate(str, len) {
+    if (!str) return '';
+    return str.length > len ? str.slice(0, len) + '…' : str;
+  }
+</script>
+</body>
+</html>

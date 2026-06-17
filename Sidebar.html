@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      padding: 16px;
+      color: #333;
+      margin: 0;
+    }
+    h3 { color: #0033a0; margin: 0 0 16px; font-size: 15px; }
+    label {
+      display: block;
+      margin-top: 14px;
+      font-weight: bold;
+      font-size: 12px;
+      color: #444;
+    }
+    input, select {
+      width: 100%;
+      padding: 6px 8px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+    }
+    .run-btn {
+      margin-top: 18px;
+      width: 100%;
+      padding: 10px;
+      background: #0033a0;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+      cursor: pointer;
+    }
+    .run-btn:hover { background: #002070; }
+    .again-btn {
+      margin-top: 12px;
+      width: 100%;
+      padding: 8px;
+      background: #555;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+      cursor: pointer;
+    }
+    .again-btn:hover { background: #333; }
+    #progress {
+      display: none;
+      text-align: center;
+      padding: 30px 0;
+    }
+    .spinner {
+      font-size: 28px;
+      display: inline-block;
+      animation: spin 1.2s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .prog-label { margin: 12px 0 4px; color: #555; }
+    .elapsed    { font-size: 12px; color: #666; }
+    #result     { display: none; }
+    .summary {
+      background: #f4f6fa;
+      border: 1px solid #d0d8e8;
+      border-radius: 4px;
+      padding: 12px;
+      white-space: pre-wrap;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+    }
+    .error-msg { color: #cc0000; font-size: 12px; }
+  </style>
+</head>
+<body>
+<!-- FORM -->
+<div id="form">
+  <h3>🎓 Blueprint Tools</h3>
+  <label for="numModules">How many modules will this course contain?</label>
+  <input type="number" id="numModules" min="1" max="52" placeholder="e.g. 15">
+  <label for="numbered">Should Activity Titles be numbered?</label>
+  <select id="numbered">
+    <option value="yes">Yes</option>
+    <option value="no">No</option>
+  </select>
+  <label for="timeEstimates">Should time estimates be included in Activity Titles?</label>
+  <select id="timeEstimates">
+    <option value="yes">Yes</option>
+    <option value="no">No</option>
+  </select>
+  <label for="canvasOption">Which of the following is correct for this course?</label>
+  <select id="canvasOption">
+    <option value="display">Display Due Date Text Header in Canvas</option>
+    <option value="doNotBuild">Do not build Due Date Text Header in Canvas</option>
+    <option value="unpublished">Build Unpublished Due Day Text Header in Canvas</option>
+  </select>
+  <button class="run-btn" onclick="runScript()">▶ Run Script</button>
+</div>
+<!-- PROGRESS -->
+<div id="progress" role="status" aria-live="polite">
+  <div class="spinner">⚙️</div>
+  <p class="prog-label">Populating Development tab…</p>
+  <p class="elapsed">Elapsed: <strong><span id="clock">0:00</span></strong></p>
+</div>
+<!-- RESULT -->
+<div id="result" role="status" aria-live="polite">
+  <div class="summary" id="summary"></div>
+  <button class="again-btn" onclick="reset()">↩ Run Again</button>
+</div>
+<script>
+  let timer, startTime;
+  function runScript() {
+    const n = parseInt(document.getElementById('numModules').value);
+    if (!n || n < 1) {
+      alert('Please enter the number of modules (e.g. 15).');
+      return;
+    }
+    const params = {
+      numModules:    n,
+      numbered:      document.getElementById('numbered').value === 'yes',
+      timeEstimates: document.getElementById('timeEstimates').value === 'yes',
+      canvasOption:  document.getElementById('canvasOption').value
+    };
+    document.getElementById('form').style.display     = 'none';
+    document.getElementById('progress').style.display = 'block';
+    startTime = Date.now();
+    timer = setInterval(function() {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('clock').textContent =
+        Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }, 1000);
+    google.script.run
+      .withSuccessHandler(onDone)
+      .withFailureHandler(onError)
+      .processBlueprint(params);
+  }
+  function onDone(msg) {
+    clearInterval(timer);
+    document.getElementById('progress').style.display = 'none';
+    document.getElementById('result').style.display   = 'block';
+    document.getElementById('summary').textContent    = msg;
+  }
+  function onError(err) {
+    clearInterval(timer);
+    document.getElementById('progress').style.display = 'none';
+    document.getElementById('result').style.display   = 'block';
+    document.getElementById('summary').innerHTML =
+      '<span class="error-msg" role="alert">❌ Error: ' + err.message + '</span>';
+  }
+  function reset() {
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('form').style.display   = 'block';
+  }
+</script>
+</body>
+</html>

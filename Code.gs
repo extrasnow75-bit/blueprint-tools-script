@@ -12,6 +12,10 @@ function onOpen() {
   DocumentApp.getUi()
     .createMenu('🎓 Blueprint Tools')
     .addItem('Populate Development Tab', 'showSidebar')
+    .addSeparator()
+    .addItem('Add Activity Directions', 'showDirectionsSidebar')
+    .addSeparator()
+    .addItem('Time Estimator', 'showTimeEstimatorSidebar')
     .addToUi();
 }
 function showSidebar() {
@@ -175,17 +179,14 @@ function createModule(body, modNum, params, indent, insertIdx) {
   const hPara = add(`Module ${modNum}: Title (start date - end date)`);
   hPara.setHeading(H2);
   _fmt(hPara.editAsText(), { font: FONT, bold: true });
-
   // Module overview — H3, NOT bold, Arial 15pt, black
   const ovPara = add(`Module ${modNum} Overview`);
   ovPara.setHeading(H3);
   _fmt(ovPara.editAsText(), { font: FONT, size: 15, bold: false, color: BLACK });
-
   // Refer-to note — Normal text, Arial 11pt, black, not italic
   const refPara = add('[Refer to the Template Blueprint Customization by Program document to populate this section.]');
   refPara.setHeading(NORMAL);
   _fmt(refPara.editAsText(), { font: FONT, size: 11, bold: false, italic: false, color: BLACK });
-
   // 7 activity slots
   for (let slot = 1; slot <= 7; slot++) {
     const prefix = params.numbered ? `${modNum}.${String(slot).padStart(2,'0')} ` : '';
@@ -321,9 +322,7 @@ function setNearbyTool(body, headingPara, toolValue) {
   return false;
 }
 // ── REMOVE EXTRA SLOT ─────────────────────────────────────────────
-// FIX: Use body.getChildIndex() instead of paras.indexOf() —
-//      paras.indexOf() always returns -1 due to proxy reference
-//      equality, so the slot was never actually deleted in v4.2.
+// FIX: Use body.getChildIndex() instead of paras.indexOf()
 function removeSlot(body, headingPara) {
   const H2 = DocumentApp.ParagraphHeading.HEADING2;
   const H3 = DocumentApp.ParagraphHeading.HEADING3;
@@ -346,45 +345,16 @@ function removeSlot(body, headingPara) {
 }
 // ── PLACE DUE-DAY HEADERS ─────────────────────────────────────────
 function placeDueHeaders(body, modNum, activities, params) {
-  const H2 = DocumentApp.ParagraphHeading.HEADING2;
   const H3 = DocumentApp.ParagraphHeading.HEADING3;
-  const H4 = DocumentApp.ParagraphHeading.HEADING4;
   const canvasText = {
     display:     'Text Header in Canvas',
     doNotBuild:  'Do not build in Canvas',
     unpublished: 'Unpublished text header in Canvas'
   }[params.canvasOption] || 'Text Header in Canvas';
-  const allParas = body.getParagraphs();
-  const modRe    = new RegExp(`^Module\\s+${modNum}[:\\s]`, 'i');
-  let modStart = -1, modEnd = allParas.length;
-  for (let i = 0; i < allParas.length; i++) {
-    if (allParas[i].getHeading() !== H2) continue;
-    const t = allParas[i].getText().trim();
-    if (modRe.test(t) && modStart < 0) { modStart = i; continue; }
-    if (modStart >= 0) { modEnd = i; break; }
-  }
-  if (modStart < 0) return 0;
-  const moduleSlice = allParas.slice(modStart, modEnd);
-  const toRemove    = [];
-  for (let i = 0; i < moduleSlice.length; i++) {
-    const p = moduleSlice[i];
-    if (p.getHeading() === H3 &&
-        /due\s+by\b/i.test(p.getText()) &&
-        /mountain\s+time/i.test(p.getText())) {
-      toRemove.push(p);
-      if (i + 1 < moduleSlice.length) {
-        const next = moduleSlice[i + 1];
-        const nh   = next.getHeading();
-        if (nh !== H2 && nh !== H3 && nh !== H4 &&
-            /(canvas|header|build)/i.test(next.getText())) {
-          toRemove.push(next);
-        }
-      }
-    }
-  }
-  for (let i = toRemove.length - 1; i >= 0; i--) {
-    try { toRemove[i].removeFromParent(); } catch(e) {}
-  }
+  // NOTE: This function used to scan the module for existing "Due by … Mountain
+  // Time" headers and delete them before inserting new ones. Per request, the
+  // template's original due-date markers are now left in place untouched —
+  // only new headers are inserted at the correct activity positions below.
   const groups = getDueDayGroups(activities);
   if (groups.length === 0) return 0;
   const targets = [];
