@@ -244,7 +244,75 @@ function processModule(body, modNum, activities, params, indent, stats) {
       stats.slotsDeleted++;
     }
   }
+  // If the template had fewer slots than activities, insert the extra ones
+  if (activities.length > slots.length) {
+    let idx = getIndexAfterSlots(body, modNum, slots);
+    for (let s = slots.length + 1; s <= activities.length; s++) {
+      idx = insertActivitySlot(body, modNum, s, activities[s - 1], params, indent, idx, stats);
+    }
+  }
   stats.headers += placeDueHeaders(body, modNum, activities, params);
+}
+// ── GET INDEX AFTER LAST SLOT ─────────────────────────────────────
+function getIndexAfterSlots(body, modNum, slots) {
+  const H2 = DocumentApp.ParagraphHeading.HEADING2;
+  const H3 = DocumentApp.ParagraphHeading.HEADING3;
+  const H4 = DocumentApp.ParagraphHeading.HEADING4;
+  if (slots.length > 0) {
+    const lastH4 = slots[slots.length - 1].para;
+    const start  = body.getChildIndex(lastH4);
+    let lastIdx  = start;
+    for (let i = start + 1; i < body.getNumChildren(); i++) {
+      const child = body.getChild(i);
+      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
+      const h = child.asParagraph().getHeading();
+      if (h === H2 || h === H3 || h === H4) break;
+      lastIdx = i;
+    }
+    return lastIdx + 1;
+  }
+  // No existing slots: insert before next module's H2 (or end of body)
+  const modRe = new RegExp(`^Module\\s+${modNum}[:\\s]`, 'i');
+  const paras  = body.getParagraphs();
+  let inModule = false, lastIdx = 0;
+  for (let i = 0; i < paras.length; i++) {
+    const ci = body.getChildIndex(paras[i]);
+    if (paras[i].getHeading() === H2) {
+      if (modRe.test(paras[i].getText().trim())) { inModule = true; lastIdx = ci; continue; }
+      if (inModule) return ci;
+    }
+    if (inModule) lastIdx = ci;
+  }
+  return lastIdx + 1;
+}
+// ── INSERT A NEW ACTIVITY SLOT AT INDEX ───────────────────────────
+function insertActivitySlot(body, modNum, slotNum, activity, params, indent, insertIdx, stats) {
+  const H4     = DocumentApp.ParagraphHeading.HEADING4;
+  const NORMAL = DocumentApp.ParagraphHeading.NORMAL;
+  let idx = insertIdx;
+  function ins(text) { return body.insertParagraph(idx++, text); }
+  let title = activity.name;
+  if (params.timeEstimates && activity.time) title += ` (${activity.time})`;
+  const prefix = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
+  const aPara  = ins(prefix + title);
+  aPara.setHeading(H4);
+  aPara.setIndentStart(indent);
+  _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
+  stats.filled++;
+  const ePara = ins('Estimated time:');
+  ePara.setHeading(NORMAL);
+  ePara.setIndentStart(indent);
+  _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
+  const tPara = ins('Select Tool; Link to settings tab');
+  tPara.setHeading(NORMAL);
+  tPara.setIndentStart(indent);
+  _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, color: RED });
+  const dPara = ins('Directions go here…');
+  dPara.setHeading(NORMAL);
+  dPara.setIndentStart(indent);
+  _fmt(dPara.editAsText(), { font: FONT, size: 11 });
+  if (activity.tool && setNearbyTool(body, aPara, activity.tool)) stats.tools++;
+  return idx;
 }
 // ── GET SLOTS IN MODULE ───────────────────────────────────────────
 function getSlotsInModule(body, modNum) {
