@@ -265,8 +265,10 @@ function getIndexAfterSlots(body, modNum, slots) {
     for (let i = start + 1; i < body.getNumChildren(); i++) {
       const child = body.getChild(i);
       if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
-      const h = child.asParagraph().getHeading();
+      const para = child.asParagraph();
+      const h    = para.getHeading();
       if (h === H2 || h === H3 || h === H4) break;
+      if (!para.getText()) break; // stop before empty spacer between modules
       lastIdx = i;
     }
     return lastIdx + 1;
