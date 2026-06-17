@@ -411,6 +411,20 @@ function removeSlot(body, headingPara) {
     try { toRemove[i].removeFromParent(); } catch(e) {}
   }
 }
+// ── CHECK FOR EXISTING DUE-DAY HEADER ────────────────────────────
+function dueHeaderAlreadyExists(body, targetPara, day) {
+  const H3  = DocumentApp.ParagraphHeading.HEADING3;
+  const re  = new RegExp(`Due by ${day}`, 'i');
+  const idx = body.getChildIndex(targetPara);
+  // Check up to 4 paragraphs before the target slot for a matching H3
+  for (let i = Math.max(0, idx - 4); i < idx; i++) {
+    const child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    const para = child.asParagraph();
+    if (para.getHeading() === H3 && re.test(para.getText())) return true;
+  }
+  return false;
+}
 // ── PLACE DUE-DAY HEADERS ─────────────────────────────────────────
 function placeDueHeaders(body, modNum, activities, params) {
   const H3 = DocumentApp.ParagraphHeading.HEADING3;
@@ -432,6 +446,7 @@ function placeDueHeaders(body, modNum, activities, params) {
   }
   for (let i = targets.length - 1; i >= 0; i--) {
     const { day, targetPara } = targets[i];
+    if (dueHeaderAlreadyExists(body, targetPara, day)) continue;
     const childIdx = body.getChildIndex(targetPara);
     const annotPara = body.insertParagraph(childIdx, canvasText);
     annotPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
