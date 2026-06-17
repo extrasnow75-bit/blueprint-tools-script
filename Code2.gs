@@ -1,5 +1,5 @@
 // ============================================================
-// Blueprint Tools 2 — Code.gs
+// Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ============================================================
 

@@ -31,7 +31,7 @@ function showTimeEstimatorSidebar() {
  * Recursively collects all tabs (and child tabs) of a document.
  * Returns an array of { title, body } objects.
  * Uses a unique name (collectTabs3) to avoid conflicts if this file
- * is ever combined with Blueprint Tools 1 or 2 in a single project.
+ * is ever split into a separate project from Code.gs.
  */
 function collectTabs3(doc) {
   const result = [];
