@@ -101,14 +101,6 @@ const KNOWN_TOOL_NAMES = [
 /**
  * Creates the custom menu when the document is opened.
  */
-function onOpen() {
-  DocumentApp.getUi()
-    .createMenu('\uD83C\uDF93 Blueprint Tools 2')
-    .addItem('Add Activity Directions', 'showDirectionsSidebar')
-    .addToUi();
-}
-
-
 // -----------------------------------------------------------
 // SIDEBAR
 // -----------------------------------------------------------
