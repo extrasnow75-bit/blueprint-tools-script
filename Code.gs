@@ -46,7 +46,7 @@ function processBlueprint(params) {
   const afterMod  = Math.min(existing, numModules);
   let   insertIdx = findModuleInsertionPoint(devTab.body, afterMod);
   for (let m = afterMod + 1; m <= numModules; m++) {
-    insertIdx = createModule(devTab.body, m, params, indent, insertIdx);
+    insertIdx = createModule(devTab.body, m, params, indent, insertIdx, activities);
     stats.created++;
   }
   for (let m = 1; m <= numModules; m++) {
@@ -166,7 +166,7 @@ function getTemplateIndent(body) {
   return slots[0].para.getIndentStart() || 36;
 }
 // ── CREATE MODULE ─────────────────────────────────────────────────
-function createModule(body, modNum, params, indent, insertIdx) {
+function createModule(body, modNum, params, indent, insertIdx, activities) {
   const H2     = DocumentApp.ParagraphHeading.HEADING2;
   const H3     = DocumentApp.ParagraphHeading.HEADING3;
   const H4     = DocumentApp.ParagraphHeading.HEADING4;
@@ -187,8 +187,8 @@ function createModule(body, modNum, params, indent, insertIdx) {
   const refPara = add('[Refer to the Template Blueprint Customization by Program document to populate this section.]');
   refPara.setHeading(NORMAL);
   _fmt(refPara.editAsText(), { font: FONT, size: 11, bold: false, italic: false, color: BLACK });
-  // 7 activity slots
-  for (let slot = 1; slot <= 7; slot++) {
+  // Activity slots — one per activity in the course pattern table
+  for (let slot = 1; slot <= activities.length; slot++) {
     const prefix = params.numbered ? `${modNum}.${String(slot).padStart(2,'0')} ` : '';
     // Activity title — H4, Arial 15pt, black, NOT bold, NOT italic
     const aPara = add(`${prefix}Activity Title`);
