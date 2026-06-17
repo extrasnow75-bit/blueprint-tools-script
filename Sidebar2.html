@@ -651,7 +651,11 @@
       stopTimer();
       document.getElementById('spinner-area').classList.add('hidden');
       document.getElementById('run-btn').disabled = false;
-      showError('Error: ' + (err.message || err));
+      var msg = err.message || String(err);
+      if (msg.toLowerCase().includes('action not allowed')) {
+        msg = 'Could not open the source document. Make sure it is shared with your Google account and that you have permission to view it.';
+      }
+      showError(msg);
     }
 
     function stopScript() {

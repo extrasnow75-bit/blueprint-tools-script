@@ -147,11 +147,14 @@ function getSidebarData() {
 function getDocTitleFromUrl(url) {
   try {
     var docId = extractDocId(url);
-    if (!docId) return 'Error: Could not extract document ID from URL.';
+    if (!docId) return 'Error: Could not read the document ID from that URL. Please check the link and try again.';
     var doc = DocumentApp.openById(docId);
     return doc.getName();
   } catch (e) {
-    return 'Error: ' + e.message;
+    if (e.message && e.message.toLowerCase().includes('action not allowed')) {
+      return 'Error: You don’t have permission to access this document. Make sure it’s shared with your Google account.';
+    }
+    return 'Error: Could not open the document. ' + e.message;
   }
 }
 
