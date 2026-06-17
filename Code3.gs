@@ -1,6 +1,6 @@
 /**
  * ================================================================
- * BLUEPRINT TOOLS 3  |  Google Apps Script  |  Time Estimator
+ * BLUEPRINT TOOLS  |  Google Apps Script  |  Time Estimator
  * ================================================================
  * Scans the Development tab of a Blueprint document, tallies the
  * time estimates for each numbered module (Module 1 / Week 1, etc.),
