@@ -301,7 +301,8 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   aPara.setIndentStart(indent);
   _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
   stats.filled++;
-  const ePara = ins('Estimated time:');
+  const estText = (!params.timeEstimates && activity.time) ? 'Estimated time: ' + activity.time : 'Estimated time:';
+  const ePara = ins(estText);
   ePara.setHeading(NORMAL);
   ePara.setIndentStart(indent);
   _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
@@ -346,6 +347,7 @@ function fillSlot(body, headingPara, modNum, slotNum, activity, params, indent, 
   _fmt(headingPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
   stats.filled++;
   if (activity.tool && setNearbyTool(body, headingPara, activity.tool)) stats.tools++;
+  setNearbyEstimate(body, headingPara, activity.time, params.timeEstimates);
 }
 // ── SET TOOL WITH FORMATTING ──────────────────────────────────────
 function setNearbyTool(body, headingPara, toolValue) {
@@ -390,6 +392,29 @@ function setNearbyTool(body, headingPara, toolValue) {
     }
   }
   return false;
+}
+// ── SET ESTIMATED TIME LINE ───────────────────────────────────────
+function setNearbyEstimate(body, headingPara, time, timeInTitle) {
+  // If time goes in the title, or there's no time value, leave the line as-is
+  if (timeInTitle || !time) return;
+  const H2 = DocumentApp.ParagraphHeading.HEADING2;
+  const H3 = DocumentApp.ParagraphHeading.HEADING3;
+  const H4 = DocumentApp.ParagraphHeading.HEADING4;
+  const startIdx    = body.getChildIndex(headingPara);
+  if (startIdx < 0) return;
+  const numChildren = body.getNumChildren();
+  for (let i = startIdx + 1; i < Math.min(startIdx + 5, numChildren); i++) {
+    const child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
+    const para = child.asParagraph();
+    const h    = para.getHeading();
+    if (h === H2 || h === H3 || h === H4) break;
+    if (/^Estimated time/i.test(para.getText())) {
+      para.setText('Estimated time: ' + time);
+      _fmt(para.editAsText(), { font: FONT, size: 11, italic: true });
+      return;
+    }
+  }
 }
 // ── REMOVE EXTRA SLOT ─────────────────────────────────────────────
 // FIX: Use body.getChildIndex() instead of paras.indexOf()
