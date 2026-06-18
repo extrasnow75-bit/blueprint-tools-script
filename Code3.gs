@@ -68,6 +68,18 @@ function parseTimeToMinutes3(text) {
   if (!text) return null;
   text = text.trim();
 
+  // Normalize precomposed Unicode fraction characters to decimals.
+  text = text
+    .replace(/½/g, '0.5')
+    .replace(/¼/g, '0.25')
+    .replace(/¾/g, '0.75')
+    .replace(/⅓/g, '0.333')
+    .replace(/⅔/g, '0.667')
+    .replace(/⅛/g, '0.125')
+    .replace(/⅜/g, '0.375')
+    .replace(/⅝/g, '0.625')
+    .replace(/⅞/g, '0.875');
+
   if (/\btbd\b/i.test(text)) return -1;
 
   let total = 0;
