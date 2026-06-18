@@ -80,6 +80,14 @@ function parseTimeToMinutes3(text) {
     .replace(/⅝/g, '0.625')
     .replace(/⅞/g, '0.875');
 
+  // Normalize slash fractions: mixed numbers first ("1 1/2" → "1.5"), then simple ("1/2" → "0.5").
+  text = text.replace(/(\d+)\s+(\d+)\/(\d+)/g, function(_, whole, num, den) {
+    return String(parseInt(whole) + parseInt(num) / parseInt(den));
+  });
+  text = text.replace(/(\d+)\/(\d+)/g, function(_, num, den) {
+    return String(parseInt(num) / parseInt(den));
+  });
+
   if (/\btbd\b/i.test(text)) return -1;
 
   let total = 0;
