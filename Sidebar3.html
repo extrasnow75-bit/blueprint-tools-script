@@ -70,6 +70,14 @@
       from { transform: rotate(0deg); }
       to   { transform: rotate(360deg); }
     }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0);
+      white-space: nowrap; border: 0;
+    }
     .prog-label { margin: 12px 0 4px; color: #555; }
     .elapsed    { font-size: 12px; color: #666; }
 
@@ -106,7 +114,7 @@
       margin: 2px 0;
     }
     .status-msg {
-      font-size: 11px;
+      font-size: 12px;
       margin-top: 3px;
       line-height: 1.4;
     }
@@ -137,7 +145,7 @@
       margin-bottom: 6px;
     }
     .missing-item {
-      font-size: 11px;
+      font-size: 12px;
       color: #555;
       padding: 3px 0 3px 10px;
       border-left: 2px solid #f4c2c2;
@@ -145,7 +153,7 @@
       line-height: 1.4;
     }
     .missing-mod { font-weight: bold; color: #0033a0; }
-    .missing-why { color: #cc0000; font-style: italic; font-size: 10px; }
+    .missing-why { color: #cc0000; font-style: italic; font-size: 12px; }
 
     .error-msg { color: #cc0000; font-size: 12px; }
   </style>
@@ -165,12 +173,13 @@
   <label for="modsPerWeek">How many modules should a student complete per week?</label>
   <input type="number" id="modsPerWeek" min="1" max="10" value="1">
 
-  <button class="run-btn" onclick="runScript()">▶ Run Time Estimator</button>
+  <button class="run-btn" onclick="runScript()" aria-label="Run Time Estimator">▶ Run Time Estimator</button>
 </div>
 
 <!-- PROGRESS -->
 <div id="progress" role="status" aria-live="polite">
-  <div class="spinner">⚙️</div>
+  <div class="spinner" aria-hidden="true">⚙️</div>
+  <span class="sr-only">Scanning, please wait…</span>
   <p class="prog-label">Scanning Development tab…</p>
   <p class="elapsed">Elapsed: <strong><span id="clock">0:00</span></strong></p>
 </div>
@@ -178,7 +187,7 @@
 <!-- RESULT -->
 <div id="result" role="status" aria-live="polite">
   <div id="summary"></div>
-  <button class="again-btn" onclick="reset()">↩ Run Again</button>
+  <button class="again-btn" onclick="reset()" aria-label="Run Again">↩ Run Again</button>
 </div>
 
 <script>
