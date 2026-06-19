@@ -17,7 +17,7 @@ function onOpen() {
     .addItem('Create Model Module (AI)',               'showAiDirectionsSidebar4')
     .addSeparator()
     .addItem('Deploy Activity Directions (No AI)',     'showDirectionsSidebar')
-    // .addItem('Deploy Activity Directions (AI)',     'showDeployAiSidebar6')        // Code6.gs — coming soon
+    .addItem('Deploy Activity Directions (AI)',       'showDeployAiSidebar6')
     .addSeparator()
     .addItem('Time Estimator',                         'showTimeEstimatorSidebar')
     .addToUi();
