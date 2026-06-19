@@ -97,8 +97,8 @@ function parseTimeToMinutes3(text) {
   const hMatch = text.match(/(\d+(?:\.\d+)?|\.\d+)\s*(?:hrs?|hours?)/i);
   if (hMatch) { total += parseFloat(hMatch[1]) * 60; found = true; }
 
-  // Minutes: "30 min", "30 mins", ".5 min", "30 minutes"
-  const mMatch = text.match(/(\d+(?:\.\d+)?|\.\d+)\s*(?:mins?|minutes?)/i);
+  // Minutes: "30 min", "30 mins", ".5 min", "30 minutes", "30m", "30M"
+  const mMatch = text.match(/(\d+(?:\.\d+)?|\.\d+)\s*(?:mins?|minutes?|m\b)/i);
   if (mMatch) { total += parseFloat(mMatch[1]); found = true; }
 
   return found ? Math.round(total) : null;
