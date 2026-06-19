@@ -403,8 +403,9 @@
       </div>
 
       <!-- Template access decision panel (shown when template doc is inaccessible) -->
-      <div id="template-access-panel" class="decision-panel hidden" role="alert">
-        <p><strong>Could not access the template document.</strong></p>
+      <div id="template-access-panel" class="decision-panel hidden"
+           role="dialog" aria-modal="true" aria-labelledby="tap-heading">
+        <p id="tap-heading"><strong>Could not access the template document.</strong></p>
         <p class="decision-sub">
           You may not have permission to view it. Open the document to check
           your access, then try again &mdash; or proceed without a style reference.
@@ -423,7 +424,7 @@
       </div>
 
       <!-- Per-activity result rows -->
-      <div id="activity-results"></div>
+      <div id="activity-results" aria-live="polite"></div>
 
       <!-- Stop controls (shown only during the activity loop) -->
       <div id="stop-controls" class="hidden">
@@ -679,11 +680,13 @@
         old.parentNode.replaceChild(fresh, old);
       });
 
-      document.getElementById('dec-open-btn').addEventListener('click', function () {
+      var openBtn2 = document.getElementById('dec-open-btn');
+      openBtn2.addEventListener('click', function () {
         if (session.failedTemplateUrl) {
           window.open(session.failedTemplateUrl, '_blank');
         }
       });
+      openBtn2.focus(); // move focus into dialog for keyboard/screen reader users
 
       document.getElementById('dec-retry-btn').addEventListener('click', function () {
         callInitSession(apiKey, moduleTitle, templateSource, templateUrl);
@@ -729,7 +732,7 @@
         moduleTitle:      moduleTitle,
         activityTitle:    act.title,
         toolType:         act.toolType || null,
-        moduleContextStr: sessionData ? (sessionData.moduleContextStr || null) : null,
+        moduleContext:    sessionData ? (sessionData.moduleContext    || null) : null,
         templateText:     templateText
       };
 
@@ -813,12 +816,14 @@
     // ── Helpers ───────────────────────────────────────────────────────
     function showError(msg) {
       var el = document.getElementById('error-msg');
+      el.classList.remove('hidden'); // must be visible before injecting text for role="alert"
       el.textContent = msg;
-      el.classList.remove('hidden');
     }
 
     function hideError() {
-      document.getElementById('error-msg').classList.add('hidden');
+      var el = document.getElementById('error-msg');
+      el.classList.add('hidden');
+      el.textContent = '';
     }
 
     function escHtml(text) {

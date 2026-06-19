@@ -160,7 +160,7 @@ function parseCourseDesignMap(designBody) {
  * @param {string} templateSource   "standard" | "custom" | "none"
  * @param {string} templateUrl      used when templateSource === "custom"
  * @returns {{
- *   moduleContextStr: string|null,
+ *   moduleContext: Object|null,
  *   templateContentsByToolType: Object,
  *   templateAccessFailed: boolean,
  *   failedTemplateUrl: string|null
@@ -171,7 +171,7 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
   var tabs = collectTabs(doc);
 
   // ── Parse Course Design Map ─────────────────────────────────────
-  var moduleContextStr = null;
+  var moduleContext = null;
   for (var i = 0; i < tabs.length; i++) {
     if (/\bdesign\b/i.test(tabs[i].title)) {
       var cdmModules = parseCourseDesignMap(tabs[i].body);
@@ -179,7 +179,7 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
       for (var j = 0; j < cdmModules.length; j++) {
         var labelNum = (cdmModules[j].moduleLabel.match(/\d+/) || [''])[0];
         if (labelNum === targetNum) {
-          moduleContextStr = JSON.stringify(cdmModules[j]);
+          moduleContext = cdmModules[j];
           break;
         }
       }
@@ -227,7 +227,7 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
   }
 
   return {
-    moduleContextStr:            moduleContextStr,
+    moduleContext:               moduleContext,
     templateContentsByToolType:  templateContentsByToolType,
     templateAccessFailed:        templateAccessFailed,
     failedTemplateUrl:           failedTemplateUrl
@@ -252,8 +252,8 @@ function extractTextFromElements4(elements) {
       var text = el.asParagraph().getText().trim();
       if (text) lines.push(text);
     } else if (type === DocumentApp.ElementType.LIST_ITEM) {
-      var text = el.asListItem().getText().trim();
-      if (text) lines.push('- ' + text);
+      var listText = el.asListItem().getText().trim();
+      if (listText) lines.push('- ' + listText);
     }
   }
   return lines.join('\n');
@@ -272,7 +272,7 @@ function extractTextFromElements4(elements) {
  *   .moduleTitle      {string}  e.g. "Module 1"
  *   .activityTitle    {string}  stripped (no number prefix / time suffix)
  *   .toolType         {string|null}
- *   .moduleContextStr {string|null}  JSON-encoded Course Design Map data
+ *   .moduleContext    {Object|null}   Course Design Map data for target module
  *   .templateText     {string|null}  plain-text style reference
  * @returns {{ success: boolean, error?: string }}
  */
@@ -362,7 +362,7 @@ function findPlaceholderInModule4(devBody, moduleTitle, activityTitle) {
  * @returns {string}
  */
 function buildAiDirectionsPrompt4(params) {
-  var moduleContext = params.moduleContextStr ? JSON.parse(params.moduleContextStr) : null;
+  var moduleContext = params.moduleContext || null;
 
   // Module context block
   var contextLines = [];
@@ -427,16 +427,17 @@ function buildAiDirectionsPrompt4(params) {
  * @returns {string}  generated text
  */
 function callGemini4_(apiKey, prompt, model) {
-  var url = GEMINI_BASE_URL_4 + model + ':generateContent?key=' + apiKey;
+  var url = GEMINI_BASE_URL_4 + model + ':generateContent';
 
   var payload = {
-    contents:         [{ parts: [{ text: prompt }] }],
+    contents:         [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.7 }
   };
 
   var options = {
     method:             'post',
     contentType:        'application/json',
+    headers:            { 'x-goog-api-key': apiKey },
     payload:            JSON.stringify(payload),
     muteHttpExceptions: true
   };
@@ -565,11 +566,7 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
       hPara.setIndentStart(indent);
 
       var pt = hPara.editAsText();
-      pt.setFontFamily(FONT);
-      pt.setFontSize(11);
-      pt.setBold(false);
-      pt.setItalic(false);
-      pt.setForegroundColor(BLACK);
+      _fmt(pt, { font: FONT, size: 11, bold: false, italic: false, color: BLACK });
 
       // (HX) marker: red and bold
       if (markerStart <= markerEnd) {
