@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    /* ── Base ─────────────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #333;
+      padding: 14px 16px 28px;
+      line-height: 1.5;
+    }
+
+    /* ── Headings ─────────────────────────────────────────────── */
+    h3 {
+      color: #0033a0;
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    /* ── Divider ──────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid #dde1ea;
+      margin: 14px 0;
+    }
+
+    /* ── Labels ───────────────────────────────────────────────── */
+    .field-label {
+      display: block;
+      font-weight: bold;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    /* ── Inputs ───────────────────────────────────────────────── */
+    .text-input {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      color: #333;
+      background: #fff;
+    }
+    .text-input:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0,51,160,0.25);
+    }
+
+    /* ── API key row ──────────────────────────────────────────── */
+    .key-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+      margin-bottom: 6px;
+    }
+    .key-row .text-input { flex: 1; }
+
+    .validate-btn {
+      padding: 0 12px;
+      background: #e8edf7;
+      color: #0033a0;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: bold;
+      border: 1px solid #b0bcd8;
+      border-radius: 3px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .validate-btn:hover    { background: #d0d9f0; }
+    .validate-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Key status ───────────────────────────────────────────── */
+    .key-status {
+      font-size: 12px;
+      min-height: 16px;
+      margin-bottom: 4px;
+    }
+    .key-status.valid   { color: #1a7f37; }
+    .key-status.invalid { color: #cc0000; }
+    .key-status.pending { color: #555; }
+
+    .help-link {
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .help-link a { color: #0033a0; }
+
+    /* ── Module select ────────────────────────────────────────── */
+    .module-select {
+      width: 100%;
+      padding: 5px 7px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .module-select:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0,51,160,0.25);
+    }
+
+    /* ── Activity preview ─────────────────────────────────────── */
+    .preview-box {
+      background: #f4f6fa;
+      border: 1px solid #dde1ea;
+      border-radius: 4px;
+      padding: 8px 10px;
+      margin-top: 4px;
+      font-size: 12px;
+    }
+    .preview-box p {
+      color: #555;
+      margin-bottom: 5px;
+    }
+    .preview-box ul {
+      padding-left: 16px;
+      margin: 0;
+    }
+    .preview-box li { margin-bottom: 2px; color: #333; }
+    .preview-box .no-activities { color: #cc0000; list-style: none; padding: 0; }
+
+    /* ── Radio options ────────────────────────────────────────── */
+    .radio-option {
+      display: block;
+      font-size: 12px;
+      font-weight: normal;
+      color: #333;
+      margin-bottom: 6px;
+      cursor: pointer;
+    }
+    .radio-option input[type="radio"] { margin-right: 6px; }
+
+    /* ── Doc name header (template URL title) ─────────────────── */
+    .doc-name-header {
+      font-size: 13px;
+      font-weight: bold;
+      color: #0033a0;
+      min-height: 18px;
+      margin-top: 5px;
+    }
+    .doc-name-header.error { color: #cc0000; font-weight: normal; }
+
+    /* ── Buttons ──────────────────────────────────────────────── */
+    .btn-row { margin-top: 16px; }
+
+    .run-btn {
+      padding: 8px 18px;
+      background: #0033a0;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .run-btn:hover    { background: #002080; }
+    .run-btn:disabled { background: #8899cc; cursor: default; }
+
+    .again-btn {
+      padding: 8px 18px;
+      background: #555;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .again-btn:hover { background: #333; }
+
+    /* ── Progress area ────────────────────────────────────────── */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid #ccc;
+      border-top-color: #0033a0;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner-label { font-size: 12px; color: #555; }
+
+    /* ── Per-activity result rows ─────────────────────────────── */
+    #activity-results { margin: 6px 0 10px; font-size: 12px; }
+
+    .result-row { margin-bottom: 5px; line-height: 1.4; }
+    .result-ok  { color: #1a7f37; font-weight: bold; }
+    .result-err { color: #cc0000; font-weight: bold; }
+    .result-err-msg {
+      color: #cc0000;
+      font-size: 11px;
+      margin-left: 14px;
+      display: block;
+    }
+
+    /* ── Stop button ──────────────────────────────────────────── */
+    .stop-btn {
+      display: inline-block;
+      padding: 5px 12px;
+      background: #fff;
+      color: #cc0000;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: bold;
+      border: 1px solid #cc0000;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .stop-btn:hover { background: #fff0f0; }
+
+    .stop-note {
+      font-size: 11px;
+      color: #555;
+      margin-top: 5px;
+    }
+
+    /* ── Summary box ──────────────────────────────────────────── */
+    .summary-box {
+      background: #f4f6fa;
+      border: 1px solid #c8d0e0;
+      border-radius: 5px;
+      padding: 12px 14px;
+      margin-top: 12px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    /* ── Error message ────────────────────────────────────────── */
+    .error-msg {
+      color: #cc0000;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    /* ── Loading notice ───────────────────────────────────────── */
+    #loading-notice { color: #555; font-size: 13px; }
+
+    /* ── Help text ────────────────────────────────────────────── */
+    .help-text {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+
+    /* ── Hidden utility ───────────────────────────────────────── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading notice -->
+  <div id="loading-notice" role="status" aria-live="polite">Loading module data&hellip;</div>
+
+  <!-- ── Main form ─────────────────────────────────────────────────── -->
+  <div id="main-form" class="hidden">
+
+    <!-- ── Gemini API Key ── -->
+    <h3>Gemini API Key</h3>
+    <div class="key-row">
+      <input type="password" id="api-key-input" class="text-input"
+             placeholder="Paste your Gemini API key&hellip;"
+             aria-label="Gemini API key">
+      <button class="validate-btn" id="validate-btn" onclick="validateKey()">Validate</button>
+    </div>
+    <div id="key-status" class="key-status hidden" role="status" aria-live="polite"></div>
+    <p class="help-link">
+      <a href="https://aistudio.google.com/app/apikey" target="_blank">
+        Get a free Gemini API key &rarr;
+      </a>
+    </p>
+
+    <hr class="divider">
+
+    <!-- ── Target module ── -->
+    <h3>Target Module</h3>
+    <p class="help-text">
+      AI directions will be generated for each activity in the module you select.
+      You can revise the results before running the Propagate tool.
+    </p>
+    <select id="module-select" class="module-select" aria-label="Target module">
+      <!-- Populated by JS -->
+    </select>
+
+    <!-- Activity preview -->
+    <div id="activity-preview" class="preview-box hidden" aria-live="polite">
+      <p>Activities that will be generated:</p>
+      <ul id="preview-list"></ul>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── Template source ── -->
+    <h3>Template Source</h3>
+    <p class="help-text">
+      Choose a directions document for the AI to use as a style reference.
+      Select &ldquo;None&rdquo; to let the AI generate from scratch.
+    </p>
+    <div role="radiogroup" aria-label="Template source">
+      <label class="radio-option">
+        <input type="radio" name="template-source" value="standard" checked>
+        Standard <strong>Template Activity Directions</strong>
+      </label>
+      <label class="radio-option">
+        <input type="radio" name="template-source" value="custom">
+        Custom document
+      </label>
+      <label class="radio-option">
+        <input type="radio" name="template-source" value="none">
+        None &mdash; AI generates from scratch
+      </label>
+    </div>
+
+    <div id="custom-url-wrap" class="hidden" style="margin-top:8px;">
+      <label class="field-label" for="template-url">Template Document URL</label>
+      <input type="text" id="template-url" class="text-input"
+             placeholder="Paste Google Doc URL&hellip;">
+      <div id="template-doc-title" class="doc-name-header" aria-live="polite"></div>
+    </div>
+
+    <!-- ── Generate button ── -->
+    <div class="btn-row">
+      <button class="run-btn" id="generate-btn" onclick="startGeneration()">
+        Generate Directions
+      </button>
+    </div>
+
+    <!-- ── Progress area (hidden until running) ── -->
+    <div id="progress-area" class="hidden" role="status" aria-live="polite">
+      <hr class="divider">
+      <div class="spinner-wrap">
+        <div class="spinner"></div>
+        <span class="spinner-label" id="progress-label">Preparing&hellip;</span>
+      </div>
+      <div id="activity-results"></div>
+      <button class="stop-btn" onclick="stopGeneration()">&#9632; Stop</button>
+      <p class="stop-note">
+        Stopping waits for the current activity to finish, then halts.
+        Use Ctrl+Z in the document to undo any changes if needed.
+      </p>
+    </div>
+
+    <!-- ── Error message ── -->
+    <div id="error-msg" class="error-msg hidden" role="alert"></div>
+
+  </div><!-- /#main-form -->
+
+  <!-- ── Result view ───────────────────────────────────────────────── -->
+  <div id="result-view" class="hidden" role="status" aria-live="polite">
+    <h3>Done</h3>
+    <div class="summary-box" id="summary-box"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="again-btn" onclick="resetToForm()">Generate Again</button>
+    </div>
+  </div>
+
+  <script>
+    // ── State ─────────────────────────────────────────────────────────
+    var currentActivities = []; // [{title, toolType}] for the selected module
+    var sessionData       = null;
+    var stopRequested     = false;
+    var successCount      = 0;
+    var failCount         = 0;
+
+    // ── Init ──────────────────────────────────────────────────────────
+    window.addEventListener('load', function () {
+      google.script.run
+        .withSuccessHandler(onSidebarDataLoaded)
+        .withFailureHandler(onLoadError)
+        .getAiSidebarData4();
+    });
+
+    function onSidebarDataLoaded(data) {
+      var sel = document.getElementById('module-select');
+      sel.innerHTML = '';
+
+      if (!data.moduleList || data.moduleList.length === 0) {
+        var opt = document.createElement('option');
+        opt.textContent = 'No modules found — run "Populate Development Tab" first';
+        opt.disabled = true;
+        sel.appendChild(opt);
+      } else {
+        data.moduleList.forEach(function (mod) {
+          var opt = document.createElement('option');
+          opt.value = mod;
+          opt.textContent = mod;
+          sel.appendChild(opt);
+        });
+        loadModulePreview(data.moduleList[0]);
+      }
+
+      document.getElementById('loading-notice').classList.add('hidden');
+      document.getElementById('main-form').classList.remove('hidden');
+      document.getElementById('api-key-input').focus();
+    }
+
+    function onLoadError(err) {
+      document.getElementById('loading-notice').textContent =
+        'Error loading data: ' + (err.message || err);
+    }
+
+    // ── Module change → reload preview ────────────────────────────────
+    document.getElementById('module-select').addEventListener('change', function () {
+      loadModulePreview(this.value);
+    });
+
+    function loadModulePreview(moduleTitle) {
+      var preview = document.getElementById('activity-preview');
+      var list    = document.getElementById('preview-list');
+      preview.classList.add('hidden');
+      list.innerHTML = '';
+      currentActivities = [];
+
+      google.script.run
+        .withSuccessHandler(function (activities) {
+          currentActivities = activities || [];
+          list.innerHTML = '';
+          if (currentActivities.length === 0) {
+            var li = document.createElement('li');
+            li.className = 'no-activities';
+            li.textContent = 'No activities found in this module.';
+            list.appendChild(li);
+          } else {
+            currentActivities.forEach(function (act) {
+              var li = document.createElement('li');
+              li.textContent = act.title +
+                (act.toolType ? ' — ' + act.toolType : '');
+              list.appendChild(li);
+            });
+          }
+          preview.classList.remove('hidden');
+        })
+        .withFailureHandler(function () {
+          // Silently skip preview errors — not fatal
+        })
+        .getActivityPatternForModule(moduleTitle);
+    }
+
+    // ── Template source toggle ────────────────────────────────────────
+    document.querySelectorAll('input[name="template-source"]').forEach(function (radio) {
+      radio.addEventListener('change', applyTemplateSourceChoice);
+    });
+
+    function applyTemplateSourceChoice() {
+      var val  = document.querySelector('input[name="template-source"]:checked').value;
+      var wrap = document.getElementById('custom-url-wrap');
+      if (val === 'custom') {
+        wrap.classList.remove('hidden');
+        document.getElementById('template-url').focus();
+      } else {
+        wrap.classList.add('hidden');
+        setTemplateDocTitle('', false);
+      }
+    }
+
+    // Fetch template doc title on URL blur
+    document.getElementById('template-url').addEventListener('blur', function () {
+      var url = this.value.trim();
+      if (!url) { setTemplateDocTitle('', false); return; }
+      setTemplateDocTitle('Loading…', false);
+      google.script.run
+        .withSuccessHandler(function (title) {
+          var isErr = title && title.indexOf('Error:') === 0;
+          setTemplateDocTitle(title, isErr);
+        })
+        .withFailureHandler(function (err) {
+          setTemplateDocTitle('Error: ' + (err.message || err), true);
+        })
+        .getDocTitleFromUrl(url);
+    });
+
+    function setTemplateDocTitle(text, isError) {
+      var el = document.getElementById('template-doc-title');
+      el.textContent = text || '';
+      el.className = 'doc-name-header' + (isError ? ' error' : '');
+    }
+
+    // ── API key validation ────────────────────────────────────────────
+    function validateKey() {
+      var key = document.getElementById('api-key-input').value.trim();
+      if (!key) { showKeyStatus('Please enter an API key.', null); return; }
+
+      showKeyStatus('Validating…', null);
+      document.getElementById('validate-btn').disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          document.getElementById('validate-btn').disabled = false;
+          if (result.valid) {
+            showKeyStatus('✓ Key validated successfully.', true);
+          } else {
+            showKeyStatus('✗ ' + (result.error || 'Invalid key.'), false);
+          }
+        })
+        .withFailureHandler(function (err) {
+          document.getElementById('validate-btn').disabled = false;
+          showKeyStatus('✗ Validation error: ' + (err.message || err), false);
+        })
+        .validateGeminiKey4(key);
+    }
+
+    function showKeyStatus(msg, isValid) {
+      var el = document.getElementById('key-status');
+      el.textContent = msg;
+      el.className = 'key-status' +
+        (isValid === true ? ' valid' : isValid === false ? ' invalid' : ' pending');
+      el.classList.remove('hidden');
+    }
+
+    // ── Generation ────────────────────────────────────────────────────
+    function startGeneration() {
+      var apiKey = document.getElementById('api-key-input').value.trim();
+      if (!apiKey) {
+        showError('Please enter your Gemini API key.');
+        return;
+      }
+      if (currentActivities.length === 0) {
+        showError('No activities found in this module. Select a module that has been populated.');
+        return;
+      }
+
+      var moduleTitle    = document.getElementById('module-select').value;
+      var templateSource = document.querySelector('input[name="template-source"]:checked').value;
+      var templateUrl    = document.getElementById('template-url').value.trim();
+
+      if (templateSource === 'custom' && !templateUrl) {
+        showError('Please enter the custom template document URL.');
+        return;
+      }
+
+      // Reset state
+      stopRequested = false;
+      successCount  = 0;
+      failCount     = 0;
+      sessionData   = null;
+
+      document.getElementById('generate-btn').disabled = true;
+      document.getElementById('activity-results').innerHTML = '';
+      document.getElementById('progress-area').classList.remove('hidden');
+      hideError();
+      setProgressLabel('Preparing… (opening template document and reading course design)');
+
+      // Phase 1: initialise session
+      google.script.run
+        .withSuccessHandler(function (session) {
+          sessionData = session;
+          if (stopRequested) { finishGeneration(moduleTitle); return; }
+          processNextActivity(0, apiKey, moduleTitle);
+        })
+        .withFailureHandler(function (err) {
+          document.getElementById('generate-btn').disabled = false;
+          document.getElementById('progress-area').classList.add('hidden');
+          showError('Initialisation error: ' + (err.message || err));
+        })
+        .initAiSession4(moduleTitle, templateSource, templateUrl);
+    }
+
+    // Sequential activity loop
+    function processNextActivity(index, apiKey, moduleTitle) {
+      if (stopRequested || index >= currentActivities.length) {
+        finishGeneration(moduleTitle);
+        return;
+      }
+
+      var act   = currentActivities[index];
+      var total = currentActivities.length;
+      setProgressLabel(
+        'Generating ' + (index + 1) + ' of ' + total + ': ' + act.title + '…'
+      );
+
+      var templateText = null;
+      if (sessionData && sessionData.templateContentsByToolType && act.toolType) {
+        templateText = sessionData.templateContentsByToolType[act.toolType] || null;
+      }
+
+      var params = {
+        apiKey:           apiKey,
+        moduleTitle:      moduleTitle,
+        activityTitle:    act.title,
+        toolType:         act.toolType || null,
+        moduleContextStr: sessionData ? (sessionData.moduleContextStr || null) : null,
+        templateText:     templateText
+      };
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          addActivityResult(act.title, result);
+          processNextActivity(index + 1, apiKey, moduleTitle);
+        })
+        .withFailureHandler(function (err) {
+          addActivityResult(act.title, { success: false, error: err.message || String(err) });
+          processNextActivity(index + 1, apiKey, moduleTitle);
+        })
+        .generateAndInsertOneActivity4(params);
+    }
+
+    function addActivityResult(title, result) {
+      var container = document.getElementById('activity-results');
+      var row = document.createElement('div');
+      row.className = 'result-row';
+
+      if (result.success) {
+        row.innerHTML =
+          '<span class="result-ok">✓</span> ' + escHtml(title);
+        successCount++;
+      } else {
+        row.innerHTML =
+          '<span class="result-err">✗</span> ' + escHtml(title) +
+          '<span class="result-err-msg">' + escHtml(result.error || 'Unknown error') + '</span>';
+        failCount++;
+      }
+      container.appendChild(row);
+    }
+
+    function setProgressLabel(text) {
+      document.getElementById('progress-label').textContent = text;
+    }
+
+    function stopGeneration() {
+      stopRequested = true;
+      setProgressLabel('Stopping after current activity…');
+    }
+
+    function finishGeneration(moduleTitle) {
+      document.getElementById('progress-area').classList.add('hidden');
+      document.getElementById('generate-btn').disabled = false;
+
+      var total   = currentActivities.length;
+      var stopped = stopRequested && (successCount + failCount < total);
+      var lines   = [
+        '✅ Generation complete',
+        '',
+        'Module: ' + moduleTitle,
+        'Directions generated: ' + successCount +
+          (total > 0 ? ' of ' + (stopped ? (successCount + failCount) : total) : ''),
+      ];
+      if (failCount > 0)  lines.push('Errors: ' + failCount);
+      if (stopped)        lines.push('Stopped early — ' +
+        (total - successCount - failCount) + ' activity/activities skipped.');
+      lines.push('');
+      lines.push('Review and revise the generated directions in the document,');
+      lines.push('then run “Propagate to All Modules” to apply them.');
+
+      document.getElementById('main-form').classList.add('hidden');
+      document.getElementById('summary-box').textContent = lines.join('\n');
+      document.getElementById('result-view').classList.remove('hidden');
+
+      var heading = document.querySelector('#result-view h3');
+      if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus(); }
+    }
+
+    function resetToForm() {
+      document.getElementById('result-view').classList.add('hidden');
+      document.getElementById('main-form').classList.remove('hidden');
+      document.getElementById('generate-btn').disabled = false;
+      hideError();
+      document.getElementById('generate-btn').focus();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function showError(msg) {
+      var el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('error-msg').classList.add('hidden');
+    }
+
+    function escHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>
