@@ -101,6 +101,12 @@ function parseTimeToMinutes3(text) {
   const mMatch = text.match(/(\d+(?:\.\d+)?|\.\d+)\s*(?:mins?|minutes?|m\b)/i);
   if (mMatch) { total += parseFloat(mMatch[1]); found = true; }
 
+  // Fallback: bare number with no unit is treated as hours (e.g. "0.5", ".5", "1.5", "2").
+  if (!found) {
+    const bareMatch = text.match(/^(\d+(?:\.\d+)?|\.\d+)\s*$/);
+    if (bareMatch) { total += parseFloat(bareMatch[1]) * 60; found = true; }
+  }
+
   return found ? Math.round(total) : null;
 }
 
