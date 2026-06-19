@@ -245,6 +245,212 @@ function getModuleList() {
 }
 
 
+// -----------------------------------------------------------
+// DEPLOY FROM MODEL MODULE
+// -----------------------------------------------------------
+
+/**
+ * Reads the content currently in each activity slot of the given module.
+ * Returns a map of strippedActivityTitle → [elements].
+ * Slots that still contain only the placeholder are excluded.
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {string} moduleTitle  e.g. "Module 1"
+ * @returns {Object}
+ */
+function readModuleContent_(body, moduleTitle) {
+  var escaped  = moduleTitle.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  var moduleRe = new RegExp('^' + escaped + '[:\\s]', 'i');
+  var H2 = DocumentApp.ParagraphHeading.HEADING2;
+  var H4 = DocumentApp.ParagraphHeading.HEADING4;
+
+  var content      = {};
+  var inTarget     = false;
+  var currentTitle = null;
+  var currentEls   = [];
+  var pastPreamble = false;
+  var numChildren  = body.getNumChildren();
+
+  function saveActivity() {
+    if (!currentTitle) return;
+    while (currentEls.length > 0) {
+      var last = currentEls[currentEls.length - 1];
+      if (last.getType() === DocumentApp.ElementType.PARAGRAPH &&
+          last.asParagraph().getText().trim() === '') {
+        currentEls.pop();
+      } else break;
+    }
+    // If the only element is still the placeholder, discard (no content set yet).
+    if (currentEls.length === 1 &&
+        currentEls[0].getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var txt = currentEls[0].asParagraph().getText();
+      if (txt === DIRECTIONS_PLACEHOLDER_TEXT || txt === 'Directions go here...') {
+        currentEls = [];
+      }
+    }
+    if (currentEls.length > 0) content[currentTitle] = currentEls.slice();
+  }
+
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    var type  = child.getType();
+
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      var para    = child.asParagraph();
+      var heading = para.getHeading();
+      var text    = para.getText().trim();
+
+      if (heading === H2) {
+        if (moduleRe.test(text)) {
+          inTarget = true;
+        } else if (inTarget) {
+          saveActivity();
+          break;
+        }
+        continue;
+      }
+
+      if (!inTarget) continue;
+
+      if (heading === H4) {
+        saveActivity();
+        currentTitle = stripActivityHeading(text);
+        currentEls   = [];
+        pastPreamble = false;
+        continue;
+      }
+
+      if (!currentTitle) continue;
+
+      // Skip the "Tool; Link to settings tab" line and leading blank lines.
+      if (!pastPreamble) {
+        if (/link to settings tab/i.test(text)) continue;
+        if (text === '') continue;
+        pastPreamble = true;
+      }
+
+      currentEls.push(child);
+
+    } else {
+      // Table or list item — always treat as content.
+      if (inTarget && currentTitle) {
+        pastPreamble = true;
+        currentEls.push(child);
+      }
+    }
+  }
+
+  if (inTarget) saveActivity();
+  return content;
+}
+
+
+/**
+ * Finds the model-content entry whose key matches actTitle.
+ * Tries exact match first, then case-insensitive fallback.
+ *
+ * @param {Object} modelContent  return value of readModuleContent_
+ * @param {string} actTitle
+ * @returns {Array|null}
+ */
+function findMatchingModelContent_(modelContent, actTitle) {
+  if (modelContent[actTitle]) return modelContent[actTitle];
+  var lower = actTitle.toLowerCase();
+  for (var key in modelContent) {
+    if (key.toLowerCase() === lower) return modelContent[key];
+  }
+  return null;
+}
+
+
+/**
+ * Copies directions from the model module into each checked target module.
+ * Activities are matched by stripped title (case-insensitive).
+ * Only slots that still have the placeholder are filled; already-filled slots
+ * are left untouched.
+ *
+ * @param {Object} params
+ *   .modelModuleTitle   {string}
+ *   .targetModuleTitles {string[]}
+ * @returns {string} plain-text summary shown in the sidebar
+ */
+function applyDirectionsFromModel(params) {
+  var modelModuleTitle   = params.modelModuleTitle;
+  var targetModuleTitles = params.targetModuleTitles;
+
+  var blueprintDoc = DocumentApp.getActiveDocument();
+  var devBody      = getDevelopmentTabBody(blueprintDoc);
+  if (!devBody) throw new Error('Could not find a "Development" tab in this document.');
+
+  var modelContent = readModuleContent_(devBody, modelModuleTitle);
+  if (Object.keys(modelContent).length === 0) {
+    throw new Error(
+      'No directions found in “' + modelModuleTitle + '”. ' +
+      'Run “Create Model Module” on it first, then try again.'
+    );
+  }
+
+  var H2 = DocumentApp.ParagraphHeading.HEADING2;
+  var H4 = DocumentApp.ParagraphHeading.HEADING4;
+  var totalReplaced = 0;
+  var totalNoMatch  = 0;
+
+  for (var m = 0; m < targetModuleTitles.length; m++) {
+    var targetTitle = targetModuleTitles[m];
+    var escaped     = targetTitle.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    var moduleRe    = new RegExp('^' + escaped + '[:\\s]', 'i');
+    var inTarget    = false;
+    var numChildren = devBody.getNumChildren();
+
+    for (var i = 0; i < numChildren; i++) {
+      var child = devBody.getChild(i);
+      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+
+      var para    = child.asParagraph();
+      var heading = para.getHeading();
+      var text    = para.getText().trim();
+
+      if (heading === H2) {
+        if (moduleRe.test(text)) { inTarget = true; }
+        else if (inTarget)       { break; }
+        continue;
+      }
+
+      if (!inTarget || heading !== H4) continue;
+
+      var placeholder = findDirectionsPlaceholder(devBody, para);
+      if (!placeholder) continue;
+
+      var actTitle      = stripActivityHeading(para.getText());
+      var modelElements = findMatchingModelContent_(modelContent, actTitle);
+
+      if (!modelElements || modelElements.length === 0) {
+        totalNoMatch++;
+        Logger.log('applyDirectionsFromModel: no content for "' + actTitle + '" in model');
+        continue;
+      }
+
+      replaceWithCopiedElements(devBody, placeholder, modelElements);
+      totalReplaced++;
+
+      var delta = modelElements.length - 1;
+      numChildren += delta;
+      i += delta;
+    }
+  }
+
+  var nTargets = targetModuleTitles.length;
+  return (
+    '✅ Directions deployed to ' + nTargets +
+    (nTargets === 1 ? ' module' : ' modules') + '!\n\n' +
+    'Activity slots filled:  ' + totalReplaced + '\n' +
+    'No match in model:      ' + totalNoMatch  + '\n\n' +
+    'Review the deployed directions and update any\n' +
+    'module-specific details as needed.'
+  );
+}
+
+
 /**
  * Given a Google Doc URL (or bare doc ID), opens the document and returns its title.
  * Called by the sidebar when the URL field loses focus.
