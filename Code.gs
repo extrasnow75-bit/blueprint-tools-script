@@ -11,16 +11,20 @@ const FONT      = 'Arial';
 function onOpen() {
   DocumentApp.getUi()
     .createMenu('🎓 Blueprint Tools')
-    .addItem('Populate Development Tab', 'showSidebar')
+    .addItem('Add Activity Titles, Tools, & Times',   'showSidebar')
     .addSeparator()
-    .addItem('Add Activity Directions', 'showDirectionsSidebar')
+    // .addItem('Create Model Module (No AI)',         'showModelModuleNoAiSidebar')  // Code5.gs — coming soon
+    .addItem('Create Model Module (AI)',               'showAiDirectionsSidebar4')
     .addSeparator()
-    .addItem('Time Estimator', 'showTimeEstimatorSidebar')
+    .addItem('Deploy Activity Directions (No AI)',     'showDirectionsSidebar')
+    // .addItem('Deploy Activity Directions (AI)',     'showDeployAiSidebar6')        // Code6.gs — coming soon
+    .addSeparator()
+    .addItem('Time Estimator',                         'showTimeEstimatorSidebar')
     .addToUi();
 }
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle('🎓 Blueprint Tools')
+    .setTitle('Add Activity Titles, Tools, & Times')
     .setWidth(320);
   DocumentApp.getUi().showSidebar(html);
 }

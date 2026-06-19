@@ -110,7 +110,7 @@ const KNOWN_TOOL_NAMES = [
  */
 function showDirectionsSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar2')
-    .setTitle('Add Activity Directions')
+    .setTitle('Deploy Activity Directions (No AI)')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }
