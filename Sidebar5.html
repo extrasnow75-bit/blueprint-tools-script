@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    /* ── Base ──────────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #333;
+      padding: 14px 16px 24px;
+      line-height: 1.5;
+    }
+
+    /* ── Headings ───────────────────────────────────────────── */
+    h3 {
+      color: #0033a0;
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    /* ── Field labels ───────────────────────────────────────── */
+    .field-label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    /* ── Module selector ────────────────────────────────────── */
+    .module-select {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .module-select:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0,51,160,.35);
+    }
+
+    /* ── Source section ─────────────────────────────────────── */
+    .source-section { margin-bottom: 0; }
+
+    .doc-name-header {
+      font-size: 14px;
+      font-weight: bold;
+      color: #0033a0;
+      margin-bottom: 6px;
+      min-height: 18px;
+    }
+
+    .doc-name-header.error { color: #cc0000; }
+
+    /* ── Radio options ──────────────────────────────────────── */
+    .radio-option {
+      display: block;
+      font-weight: normal;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 6px;
+      cursor: pointer;
+    }
+
+    .radio-option input[type="radio"] { margin-right: 6px; }
+
+    /* ── URL field ──────────────────────────────────────────── */
+    #url-input {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      color: #333;
+      background: #fff;
+    }
+
+    #url-input:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0,51,160,.35);
+    }
+
+    /* ── Divider ─────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid #dde1ea;
+      margin: 14px 0;
+    }
+
+    /* ── Activity direction rows ─────────────────────────────── */
+    .activity-row     { margin-bottom: 12px; }
+
+    .activity-label {
+      display: block;
+      font-weight: bold;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 3px;
+    }
+
+    .tool-badge {
+      display: inline-block;
+      font-size: 11px;
+      color: #555;
+      font-weight: normal;
+      margin-left: 4px;
+    }
+
+    .activity-select {
+      width: 100%;
+      padding: 5px 7px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+    }
+
+    .activity-select:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0,51,160,.35);
+    }
+
+    .unrecognized-note {
+      font-size: 11px;
+      color: #cc0000;
+      margin-top: 3px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn-row { margin-top: 16px; }
+
+    .run-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #0033a0;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .run-btn:hover    { background: #002080; }
+    .run-btn:disabled { background: #8899cc; cursor: default; }
+
+    .again-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #555;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .again-btn:hover { background: #333; }
+
+    /* ── Spinner ─────────────────────────────────────────────── */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid #ccc;
+      border-top-color: #0033a0;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner-label { font-size: 13px; color: #555; }
+
+    /* ── Summary & error ─────────────────────────────────────── */
+    .summary-box {
+      background: #f4f6fa;
+      border: 1px solid #c8d0e0;
+      border-radius: 5px;
+      padding: 12px 14px;
+      margin-top: 14px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    .error-msg {
+      color: #cc0000;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    /* ── Loading ─────────────────────────────────────────────── */
+    #loading-notice { color: #555; font-size: 13px; }
+
+    /* ── Hidden utility ──────────────────────────────────────── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading notice -->
+  <div id="loading-notice" role="status" aria-live="polite">Loading activity data&hellip;</div>
+
+  <!-- ── Main form ─────────────────────────────────────────────── -->
+  <div id="main-form" class="hidden">
+
+    <!-- ── Target module ── -->
+    <h3>Target Module</h3>
+    <p style="font-size:12px; color:#555; margin-bottom:8px;">
+      Templated directions will be inserted into each activity in the module you select.
+      Revise them before running the Deploy tool.
+    </p>
+    <label class="field-label" for="module-select">Module</label>
+    <select id="module-select" class="module-select" aria-label="Target module">
+      <!-- Populated by JS -->
+    </select>
+
+    <hr class="divider">
+
+    <!-- ── Source document ── -->
+    <div class="source-section">
+      <h3>Directions Source</h3>
+
+      <div id="doc-name-header" class="doc-name-header" aria-live="polite" aria-atomic="true"></div>
+
+      <div role="radiogroup" aria-label="Directions source">
+        <label class="radio-option">
+          <input type="radio" name="source-choice" id="source-standard" value="standard" checked>
+          Use the standard <strong>Template Activity Directions 2.0</strong>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="source-choice" id="source-custom" value="custom">
+          Use a different document
+        </label>
+      </div>
+
+      <div id="url-field-wrap" class="hidden">
+        <label class="field-label" for="url-input">Source Document URL</label>
+        <input type="text" id="url-input" placeholder="Paste Google Doc URL here&hellip;">
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ── Activity direction dropdowns ── -->
+    <div>
+      <h3>Activity Directions</h3>
+      <p style="font-size:12px; color:#555; margin-bottom:12px;">
+        Choose the direction text to insert for each activity type found in this module.
+      </p>
+      <div id="activity-rows" aria-live="polite">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- ── Run button ── -->
+    <div class="btn-row">
+      <button class="run-btn" id="run-btn" onclick="runScript()">
+        Apply Directions
+      </button>
+    </div>
+
+    <!-- ── Progress spinner ── -->
+    <div id="spinner-area" class="hidden" role="status" aria-live="polite">
+      <div class="spinner-wrap">
+        <div class="spinner"></div>
+        <span class="spinner-label">Applying directions&hellip;</span>
+      </div>
+    </div>
+
+    <!-- ── Error area ── -->
+    <div class="error-msg hidden" id="error-msg" role="alert"></div>
+
+  </div><!-- /#main-form -->
+
+  <!-- ── Result view ───────────────────────────────────────────── -->
+  <div id="result-view" class="hidden" role="status" aria-live="polite">
+    <h3>Done</h3>
+    <div class="summary-box" id="summary-box"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="again-btn" onclick="resetToForm()">Run Again</button>
+    </div>
+  </div>
+
+  <script>
+    // ── State ─────────────────────────────────────────────────────
+    var sidebarData = null; // { defaultUrl, moduleList, activitiesByModule, directionOptions }
+
+    // ── Init ──────────────────────────────────────────────────────
+    window.addEventListener('load', function () {
+      google.script.run
+        .withSuccessHandler(onDataLoaded)
+        .withFailureHandler(onLoadError)
+        .getSidebarData();
+    });
+
+    function onDataLoaded(data) {
+      sidebarData = data;
+
+      // Populate module dropdown
+      var sel = document.getElementById('module-select');
+      sel.innerHTML = '';
+      (data.moduleList || ['Module 1']).forEach(function (mod) {
+        var opt = document.createElement('option');
+        opt.value       = mod;
+        opt.textContent = mod;
+        sel.appendChild(opt);
+      });
+
+      // Pre-fill URL and fetch title for standard template
+      document.getElementById('url-input').value = data.defaultUrl || '';
+      fetchDocTitle(data.defaultUrl || '');
+
+      // Build activity rows for the first module
+      buildActivityRows(data.activities, data.directionOptions);
+
+      document.getElementById('loading-notice').classList.add('hidden');
+      document.getElementById('main-form').classList.remove('hidden');
+      var h = document.querySelector('#main-form h3');
+      if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+    }
+
+    function onLoadError(err) {
+      document.getElementById('loading-notice').textContent =
+        'Error loading data: ' + (err.message || err);
+    }
+
+    // ── Module change → rebuild activity rows ──────────────────────
+    document.getElementById('module-select').addEventListener('change', function () {
+      var mod = this.value;
+      var acts = sidebarData && sidebarData.activitiesByModule && sidebarData.activitiesByModule[mod];
+      if (acts) {
+        buildActivityRows(acts, sidebarData.directionOptions);
+      } else {
+        var rows = document.getElementById('activity-rows');
+        rows.innerHTML = '<p style="color:#555;font-size:12px;">Loading&hellip;</p>';
+        google.script.run
+          .withSuccessHandler(function (a) { buildActivityRows(a, sidebarData.directionOptions); })
+          .withFailureHandler(function (e) {
+            document.getElementById('activity-rows').innerHTML =
+              '<p style="color:#cc0000;font-size:12px;">Error: ' + escHtml(e.message || e) + '</p>';
+          })
+          .getActivityPatternForModule(mod);
+      }
+    });
+
+    // ── Source choice toggle ───────────────────────────────────────
+    document.getElementById('source-standard').addEventListener('change', applySourceChoice);
+    document.getElementById('source-custom').addEventListener('change', applySourceChoice);
+
+    function applySourceChoice() {
+      var isCustom = document.getElementById('source-custom').checked;
+      var urlWrap  = document.getElementById('url-field-wrap');
+      var urlInput = document.getElementById('url-input');
+
+      if (isCustom) {
+        urlWrap.classList.remove('hidden');
+        urlInput.value = '';
+        setDocTitle('', false);
+        urlInput.focus();
+      } else {
+        urlWrap.classList.add('hidden');
+        urlInput.value = (sidebarData && sidebarData.defaultUrl) || '';
+        fetchDocTitle(urlInput.value);
+      }
+    }
+
+    // ── URL blur → fetch doc title ─────────────────────────────────
+    document.getElementById('url-input').addEventListener('blur', function () {
+      fetchDocTitle(this.value.trim());
+    });
+
+    function fetchDocTitle(url) {
+      if (!url) { setDocTitle('', false); return; }
+      setDocTitle('Loading…', false);
+      google.script.run
+        .withSuccessHandler(function (t) { setDocTitle(t, t && t.indexOf('Error:') === 0); })
+        .withFailureHandler(function (e) { setDocTitle('Error: ' + (e.message || e), true); })
+        .getDocTitleFromUrl(url);
+    }
+
+    function setDocTitle(text, isError) {
+      var el = document.getElementById('doc-name-header');
+      el.textContent = text || '';
+      el.className = 'doc-name-header' + (isError ? ' error' : '');
+    }
+
+    // ── Build activity direction dropdowns ─────────────────────────
+    function buildActivityRows(activities, directionOptions) {
+      var container = document.getElementById('activity-rows');
+      container.innerHTML = '';
+
+      if (!activities || activities.length === 0) {
+        container.innerHTML =
+          '<p style="color:#cc0000;font-size:12px;">No activities found in this module. ' +
+          'Make sure the Development tab has been populated.</p>';
+        return;
+      }
+
+      activities.forEach(function (act, index) {
+        var row = document.createElement('div');
+        row.className = 'activity-row';
+
+        var label = document.createElement('label');
+        label.className = 'activity-label';
+        label.appendChild(document.createTextNode(act.title));
+
+        if (act.toolType) {
+          var badge = document.createElement('span');
+          badge.className   = 'tool-badge';
+          badge.textContent = '(' + act.toolType + ')';
+          label.appendChild(badge);
+        }
+
+        row.appendChild(label);
+
+        var toolKey    = normaliseToolKey(act.toolType);
+        var optionsDef = toolKey ? directionOptions[toolKey] : null;
+
+        if (!optionsDef) {
+          var note = document.createElement('div');
+          note.className = 'unrecognized-note';
+          note.setAttribute('role', 'alert');
+          note.textContent = act.toolType
+            ? 'Tool type “' + act.toolType + '” not recognized — skipped.'
+            : 'No tool type found — skipped.';
+          row.appendChild(note);
+        } else {
+          var select = document.createElement('select');
+          select.id = 'act-select-' + index;
+          label.htmlFor     = select.id;
+          select.className  = 'activity-select';
+          select.dataset.activityTitle = act.title;
+
+          optionsDef.options.forEach(function (opt) {
+            var option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            if (opt === optionsDef.defaultChoice) option.selected = true;
+            select.appendChild(option);
+          });
+
+          row.appendChild(select);
+        }
+
+        container.appendChild(row);
+      });
+    }
+
+    function normaliseToolKey(raw) {
+      if (!raw) return null;
+      var keyMap = {
+        'page':                    'Page',
+        'assignment':              'Assignment',
+        'assignment (not graded)': 'Assignment (Not Graded)',
+        'discussion':              'Discussion',
+        'quiz (classic)':          'Quiz (Classic)',
+        'quiz (new)':              'Quiz (New)'
+      };
+      return keyMap[raw.toLowerCase().trim()] || null;
+    }
+
+    // ── Run ───────────────────────────────────────────────────────
+    function runScript() {
+      var moduleTitle = document.getElementById('module-select').value;
+      var sourceUrl   = document.getElementById('url-input').value.trim();
+
+      if (!sourceUrl) {
+        showError('Please select a directions source document.');
+        return;
+      }
+
+      // Collect direction selections
+      var selections = {};
+      document.querySelectorAll('.activity-select').forEach(function (sel) {
+        if (sel.dataset.activityTitle) {
+          selections[sel.dataset.activityTitle] = sel.value;
+        }
+      });
+
+      document.getElementById('run-btn').disabled = true;
+      document.getElementById('spinner-area').classList.remove('hidden');
+      hideError();
+
+      google.script.run
+        .withSuccessHandler(onRunSuccess)
+        .withFailureHandler(onRunError)
+        .applyDirectionsToModule5({ moduleTitle: moduleTitle, sourceUrl: sourceUrl, selections: selections });
+    }
+
+    function onRunSuccess(summary) {
+      document.getElementById('spinner-area').classList.add('hidden');
+      document.getElementById('main-form').classList.add('hidden');
+      document.getElementById('summary-box').textContent = summary;
+      document.getElementById('result-view').classList.remove('hidden');
+      var h = document.querySelector('#result-view h3');
+      if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+    }
+
+    function onRunError(err) {
+      document.getElementById('spinner-area').classList.add('hidden');
+      document.getElementById('run-btn').disabled = false;
+      var msg = err.message || String(err);
+      if (msg.toLowerCase().indexOf('action not allowed') !== -1) {
+        msg = 'Could not open the source document. Make sure it is shared with your Google account.';
+      }
+      showError(msg);
+    }
+
+    // ── Reset ─────────────────────────────────────────────────────
+    function resetToForm() {
+      document.getElementById('result-view').classList.add('hidden');
+      document.getElementById('run-btn').disabled = false;
+      hideError();
+      document.getElementById('main-form').classList.remove('hidden');
+      document.getElementById('run-btn').focus();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+    function showError(msg) {
+      var el = document.getElementById('error-msg');
+      el.classList.remove('hidden');
+      el.textContent = msg;
+    }
+
+    function hideError() {
+      var el = document.getElementById('error-msg');
+      el.classList.add('hidden');
+      el.textContent = '';
+    }
+
+    function escHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>

@@ -13,7 +13,7 @@ function onOpen() {
     .createMenu('🎓 Blueprint Tools')
     .addItem('Add Activity Titles, Tools, & Times',   'showSidebar')
     .addSeparator()
-    // .addItem('Create Model Module (No AI)',         'showModelModuleNoAiSidebar')  // Code5.gs — coming soon
+    .addItem('Create Model Module (No AI)',            'showModelModuleNoAiSidebar')
     .addItem('Create Model Module (AI)',               'showAiDirectionsSidebar4')
     .addSeparator()
     .addItem('Deploy Activity Directions (No AI)',     'showDirectionsSidebar')
