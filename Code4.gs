@@ -161,7 +161,9 @@ function parseCourseDesignMap(designBody) {
  * @param {string} templateUrl      used when templateSource === "custom"
  * @returns {{
  *   moduleContextStr: string|null,
- *   templateContentsByToolType: Object
+ *   templateContentsByToolType: Object,
+ *   templateAccessFailed: boolean,
+ *   failedTemplateUrl: string|null
  * }}
  */
 function initAiSession4(moduleTitle, templateSource, templateUrl) {
@@ -187,8 +189,13 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
 
   // ── Fetch template content (default choice per tool type) ───────
   var templateContentsByToolType = {};
+  var templateAccessFailed       = false;
+  var failedTemplateUrl          = null;
+
   if (templateSource !== 'none') {
-    var resolvedUrl = (templateSource === 'standard') ? DEFAULT_SOURCE_URL : templateUrl;
+    var resolvedUrl   = (templateSource === 'standard') ? DEFAULT_SOURCE_URL : templateUrl;
+    failedTemplateUrl = resolvedUrl; // will be cleared on success
+
     try {
       var sourceDocId = extractDocId(resolvedUrl);
       var sourceDoc   = DocumentApp.openById(sourceDocId);
@@ -210,15 +217,20 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
           templateContentsByToolType[tt] = extractTextFromElements4(elements);
         }
       }
+
+      failedTemplateUrl = null; // clear — fetch succeeded
     } catch (e) {
       Logger.log('initAiSession4 template error: ' + e.message);
-      // Non-fatal: generation continues without template reference
+      templateAccessFailed = true;
+      // failedTemplateUrl remains set so the sidebar can offer to open it
     }
   }
 
   return {
     moduleContextStr:            moduleContextStr,
-    templateContentsByToolType:  templateContentsByToolType
+    templateContentsByToolType:  templateContentsByToolType,
+    templateAccessFailed:        templateAccessFailed,
+    failedTemplateUrl:           failedTemplateUrl
   };
 }
 

@@ -218,6 +218,48 @@
       display: block;
     }
 
+    /* ── Template access decision panel ──────────────────────── */
+    .decision-panel {
+      background: #fffbea;
+      border: 1px solid #e6c84a;
+      border-radius: 5px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+    .decision-panel p { font-size: 12px; color: #333; margin-bottom: 6px; }
+    .decision-panel .decision-sub { color: #555; font-size: 11px; margin-bottom: 10px; }
+    .decision-btns { display: flex; flex-direction: column; gap: 6px; }
+
+    .dec-btn {
+      padding: 7px 10px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .dec-btn-open {
+      background: #fff;
+      color: #0033a0;
+      border: 1px solid #0033a0;
+    }
+    .dec-btn-open:hover { background: #eef1fa; }
+
+    .dec-btn-retry {
+      background: #fff;
+      color: #555;
+      border: 1px solid #bbb;
+    }
+    .dec-btn-retry:hover { background: #f5f5f5; }
+
+    .dec-btn-proceed {
+      background: #0033a0;
+      color: #fff;
+      border: none;
+    }
+    .dec-btn-proceed:hover { background: #002080; }
+
     /* ── Stop button ──────────────────────────────────────────── */
     .stop-btn {
       display: inline-block;
@@ -353,16 +395,44 @@
     <!-- ── Progress area (hidden until running) ── -->
     <div id="progress-area" class="hidden" role="status" aria-live="polite">
       <hr class="divider">
-      <div class="spinner-wrap">
+
+      <!-- Spinner (shown during init and per-activity generation) -->
+      <div id="spinner-wrap" class="spinner-wrap">
         <div class="spinner"></div>
         <span class="spinner-label" id="progress-label">Preparing&hellip;</span>
       </div>
+
+      <!-- Template access decision panel (shown when template doc is inaccessible) -->
+      <div id="template-access-panel" class="decision-panel hidden" role="alert">
+        <p><strong>Could not access the template document.</strong></p>
+        <p class="decision-sub">
+          You may not have permission to view it. Open the document to check
+          your access, then try again &mdash; or proceed without a style reference.
+        </p>
+        <div class="decision-btns">
+          <button class="dec-btn dec-btn-open" id="dec-open-btn">
+            &#128279; Open Template Document
+          </button>
+          <button class="dec-btn dec-btn-retry" id="dec-retry-btn">
+            &#8635; Try Again
+          </button>
+          <button class="dec-btn dec-btn-proceed" id="dec-proceed-btn">
+            Proceed Without Template &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- Per-activity result rows -->
       <div id="activity-results"></div>
-      <button class="stop-btn" onclick="stopGeneration()">&#9632; Stop</button>
-      <p class="stop-note">
-        Stopping waits for the current activity to finish, then halts.
-        Use Ctrl+Z in the document to undo any changes if needed.
-      </p>
+
+      <!-- Stop controls (shown only during the activity loop) -->
+      <div id="stop-controls" class="hidden">
+        <button class="stop-btn" onclick="stopGeneration()">&#9632; Stop</button>
+        <p class="stop-note">
+          Stopping waits for the current activity to finish, then halts.
+          Use Ctrl+Z in the document to undo any changes if needed.
+        </p>
+      </div>
     </div>
 
     <!-- ── Error message ── -->
@@ -561,16 +631,32 @@
 
       document.getElementById('generate-btn').disabled = true;
       document.getElementById('activity-results').innerHTML = '';
+      document.getElementById('stop-controls').classList.add('hidden');
       document.getElementById('progress-area').classList.remove('hidden');
       hideError();
+
+      callInitSession(apiKey, moduleTitle, templateSource, templateUrl);
+    }
+
+    // Phase 1: call server to open template + read design map.
+    // Called on first attempt and again if user clicks "Try Again" after an
+    // access failure.
+    function callInitSession(apiKey, moduleTitle, templateSource, templateUrl) {
+      document.getElementById('spinner-wrap').classList.remove('hidden');
+      document.getElementById('template-access-panel').classList.add('hidden');
       setProgressLabel('Preparing… (opening template document and reading course design)');
 
-      // Phase 1: initialise session
       google.script.run
         .withSuccessHandler(function (session) {
           sessionData = session;
           if (stopRequested) { finishGeneration(moduleTitle); return; }
-          processNextActivity(0, apiKey, moduleTitle);
+
+          if (session.templateAccessFailed) {
+            showTemplateDecisionPanel(session, apiKey, moduleTitle, templateSource, templateUrl);
+            return;
+          }
+
+          beginActivityLoop(apiKey, moduleTitle);
         })
         .withFailureHandler(function (err) {
           document.getElementById('generate-btn').disabled = false;
@@ -578,6 +664,46 @@
           showError('Initialisation error: ' + (err.message || err));
         })
         .initAiSession4(moduleTitle, templateSource, templateUrl);
+    }
+
+    // Show the template-access decision panel and wire up its three buttons.
+    function showTemplateDecisionPanel(session, apiKey, moduleTitle, templateSource, templateUrl) {
+      document.getElementById('spinner-wrap').classList.add('hidden');
+      var panel = document.getElementById('template-access-panel');
+      panel.classList.remove('hidden');
+
+      // Clone buttons to remove any previously attached listeners
+      ['dec-open-btn', 'dec-retry-btn', 'dec-proceed-btn'].forEach(function (id) {
+        var old = document.getElementById(id);
+        var fresh = old.cloneNode(true);
+        old.parentNode.replaceChild(fresh, old);
+      });
+
+      document.getElementById('dec-open-btn').addEventListener('click', function () {
+        if (session.failedTemplateUrl) {
+          window.open(session.failedTemplateUrl, '_blank');
+        }
+      });
+
+      document.getElementById('dec-retry-btn').addEventListener('click', function () {
+        callInitSession(apiKey, moduleTitle, templateSource, templateUrl);
+      });
+
+      document.getElementById('dec-proceed-btn').addEventListener('click', function () {
+        panel.classList.add('hidden');
+        // Keep the module context but drop template content
+        sessionData.templateContentsByToolType = {};
+        sessionData.templateAccessFailed = false;
+        beginActivityLoop(apiKey, moduleTitle);
+      });
+    }
+
+    // Phase 2: start the per-activity generation loop.
+    function beginActivityLoop(apiKey, moduleTitle) {
+      document.getElementById('template-access-panel').classList.add('hidden');
+      document.getElementById('spinner-wrap').classList.remove('hidden');
+      document.getElementById('stop-controls').classList.remove('hidden');
+      processNextActivity(0, apiKey, moduleTitle);
     }
 
     // Sequential activity loop
@@ -648,6 +774,8 @@
 
     function finishGeneration(moduleTitle) {
       document.getElementById('progress-area').classList.add('hidden');
+      document.getElementById('stop-controls').classList.add('hidden');
+      document.getElementById('spinner-wrap').classList.remove('hidden'); // reset for next run
       document.getElementById('generate-btn').disabled = false;
 
       var total   = currentActivities.length;
