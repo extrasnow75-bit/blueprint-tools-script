@@ -345,11 +345,25 @@
     <!-- ── Divider ── -->
     <hr class="divider" />
 
+    <!-- ── Model module ── -->
+    <div style="margin-bottom:14px;">
+      <h4>Model module</h4>
+      <p style="font-size:12px; color:#555; margin-bottom:6px;">
+        If Module 1 contains unique activities (e.g., introductions, orientation tasks) that don't repeat in later modules, choose a different model module here.
+      </p>
+      <select id="module-select" class="activity-select">
+        <!-- Populated by JS -->
+      </select>
+    </div>
+
+    <!-- ── Divider ── -->
+    <hr class="divider" />
+
     <!-- ── Activity dropdowns ── -->
     <div class="activities-section">
       <h3>Activity Directions</h3>
       <p style="font-size:12px; color:#555; margin-bottom:12px;">
-        Choose the direction text to insert for each activity type found in Module 1.
+        Choose the direction text to insert for each activity type.
       </p>
 
       <div id="activity-rows">
@@ -413,13 +427,39 @@
       // Fetch and show the document title for the default URL.
       fetchDocTitle(urlInput.value);
 
-      // Build activity dropdown rows.
+      // Populate module dropdown.
+      var moduleSelect = document.getElementById('module-select');
+      moduleSelect.innerHTML = '';
+      (data.moduleList || ['Module 1']).forEach(function (mod) {
+        var opt = document.createElement('option');
+        opt.value       = mod;
+        opt.textContent = mod;
+        moduleSelect.appendChild(opt);
+      });
+
+      // Build activity dropdown rows for the default (first) module.
       buildActivityRows(data.activities, data.directionOptions);
 
       // Show the form.
       document.getElementById('loading-notice').classList.add('hidden');
       document.getElementById('main-form').classList.remove('hidden');
     }
+
+    // Reload activity rows when the user picks a different model module.
+    document.getElementById('module-select').addEventListener('change', function () {
+      var selected = this.value;
+      document.getElementById('activity-rows').innerHTML =
+        '<p style="color:#555; font-size:12px;">Loading…</p>';
+      google.script.run
+        .withSuccessHandler(function (activities) {
+          buildActivityRows(activities, sidebarData.directionOptions);
+        })
+        .withFailureHandler(function (err) {
+          document.getElementById('activity-rows').innerHTML =
+            '<p style="color:#cc0000; font-size:12px;">Error: ' + (err.message || err) + '</p>';
+        })
+        .getActivityPatternForModule(selected);
+    });
 
     // --------------------------------------------------------
     // Source choice — standard template vs. custom document

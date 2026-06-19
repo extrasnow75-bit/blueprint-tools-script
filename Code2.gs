@@ -122,18 +122,59 @@ function showDirectionsSidebar() {
 
 /**
  * Returns the data the sidebar needs on load:
- *   { defaultUrl, activities, directionOptions }
+ *   { defaultUrl, activities, directionOptions, moduleList }
  *
- * activities: [{title, toolType}] — deduplicated, ordered (from Module 1)
+ * activities:    [{title, toolType}] — deduplicated, ordered (from first module)
  * directionOptions: the DIRECTION_OPTIONS constant (serialised for the client)
+ * moduleList:    ['Module 1', 'Module 2', …] — all numbered modules found
  */
 function getSidebarData() {
-  var activities = getActivityPattern();
+  var moduleList = getModuleList();
+  var activities = getActivityPattern(moduleList[0]);
   return {
-    defaultUrl: DEFAULT_SOURCE_URL,
-    activities: activities,
-    directionOptions: DIRECTION_OPTIONS
+    defaultUrl:       DEFAULT_SOURCE_URL,
+    activities:       activities,
+    directionOptions: DIRECTION_OPTIONS,
+    moduleList:       moduleList
   };
+}
+
+/**
+ * Returns the activity pattern for a specific module title.
+ * Called by the sidebar when the user changes the model-module dropdown.
+ *
+ * @param {string} moduleTitle — e.g. "Module 2" or "Week 3"
+ * @returns {Array<{title: string, toolType: string|null}>}
+ */
+function getActivityPatternForModule(moduleTitle) {
+  return getActivityPattern(moduleTitle);
+}
+
+/**
+ * Returns an ordered list of numbered module titles found in the Development tab.
+ * e.g. ['Module 1', 'Module 2', 'Module 3']
+ *
+ * @returns {Array<string>}
+ */
+function getModuleList() {
+  var doc  = DocumentApp.getActiveDocument();
+  var body = getDevelopmentTabBody(doc);
+  if (!body) return ['Module 1'];
+
+  var modules     = [];
+  var H2          = DocumentApp.ParagraphHeading.HEADING2;
+  var numChildren = body.getNumChildren();
+
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var para = child.asParagraph();
+    if (para.getHeading() !== H2) continue;
+    var match = para.getText().trim().match(/^((?:module|week)\s+\d+)/i);
+    if (match) modules.push(match[1]);
+  }
+
+  return modules.length > 0 ? modules : ['Module 1'];
 }
 
 
@@ -254,12 +295,18 @@ function applyDirections(params) {
 // -----------------------------------------------------------
 
 /**
- * Scans Module 1 of the Development tab and returns an ordered, deduplicated
- * list of activity descriptors found there.
+ * Scans the specified module of the Development tab and returns an ordered,
+ * deduplicated list of activity descriptors found there.
  *
+ * @param {string} [moduleTitle] — e.g. "Module 1" or "Week 3". Defaults to "Module 1".
  * @returns {Array<{title: string, toolType: string|null}>}
  */
-function getActivityPattern() {
+function getActivityPattern(moduleTitle) {
+  moduleTitle = moduleTitle || 'Module 1';
+  // Escape regex special chars in the title, then match the H2 heading start.
+  var escaped  = moduleTitle.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  var moduleRe = new RegExp('^' + escaped + '[:\\s]', 'i');
+
   var doc  = DocumentApp.getActiveDocument();
   var body = getDevelopmentTabBody(doc);
   if (!body) {
@@ -267,9 +314,9 @@ function getActivityPattern() {
     return [];
   }
 
-  var activities  = [];
-  var seenTitles  = {};
-  var inModule1   = false;
+  var activities     = [];
+  var seenTitles     = {};
+  var inTargetModule = false;
 
   var numChildren = body.getNumChildren();
 
@@ -283,18 +330,18 @@ function getActivityPattern() {
 
     // Detect H2 boundaries.
     if (heading === DocumentApp.ParagraphHeading.HEADING2) {
-      if (/^Module\s+1\s*:/i.test(text)) {
-        inModule1 = true;
+      if (moduleRe.test(text)) {
+        inTargetModule = true;
         continue;
       }
-      if (inModule1) {
-        // Hit the next H2 — Module 1 is over.
+      if (inTargetModule) {
+        // Hit the next H2 — target module is over.
         break;
       }
       continue;
     }
 
-    if (!inModule1) continue;
+    if (!inTargetModule) continue;
 
     // H4 = activity slot heading.
     if (heading === DocumentApp.ParagraphHeading.HEADING4) {
