@@ -133,7 +133,7 @@ function initDeployAiSession6(params) {
       }
       if (!inMod || heading !== H4) continue;
 
-      if (!findDirectionsPlaceholder(devBody, para)) continue;
+      if (!findDirectionsPlaceholder(devBody, para, j)) continue;
 
       var at        = stripActivityHeading(para.getText());
       var modelText = findMatchingModelContent_(modelTextByActivity, at);
@@ -189,7 +189,7 @@ function adaptAndDeployActivity6(params) {
 
     return { success: true };
   } catch (e) {
-    Logger.log('adaptAndDeployActivity6: ' + e.message);
+    Logger.log('adaptAndDeployActivity6 [' + params.targetModuleTitle + ' / ' + params.activityTitle + ']: ' + e.message);
     return { success: false, error: e.message };
   }
 }

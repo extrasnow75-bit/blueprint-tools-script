@@ -244,8 +244,8 @@
       Templated directions will be inserted into each activity in the module you select.
       Revise them before running the Deploy tool.
     </p>
-    <label class="field-label" for="module-select">Module</label>
-    <select id="module-select" class="module-select" aria-label="Target module">
+    <label class="field-label" for="module-select">Target module</label>
+    <select id="module-select" class="module-select">
       <!-- Populated by JS -->
     </select>
 
@@ -297,7 +297,7 @@
     <!-- ── Progress spinner ── -->
     <div id="spinner-area" class="hidden" role="status" aria-live="polite">
       <div class="spinner-wrap">
-        <div class="spinner"></div>
+        <div class="spinner" aria-hidden="true"></div>
         <span class="spinner-label">Applying directions&hellip;</span>
       </div>
     </div>
@@ -454,7 +454,6 @@
         if (!optionsDef) {
           var note = document.createElement('div');
           note.className = 'unrecognized-note';
-          note.setAttribute('role', 'alert');
           note.textContent = act.toolType
             ? 'Tool type “' + act.toolType + '” not recognized — skipped.'
             : 'No tool type found — skipped.';

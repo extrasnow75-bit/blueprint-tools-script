@@ -82,7 +82,7 @@ function applyDirectionsToModule5(params) {
     if (!inTarget || heading !== H4) continue;
 
     // ── Activity slot found ──────────────────────────────
-    var placeholder = findDirectionsPlaceholder(devBody, para);
+    var placeholder = findDirectionsPlaceholder(devBody, para, i);
     if (!placeholder) continue;
 
     var actTitle      = stripActivityHeading(para.getText());

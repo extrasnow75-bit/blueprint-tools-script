@@ -289,15 +289,17 @@
         &nbsp;&middot;&nbsp;
         <button type="button" onclick="checkAll(false)">Deselect all</button>
       </div>
-      <ul id="module-checklist" class="module-list" role="group" aria-label="Target modules">
-        <!-- Populated by JS -->
-      </ul>
+      <div role="group" aria-label="Target modules">
+        <ul id="module-checklist" class="module-list">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
     </div>
 
     <!-- ── Deploy button ── -->
     <div class="btn-row">
       <button class="run-btn" id="run-btn" onclick="startDeploy()">
-        &#9658; Deploy with AI
+        <span aria-hidden="true">&#9658;</span> Deploy with AI
       </button>
     </div>
 
@@ -310,7 +312,7 @@
       </div>
       <div id="activity-results"></div>
       <div id="stop-controls" class="hidden">
-        <button class="stop-btn" onclick="stopDeploy()">&#9632; Stop</button>
+        <button class="stop-btn" onclick="stopDeploy()"><span aria-hidden="true">&#9632;</span> Stop</button>
         <p class="stop-note">
           Stops after the current activity finishes.
           Use Ctrl+Z in the document to undo changes if needed.
@@ -340,6 +342,7 @@
     var stopRequested      = false;
     var successCount       = 0;
     var failCount          = 0;
+    var currentApiKey      = '';
 
     // ── Init ─────────────────────────────────────────────────────────
     window.addEventListener('load', function () {
@@ -477,6 +480,7 @@
       failCount          = 0;
       sessionData        = null;
       targetModuleTitles = targets;
+      currentApiKey      = apiKey;
 
       document.getElementById('run-btn').disabled = true;
       document.getElementById('activity-results').innerHTML = '';
@@ -494,8 +498,8 @@
             return;
           }
           sessionData = result;
-          buildWorkQueue(apiKey, modelModule, targets);
-          beginActivityLoop(apiKey, modelModule);
+          buildWorkQueue(modelModule, targets);
+          beginActivityLoop(modelModule);
         })
         .withFailureHandler(function (err) {
           document.getElementById('run-btn').disabled = false;
@@ -509,13 +513,12 @@
         });
     }
 
-    function buildWorkQueue(apiKey, modelModule, targets) {
+    function buildWorkQueue(modelModule, targets) {
       workQueue = [];
       targets.forEach(function (target) {
         var acts = (sessionData.activitiesByTarget || {})[target] || [];
         acts.forEach(function (item) {
           workQueue.push({
-            apiKey:            apiKey,
             modelModuleTitle:  modelModule,
             targetModuleTitle: target,
             activityTitle:     item.actTitle,
@@ -526,7 +529,7 @@
       });
     }
 
-    function beginActivityLoop(apiKey, modelModule) {
+    function beginActivityLoop(modelModule) {
       if (workQueue.length === 0) {
         finishDeploy(modelModule);
         return;
@@ -548,6 +551,15 @@
         ' (' + (idx + 1) + ' / ' + total + ')…'
       );
 
+      var callParams = {
+        apiKey:            currentApiKey,
+        modelModuleTitle:  item.modelModuleTitle,
+        targetModuleTitle: item.targetModuleTitle,
+        activityTitle:     item.activityTitle,
+        modelText:         item.modelText,
+        moduleContext:     item.moduleContext
+      };
+
       google.script.run
         .withSuccessHandler(function (result) {
           if (!result.skipped) addResult(item.targetModuleTitle, item.activityTitle, result);
@@ -558,7 +570,7 @@
             { success: false, error: err.message || String(err) });
           processNext(idx + 1, modelModule);
         })
-        .adaptAndDeployActivity6(item);
+        .adaptAndDeployActivity6(callParams);
     }
 
     function addResult(moduleTitle, actTitle, result) {

@@ -169,7 +169,7 @@ function collectAllModuleActivities(body) {
 
     if (heading === H4) {
       var actTitle = stripActivityHeading(text);
-      var toolType = getToolTypeForSlot(body, para);
+      var toolType = getToolTypeForSlot(body, para, i);
       if (!seenByModule[currentModule][actTitle]) {
         seenByModule[currentModule][actTitle] = true;
         activitiesByModule[currentModule].push({ title: actTitle, toolType: toolType });
@@ -418,7 +418,7 @@ function applyDirectionsFromModel(params) {
 
       if (!inTarget || heading !== H4) continue;
 
-      var placeholder = findDirectionsPlaceholder(devBody, para);
+      var placeholder = findDirectionsPlaceholder(devBody, para, i);
       if (!placeholder) continue;
 
       var actTitle      = stripActivityHeading(para.getText());
@@ -513,7 +513,7 @@ function applyDirections(params) {
     if (para.getHeading() !== DocumentApp.ParagraphHeading.HEADING4) continue;
 
     // Find the "Directions go here…" paragraph inside this slot.
-    var placeholder = findDirectionsPlaceholder(devBody, para);
+    var placeholder = findDirectionsPlaceholder(devBody, para, i);
     if (!placeholder) continue;
 
     // Determine which activity title this slot belongs to (strip number + time estimate).
@@ -642,8 +642,8 @@ function getActivityPattern(moduleTitle) {
  * @param {GoogleAppsScript.Document.Paragraph} headingPara
  * @returns {string|null}
  */
-function getToolTypeForSlot(body, headingPara) {
-  var startIndex = body.getChildIndex(headingPara);
+function getToolTypeForSlot(body, headingPara, knownIndex) {
+  var startIndex = (knownIndex !== undefined) ? knownIndex : body.getChildIndex(headingPara);
   var numChildren = body.getNumChildren();
 
   // Scan forward up to 6 siblings.
@@ -878,11 +878,11 @@ function findContentStartByIndex(body, h2Index) {
  * @param {GoogleAppsScript.Document.Paragraph} headingPara
  * @returns {GoogleAppsScript.Document.Paragraph|null}
  */
-function findDirectionsPlaceholder(body, headingPara) {
-  var startIndex  = body.getChildIndex(headingPara);
+function findDirectionsPlaceholder(body, headingPara, knownIndex) {
+  var startIndex  = (knownIndex !== undefined) ? knownIndex : body.getChildIndex(headingPara);
   var numChildren = body.getNumChildren();
 
-  for (var i = startIndex + 1; i < Math.min(startIndex + 8, numChildren); i++) {
+  for (var i = startIndex + 1; i < Math.min(startIndex + 12, numChildren); i++) {
     var child = body.getChild(i);
     if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
 

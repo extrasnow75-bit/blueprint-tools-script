@@ -205,21 +205,23 @@
         &nbsp;&middot;&nbsp;
         <button type="button" onclick="checkAll(false)">Deselect all</button>
       </div>
-      <ul id="module-checklist" class="module-list" role="group" aria-labelledby="targets-heading">
-        <!-- Populated by JS -->
-      </ul>
+      <div role="group" aria-labelledby="targets-heading">
+        <ul id="module-checklist" class="module-list">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
     </div>
 
     <!-- ── Run button ── -->
     <div class="btn-row">
-      <button class="run-btn" id="run-btn" onclick="runScript()">&#9658; Deploy</button>
+      <button class="run-btn" id="run-btn" onclick="runScript()"><span aria-hidden="true">&#9658;</span> Deploy</button>
     </div>
 
     <!-- ── Spinner ── -->
     <div id="spinner-area" class="hidden" role="status" aria-live="polite">
       <div class="spinner-wrap">
         <div class="spinner" aria-hidden="true"></div>
-        <span class="spinner-label">Deploying directions&hellip; <span id="elapsed-time"></span></span>
+        <span class="spinner-label">Deploying directions&hellip; <span id="elapsed-time" aria-hidden="true"></span></span>
       </div>
     </div>
 
