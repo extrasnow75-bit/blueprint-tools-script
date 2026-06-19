@@ -110,17 +110,20 @@ function normalizeToolName(raw) {
 }
 // ── PARSE DUE DAY ─────────────────────────────────────────────────
 const DAY_ALIASES = [
-  ['thursday','Thursday'],['tuesday','Tuesday'],['saturday','Saturday'],
-  ['wednesday','Wednesday'],['monday','Monday'],['sunday','Sunday'],
-  ['friday','Friday'],['thurs','Thursday'],['tues','Tuesday'],
-  ['thur','Thursday'],['wed','Wednesday'],['mon','Monday'],
-  ['fri','Friday'],['sat','Saturday'],['sun','Sunday'],
-  ['thu','Thursday'],['tue','Tuesday']
+  [/\bthursday\b/i,  'Thursday'],  [/\btuesday\b/i,   'Tuesday'],
+  [/\bsaturday\b/i,  'Saturday'],  [/\bwednesday\b/i, 'Wednesday'],
+  [/\bmonday\b/i,    'Monday'],    [/\bsunday\b/i,    'Sunday'],
+  [/\bfriday\b/i,    'Friday'],    [/\bthurs\b/i,     'Thursday'],
+  [/\btues\b/i,      'Tuesday'],   [/\bthur\b/i,      'Thursday'],
+  [/\bwed\b/i,       'Wednesday'], [/\bmon\b/i,       'Monday'],
+  [/\bfri\b/i,       'Friday'],    [/\bsat\b/i,       'Saturday'],
+  [/\bsun\b/i,       'Sunday'],    [/\bthu\b/i,       'Thursday'],
+  [/\btue\b/i,       'Tuesday']
 ];
 function parseDueDay(text) {
   if (!text) return null;
-  for (const [alias, full] of DAY_ALIASES) {
-    if (new RegExp(`\\b${alias}\\b`, 'i').test(text)) return full;
+  for (const [re, full] of DAY_ALIASES) {
+    if (re.test(text)) return full;
   }
   return null;
 }
@@ -235,23 +238,26 @@ function deleteModule(body, modNum) {
 }
 // ── PROCESS ONE MODULE ────────────────────────────────────────────
 function processModule(body, modNum, activities, params, indent, stats) {
-  const slots = getSlotsInModule(body, modNum);
+  const slots     = getSlotsInModule(body, modNum);
+  const slotParas = [];
   for (const { slotNum, para } of slots) {
     if (slotNum <= activities.length) {
       fillSlot(body, para, modNum, slotNum, activities[slotNum - 1], params, indent, stats);
+      slotParas.push(para);
     } else {
       removeSlot(body, para);
       stats.slotsDeleted++;
     }
   }
-  // If the template had fewer slots than activities, insert the extra ones
   if (activities.length > slots.length) {
     let idx = getIndexAfterSlots(body, modNum, slots);
     for (let s = slots.length + 1; s <= activities.length; s++) {
-      idx = insertActivitySlot(body, modNum, s, activities[s - 1], params, indent, idx, stats);
+      const result = insertActivitySlot(body, modNum, s, activities[s - 1], params, indent, idx, stats);
+      idx = result.idx;
+      slotParas.push(result.h4Para);
     }
   }
-  stats.headers += placeDueHeaders(body, modNum, activities, params);
+  stats.headers += placeDueHeaders(body, slotParas, activities, params);
 }
 // ── GET INDEX AFTER LAST SLOT ─────────────────────────────────────
 function getIndexAfterSlots(body, modNum, slots) {
@@ -275,15 +281,20 @@ function getIndexAfterSlots(body, modNum, slots) {
   }
   // No existing slots: insert before next module's H2 (or end of body)
   const modRe = new RegExp(`^Module\\s+${modNum}[:\\s]`, 'i');
-  const paras  = body.getParagraphs();
+  const n = body.getNumChildren();
   let inModule = false, lastIdx = 0;
-  for (let i = 0; i < paras.length; i++) {
-    const ci = body.getChildIndex(paras[i]);
-    if (paras[i].getHeading() === H2) {
-      if (modRe.test(paras[i].getText().trim())) { inModule = true; lastIdx = ci; continue; }
-      if (inModule) return ci;
+  for (let i = 0; i < n; i++) {
+    const child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      if (inModule) lastIdx = i;
+      continue;
     }
-    if (inModule) lastIdx = ci;
+    const para = child.asParagraph();
+    if (para.getHeading() === H2) {
+      if (modRe.test(para.getText().trim())) { inModule = true; lastIdx = i; continue; }
+      if (inModule) return i;
+    }
+    if (inModule) lastIdx = i;
   }
   return lastIdx + 1;
 }
@@ -315,7 +326,7 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   dPara.setIndentStart(indent);
   _fmt(dPara.editAsText(), { font: FONT, size: 11 });
   if (activity.tool && setNearbyTool(body, aPara, activity.tool)) stats.tools++;
-  return idx;
+  return { idx, h4Para: aPara };
 }
 // ── GET SLOTS IN MODULE ───────────────────────────────────────────
 function getSlotsInModule(body, modNum) {
@@ -453,7 +464,7 @@ function dueHeaderAlreadyExists(body, targetPara, day) {
   return false;
 }
 // ── PLACE DUE-DAY HEADERS ─────────────────────────────────────────
-function placeDueHeaders(body, modNum, activities, params) {
+function placeDueHeaders(body, slotParas, activities, params) {
   const H3 = DocumentApp.ParagraphHeading.HEADING3;
   const canvasText = {
     display:     'Text Header in Canvas',
@@ -468,7 +479,7 @@ function placeDueHeaders(body, modNum, activities, params) {
   if (groups.length === 0) return 0;
   const targets = [];
   for (const { day, startIndex } of groups) {
-    const targetPara = getNthSlotPara(body, modNum, startIndex + 1);
+    const targetPara = startIndex < slotParas.length ? slotParas[startIndex] : null;
     if (targetPara) targets.push({ day, targetPara });
   }
   for (let i = targets.length - 1; i >= 0; i--) {

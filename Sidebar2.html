@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <base target="_top">
@@ -314,7 +314,7 @@
 <body>
 
   <!-- Initial loading notice (shown while getSidebarData() runs) -->
-  <div id="loading-notice">Loading activity data&hellip;</div>
+  <div id="loading-notice" role="status" aria-live="polite">Loading activity data&hellip;</div>
 
   <!-- Main form (hidden until data loads) -->
   <div id="main-form" class="hidden">
@@ -323,7 +323,7 @@
     <div class="source-section">
       <h3>Activity Directions Source</h3>
 
-      <div id="doc-name-header" class="doc-name-header"></div>
+      <div id="doc-name-header" class="doc-name-header" aria-live="polite" aria-atomic="true"></div>
 
       <div class="source-choice" role="radiogroup" aria-label="Activity Directions source">
         <label class="radio-option">
@@ -347,11 +347,11 @@
 
     <!-- ── Model module ── -->
     <div style="margin-bottom:14px;">
-      <h4>Model module</h4>
+      <h4 id="module-select-heading">Model module</h4>
       <p style="font-size:12px; color:#555; margin-bottom:6px;">
         If Module 1 contains unique activities (e.g., introductions, orientation tasks) that don't repeat in later modules, choose a different model module here.
       </p>
-      <select id="module-select" class="activity-select">
+      <select id="module-select" class="activity-select" aria-labelledby="module-select-heading">
         <!-- Populated by JS -->
       </select>
     </div>
@@ -404,7 +404,7 @@
     // --------------------------------------------------------
     // State
     // --------------------------------------------------------
-    var sidebarData = null; // { defaultUrl, activities, directionOptions }
+    var sidebarData = null; // { defaultUrl, activities, directionOptions, moduleList, activitiesByModule }
 
     // --------------------------------------------------------
     // Initialisation — called once on load
@@ -443,23 +443,40 @@
       // Show the form.
       document.getElementById('loading-notice').classList.add('hidden');
       document.getElementById('main-form').classList.remove('hidden');
+      var formHeading = document.querySelector('#main-form h3');
+      if (formHeading) { formHeading.setAttribute('tabindex', '-1'); formHeading.focus(); }
     }
 
     // Reload activity rows when the user picks a different model module.
+    // Uses pre-loaded activitiesByModule cache — no server round-trip needed.
     document.getElementById('module-select').addEventListener('change', function () {
-      var selected = this.value;
-      document.getElementById('activity-rows').innerHTML =
-        '<p style="color:#555; font-size:12px;">Loading…</p>';
-      google.script.run
-        .withSuccessHandler(function (activities) {
-          buildActivityRows(activities, sidebarData.directionOptions);
-        })
-        .withFailureHandler(function (err) {
-          document.getElementById('activity-rows').innerHTML =
-            '<p style="color:#cc0000; font-size:12px;">Error: ' + (err.message || err) + '</p>';
-        })
-        .getActivityPatternForModule(selected);
+      var selected   = this.value;
+      var activities = sidebarData && sidebarData.activitiesByModule && sidebarData.activitiesByModule[selected];
+      if (activities) {
+        buildActivityRows(activities, sidebarData.directionOptions);
+      } else {
+        // Fallback: fetch from server if the module wasn't pre-loaded.
+        var rows = document.getElementById('activity-rows');
+        var p = document.createElement('p');
+        p.style.cssText = 'color:#555; font-size:12px;';
+        p.textContent   = 'Loading…';
+        rows.innerHTML  = '';
+        rows.appendChild(p);
+        google.script.run
+          .withSuccessHandler(function (acts) { buildActivityRows(acts, sidebarData.directionOptions); })
+          .withFailureHandler(function (err)  { showModuleLoadError(err.message || err); })
+          .getActivityPatternForModule(selected);
+      }
     });
+
+    function showModuleLoadError(msg) {
+      var p = document.createElement('p');
+      p.style.cssText = 'color:#cc0000; font-size:12px;';
+      p.textContent   = 'Error: ' + msg;
+      var rows = document.getElementById('activity-rows');
+      rows.innerHTML  = '';
+      rows.appendChild(p);
+    }
 
     // --------------------------------------------------------
     // Source choice — standard template vs. custom document
@@ -565,6 +582,7 @@
           // Unrecognised tool type — show note, no dropdown.
           var note = document.createElement('div');
           note.className = 'unrecognized-note';
+          note.setAttribute('role', 'alert');
           note.textContent = act.toolType
             ? 'Tool type \u201c' + act.toolType + '\u201d not recognized \u2014 skipped.'
             : 'No tool type found \u2014 skipped.';
@@ -685,6 +703,8 @@
       document.getElementById('spinner-area').classList.add('hidden');
       document.getElementById('summary-box').textContent = summary;
       document.getElementById('result-view').classList.remove('hidden');
+      var resultHeading = document.querySelector('#result-view h3');
+      if (resultHeading) { resultHeading.setAttribute('tabindex', '-1'); resultHeading.focus(); }
     }
 
     function onRunError(err) {
@@ -713,6 +733,7 @@
       document.getElementById('run-btn').disabled = false;
       hideError();
       document.getElementById('main-form').classList.remove('hidden');
+      document.getElementById('run-btn').focus();
     }
 
     // --------------------------------------------------------

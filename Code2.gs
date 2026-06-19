@@ -128,14 +128,81 @@ function showDirectionsSidebar() {
  * directionOptions: the DIRECTION_OPTIONS constant (serialised for the client)
  * moduleList:    ['Module 1', 'Module 2', …] — all numbered modules found
  */
+/**
+ * Single-pass scan of the Development tab body that returns both the ordered
+ * module list and each module's deduplicated activity pattern.
+ * Avoids the double tab-walk that separate getModuleList / getActivityPattern calls produce.
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @returns {{ moduleList: string[], activitiesByModule: Object }}
+ */
+function collectAllModuleActivities(body) {
+  var H2 = DocumentApp.ParagraphHeading.HEADING2;
+  var H4 = DocumentApp.ParagraphHeading.HEADING4;
+  var moduleList         = [];
+  var activitiesByModule = {};
+  var seenByModule       = {};
+  var currentModule      = null;
+  var numChildren        = body.getNumChildren();
+
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var para    = child.asParagraph();
+    var heading = para.getHeading();
+    var text    = para.getText().trim();
+
+    if (heading === H2) {
+      var match = text.match(/^((?:module|week)\s+\d+)/i);
+      if (match) {
+        currentModule = match[1];
+        moduleList.push(currentModule);
+        activitiesByModule[currentModule] = [];
+        seenByModule[currentModule]       = {};
+      } else {
+        currentModule = null;
+      }
+      continue;
+    }
+
+    if (!currentModule) continue;
+
+    if (heading === H4) {
+      var actTitle = stripActivityHeading(text);
+      var toolType = getToolTypeForSlot(body, para);
+      if (!seenByModule[currentModule][actTitle]) {
+        seenByModule[currentModule][actTitle] = true;
+        activitiesByModule[currentModule].push({ title: actTitle, toolType: toolType });
+      }
+    }
+  }
+
+  return { moduleList: moduleList, activitiesByModule: activitiesByModule };
+}
+
 function getSidebarData() {
-  var moduleList = getModuleList();
-  var activities = getActivityPattern(moduleList[0]);
+  var doc  = DocumentApp.getActiveDocument();
+  var body = getDevelopmentTabBody(doc);
+
+  if (!body) {
+    return {
+      defaultUrl:         DEFAULT_SOURCE_URL,
+      activities:         [],
+      directionOptions:   DIRECTION_OPTIONS,
+      moduleList:         ['Module 1'],
+      activitiesByModule: { 'Module 1': [] }
+    };
+  }
+
+  var data       = collectAllModuleActivities(body);
+  var moduleList = data.moduleList.length > 0 ? data.moduleList : ['Module 1'];
+
   return {
-    defaultUrl:       DEFAULT_SOURCE_URL,
-    activities:       activities,
-    directionOptions: DIRECTION_OPTIONS,
-    moduleList:       moduleList
+    defaultUrl:         DEFAULT_SOURCE_URL,
+    activities:         data.activitiesByModule[moduleList[0]] || [],
+    directionOptions:   DIRECTION_OPTIONS,
+    moduleList:         moduleList,
+    activitiesByModule: data.activitiesByModule
   };
 }
 
@@ -689,7 +756,7 @@ function stripActivityHeading(raw) {
   // Remove leading number prefix like "1.01 " or "10.03 ".
   var stripped = raw.replace(/^\d+\.\d+\s+/, '');
   // Remove trailing time estimate like " (30 min)" or " (1 hr)".
-  stripped = stripped.replace(/\s*\(\s*[\d\w\s]+\s*\)\s*$/, '');
+  stripped = stripped.replace(/\s*\(\s*(?:TBD|\d[\d\w\s./]*(?:min|mins|hr|hrs|hour|hours)?)\s*\)\s*$/i, '');
   return stripped.trim();
 }
 

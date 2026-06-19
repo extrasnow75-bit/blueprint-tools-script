@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <base target="_top">
   <style>
@@ -119,7 +119,7 @@
       line-height: 1.4;
     }
     .status-over  { color: #cc0000; }
-    .status-under { color: #b06000; }
+    .status-under { color: #8a4700; }
     .status-ok    { color: #1a7a3a; }
 
     .avg-section {
@@ -174,6 +174,7 @@
   <input type="number" id="modsPerWeek" min="1" max="10" value="1">
 
   <button class="run-btn" onclick="runScript()" aria-label="Run Time Estimator">▶ Run Time Estimator</button>
+  <div id="form-error" class="error-msg" style="display:none; margin-top:8px;" role="alert"></div>
 </div>
 
 <!-- PROGRESS -->
@@ -185,8 +186,8 @@
 </div>
 
 <!-- RESULT -->
-<div id="result" role="status" aria-live="polite">
-  <div id="summary"></div>
+<div id="result">
+  <div id="summary" role="status" aria-live="polite"></div>
   <button class="again-btn" onclick="reset()" aria-label="Run Again">↩ Run Again</button>
 </div>
 
@@ -199,9 +200,12 @@
     var modsPerWeek = parseInt(document.getElementById('modsPerWeek').value, 10);
 
     if (!credits || credits < 1 || !weeks || weeks < 1 || !modsPerWeek || modsPerWeek < 1) {
-      alert('Please enter valid whole numbers (≥ 1) for all fields.');
+      var errEl = document.getElementById('form-error');
+      errEl.textContent = 'Please enter valid whole numbers (≥ 1) for all fields.';
+      errEl.style.display = 'block';
       return;
     }
+    document.getElementById('form-error').style.display = 'none';
 
     document.getElementById('form').style.display     = 'none';
     document.getElementById('progress').style.display = 'block';

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <base target="_top">
   <style>
@@ -82,6 +82,13 @@
       line-height: 1.6;
     }
     .error-msg { color: #cc0000; font-size: 12px; }
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0);
+      white-space: nowrap; border: 0;
+    }
   </style>
 </head>
 <body>
@@ -107,16 +114,18 @@
     <option value="unpublished">Build Unpublished Due Day Text Header in Canvas</option>
   </select>
   <button class="run-btn" onclick="runScript()">▶ Run Script</button>
+  <div id="form-error" class="error-msg" style="display:none; margin-top:8px;" role="alert"></div>
 </div>
 <!-- PROGRESS -->
 <div id="progress" role="status" aria-live="polite">
-  <div class="spinner">⚙️</div>
+  <div class="spinner" aria-hidden="true">⚙️</div>
+  <span class="sr-only">Processing, please wait…</span>
   <p class="prog-label">Populating Development tab…</p>
   <p class="elapsed">Elapsed: <strong><span id="clock">0:00</span></strong></p>
 </div>
 <!-- RESULT -->
-<div id="result" role="status" aria-live="polite">
-  <div class="summary" id="summary"></div>
+<div id="result">
+  <div class="summary" id="summary" role="status" aria-live="polite"></div>
   <button class="again-btn" onclick="reset()">↩ Run Again</button>
 </div>
 <script>
@@ -124,9 +133,13 @@
   function runScript() {
     const n = parseInt(document.getElementById('numModules').value);
     if (!n || n < 1) {
-      alert('Please enter the number of modules (e.g. 15).');
+      const errEl = document.getElementById('form-error');
+      errEl.textContent = 'Please enter the number of modules (e.g. 15).';
+      errEl.style.display = 'block';
+      document.getElementById('numModules').focus();
       return;
     }
+    document.getElementById('form-error').style.display = 'none';
     const params = {
       numModules:    n,
       numbered:      document.getElementById('numbered').value === 'yes',
@@ -156,8 +169,7 @@
     clearInterval(timer);
     document.getElementById('progress').style.display = 'none';
     document.getElementById('result').style.display   = 'block';
-    document.getElementById('summary').innerHTML =
-      '<span class="error-msg" role="alert">❌ Error: ' + err.message + '</span>';
+    document.getElementById('summary').textContent = '❌ Error: ' + (err.message || err);
   }
   function reset() {
     document.getElementById('result').style.display = 'none';

@@ -231,7 +231,7 @@ function runTimeEstimator(credits, weeks, modulesPerWeek) {
         // Priority 2: "Estimated time:" paragraph immediately following.
         // Per spec: if BOTH are present, the heading value wins (already captured above).
         if (timeResult === null) {
-          for (let j = i + 1; j < Math.min(i + 5, n); j++) {
+          for (let j = i + 1; j < Math.min(i + 2, n); j++) {
             const nx = body.getChild(j);
             if (nx.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
             const nxPara = nx.asParagraph();
