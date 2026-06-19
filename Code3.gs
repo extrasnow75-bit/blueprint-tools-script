@@ -99,7 +99,7 @@ function parseTimeToMinutes3(text) {
 
   // Minutes: "30 min", "30 mins", ".5 min", "30 minutes"
   const mMatch = text.match(/(\d+(?:\.\d+)?|\.\d+)\s*(?:mins?|minutes?)/i);
-  if (mMatch) { total += parseInt(mMatch[1], 10); found = true; }
+  if (mMatch) { total += parseFloat(mMatch[1]); found = true; }
 
   return found ? Math.round(total) : null;
 }
