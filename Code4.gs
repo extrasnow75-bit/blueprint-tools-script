@@ -283,7 +283,7 @@ function generateAndInsertOneActivity4(params) {
     if (!devBody) throw new Error('Could not find the Development tab in this document.');
 
     // Find the placeholder for this activity
-    var placeholder = findPlaceholderInModule4(devBody, params.moduleTitle, params.activityTitle);
+    var placeholder = findPlaceholderInTool4(devBody, params.moduleTitle, params.activityTitle);
     if (!placeholder) {
       throw new Error(
         'Could not find “Directions go here…” placeholder for “' +
@@ -321,7 +321,7 @@ function generateAndInsertOneActivity4(params) {
  * @param {string} activityTitle  stripped title (no prefix/suffix)
  * @returns {GoogleAppsScript.Document.Paragraph|null}
  */
-function findPlaceholderInModule4(devBody, moduleTitle, activityTitle) {
+function findPlaceholderInTool4(devBody, moduleTitle, activityTitle) {
   var H2       = DocumentApp.ParagraphHeading.HEADING2;
   var H4       = DocumentApp.ParagraphHeading.HEADING4;
   var escaped  = moduleTitle.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');

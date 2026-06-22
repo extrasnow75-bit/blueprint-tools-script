@@ -6,7 +6,7 @@
 // Reuses from the shared GAS namespace:
 //   Code4.gs — parseCourseDesignMap, extractTextFromElements4,
 //               insertFormattedText4, callGemini4_, validateGeminiKey4,
-//               findPlaceholderInModule4, GEMINI_PRIMARY_4, INDENT_4
+//               findPlaceholderInTool4, GEMINI_PRIMARY_4, INDENT_4
 //   Code2.gs — readModuleContent_, findMatchingModelContent_,
 //               getDevelopmentTabBody, collectTabs, collectAllModuleActivities,
 //               stripActivityHeading, findDirectionsPlaceholder
@@ -172,7 +172,7 @@ function adaptAndDeployActivity6(params) {
     var devBody = getDevelopmentTabBody(doc);
     if (!devBody) throw new Error('Could not find the Development tab.');
 
-    var placeholder = findPlaceholderInModule4(
+    var placeholder = findPlaceholderInTool4(
       devBody, params.targetModuleTitle, params.activityTitle
     );
     if (!placeholder) {
