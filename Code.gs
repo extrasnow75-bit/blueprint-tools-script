@@ -256,7 +256,7 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
     return (idx < 0) ? body.appendParagraph(text) : body.insertParagraph(idx++, text);
   }
   function addPara(para) {
-    return (idx < 0) ? body.appendParagraph(para) : body.insertParagraph(idx++, para);
+    return (idx < 0) ? body.appendParagraph(para.copy()) : body.insertParagraph(idx++, para.copy());
   }
   // Module heading — H2, bold
   const hPara = add(`Module ${modNum}: Title (start date - end date)`);
@@ -381,7 +381,7 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   const NORMAL = DocumentApp.ParagraphHeading.NORMAL;
   let idx = insertIdx;
   function ins(text) { return body.insertParagraph(idx++, text); }
-  function insPara(para) { return body.insertParagraph(idx++, para); }
+  function insPara(para) { return body.insertParagraph(idx++, para.copy()); }
   let title = activity.name;
   if (params.timeEstimates && activity.time) title += ` (${activity.time})`;
   const prefix = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
