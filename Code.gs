@@ -167,10 +167,43 @@ function findModuleInsertionPoint(body, afterModNum) {
   return -1;
 }
 // ── GET TEMPLATE INDENT ───────────────────────────────────────────
+// Reads from a NORMAL sub-paragraph (not the H4 itself) because H4
+// heading style defines indent via the document style — getIndentStart()
+// on the H4 returns 0, causing new slots to use the wrong 36pt fallback.
 function getTemplateIndent(body) {
-  const slots = getSlotsInModule(body, 1);
-  if (slots.length === 0) return 36;
-  return slots[0].para.getIndentStart() || 36;
+  const H2     = DocumentApp.ParagraphHeading.HEADING2;
+  const H4     = DocumentApp.ParagraphHeading.HEADING4;
+  const NORMAL = DocumentApp.ParagraphHeading.NORMAL;
+  const modRe  = /^Module\s+1[:\s]/i;
+  let inMod = false;
+  const n = body.getNumChildren();
+  for (let i = 0; i < n; i++) {
+    const child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    const para = child.asParagraph();
+    const h    = para.getHeading();
+    if (h === H2) {
+      if (modRe.test(para.getText().trim())) inMod = true;
+      else if (inMod) break;
+      continue;
+    }
+    if (!inMod || h !== H4) continue;
+    // Found first H4 — read indent from its first NORMAL sub-paragraph
+    for (let j = i + 1; j < Math.min(i + 6, n); j++) {
+      const sub = body.getChild(j);
+      if (sub.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
+      const subPara = sub.asParagraph();
+      const sh = subPara.getHeading();
+      if (sh === H4 || sh === H2) break;
+      if (sh === NORMAL) {
+        const indent = subPara.getIndentStart();
+        if (indent > 0) return indent;
+        break;
+      }
+    }
+    break;
+  }
+  return 36; // fallback if template has no Module 1 sub-paragraphs
 }
 // ── CREATE MODULE ─────────────────────────────────────────────────
 function createModule(body, modNum, params, indent, insertIdx, activities) {
