@@ -7,6 +7,7 @@ const RED       = '#ff0000';
 const DEEP_BLUE = '#0033a0';
 const BLACK     = '#000000';
 const FONT      = 'Arial';
+var _subAttrs   = null; // cached attributes from a template NORMAL sub-paragraph
 // ── MENU ──────────────────────────────────────────────────────────
 function onOpen() {
   DocumentApp.getUi()
@@ -43,6 +44,7 @@ function processBlueprint(params) {
   const numModules = params.numModules;
   const existing   = countExistingModules(devTab.body);
   const indent     = getTemplateIndent(devTab.body);
+  _subAttrs        = getSubParaAttrs_(devTab.body);
   for (let m = existing; m > numModules; m--) {
     deleteModule(devTab.body, m);
     stats.deleted++;
@@ -205,6 +207,41 @@ function getTemplateIndent(body) {
   }
   return 36; // fallback if template has no Module 1 sub-paragraphs
 }
+// ── GET TEMPLATE SUB-PARAGRAPH ATTRIBUTES ────────────────────────
+// Returns getAttributes() snapshot of the first NORMAL sub-paragraph in
+// Module 1's first activity slot. Used to replicate indent via setAttributes()
+// instead of setIndentStart(), because setHeading(NORMAL) resets IndentStart
+// before our setIndentStart() call can take effect.
+function getSubParaAttrs_(body) {
+  var H2     = DocumentApp.ParagraphHeading.HEADING2;
+  var H4     = DocumentApp.ParagraphHeading.HEADING4;
+  var NORMAL = DocumentApp.ParagraphHeading.NORMAL;
+  var modRe  = /^Module\s+1[:\s]/i;
+  var inMod  = false;
+  var n = body.getNumChildren();
+  for (var i = 0; i < n; i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var para = child.asParagraph();
+    var h    = para.getHeading();
+    if (h === H2) {
+      if (modRe.test(para.getText().trim())) inMod = true;
+      else if (inMod) break;
+      continue;
+    }
+    if (!inMod || h !== H4) continue;
+    for (var j = i + 1; j < Math.min(i + 6, n); j++) {
+      var sub = body.getChild(j);
+      if (sub.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
+      var subPara = sub.asParagraph();
+      var sh = subPara.getHeading();
+      if (sh === H4 || sh === H2) break;
+      if (sh === NORMAL) return subPara.getAttributes();
+    }
+    break;
+  }
+  return null;
+}
 // ── CREATE MODULE ─────────────────────────────────────────────────
 function createModule(body, modNum, params, indent, insertIdx, activities) {
   const H2     = DocumentApp.ParagraphHeading.HEADING2;
@@ -237,19 +274,16 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
     _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
     // Estimated time
     const ePara = add('Estimated time:');
-    ePara.setHeading(NORMAL);
-    ePara.setIndentStart(indent);
+    if (_subAttrs) ePara.setAttributes(_subAttrs); else { ePara.setHeading(NORMAL); ePara.setIndentStart(indent); }
     _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
     // Select Tool; Link to settings tab
     const tPara = add('Select Tool; Link to settings tab');
-    tPara.setHeading(NORMAL);
-    tPara.setIndentStart(indent);
-    _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, color: RED });
+    if (_subAttrs) tPara.setAttributes(_subAttrs); else { tPara.setHeading(NORMAL); tPara.setIndentStart(indent); }
+    _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
     // Directions
     const dPara = add('Directions go here\u2026');
-    dPara.setHeading(NORMAL);
-    dPara.setIndentStart(indent);
-    _fmt(dPara.editAsText(), { font: FONT, size: 11 });
+    if (_subAttrs) dPara.setAttributes(_subAttrs); else { dPara.setHeading(NORMAL); dPara.setIndentStart(indent); }
+    _fmt(dPara.editAsText(), { font: FONT, size: 11, italic: false });
   }
   // Spacer between modules
   const spacer = add('');
@@ -351,17 +385,14 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   stats.filled++;
   const estText = (!params.timeEstimates && activity.time) ? 'Estimated time: ' + activity.time : 'Estimated time:';
   const ePara = ins(estText);
-  ePara.setHeading(NORMAL);
-  ePara.setIndentStart(indent);
+  if (_subAttrs) ePara.setAttributes(_subAttrs); else { ePara.setHeading(NORMAL); ePara.setIndentStart(indent); }
   _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
   const tPara = ins('Select Tool; Link to settings tab');
-  tPara.setHeading(NORMAL);
-  tPara.setIndentStart(indent);
-  _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, color: RED });
+  if (_subAttrs) tPara.setAttributes(_subAttrs); else { tPara.setHeading(NORMAL); tPara.setIndentStart(indent); }
+  _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
   const dPara = ins('Directions go here…');
-  dPara.setHeading(NORMAL);
-  dPara.setIndentStart(indent);
-  _fmt(dPara.editAsText(), { font: FONT, size: 11 });
+  if (_subAttrs) dPara.setAttributes(_subAttrs); else { dPara.setHeading(NORMAL); dPara.setIndentStart(indent); }
+  _fmt(dPara.editAsText(), { font: FONT, size: 11, italic: false });
   if (activity.tool && setNearbyTool(body, aPara, activity.tool)) stats.tools++;
   return { idx, h4Para: aPara };
 }
