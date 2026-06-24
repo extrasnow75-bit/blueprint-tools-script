@@ -7,7 +7,9 @@ const RED       = '#ff0000';
 const DEEP_BLUE = '#0033a0';
 const BLACK     = '#000000';
 const FONT      = 'Arial';
-var _subAttrs   = null; // cached attributes from a template NORMAL sub-paragraph
+var _tplEst  = null; // template "Estimated time:" paragraph reference
+var _tplTool = null; // template "Select Tool;..." paragraph reference
+var _tplDir  = null; // template "Directions go here..." paragraph reference
 // ── MENU ──────────────────────────────────────────────────────────
 function onOpen() {
   DocumentApp.getUi()
@@ -44,7 +46,7 @@ function processBlueprint(params) {
   const numModules = params.numModules;
   const existing   = countExistingModules(devTab.body);
   const indent     = getTemplateIndent(devTab.body);
-  _subAttrs        = getSubParaAttrs_(devTab.body);
+  cacheTemplateSlot_(devTab.body);
   for (let m = existing; m > numModules; m--) {
     deleteModule(devTab.body, m);
     stats.deleted++;
@@ -207,17 +209,20 @@ function getTemplateIndent(body) {
   }
   return 36; // fallback if template has no Module 1 sub-paragraphs
 }
-// ── GET TEMPLATE SUB-PARAGRAPH ATTRIBUTES ────────────────────────
-// Returns getAttributes() snapshot of the first NORMAL sub-paragraph in
-// Module 1's first activity slot. Used to replicate indent via setAttributes()
-// instead of setIndentStart(), because setHeading(NORMAL) resets IndentStart
-// before our setIndentStart() call can take effect.
-function getSubParaAttrs_(body) {
+// ── CACHE TEMPLATE SLOT PARAGRAPHS ───────────────────────────────
+// Stores live references to the three NORMAL sub-paragraphs in Module 1's
+// first activity slot. insertActivitySlot / createModule copy them atomically
+// via body.insertParagraph(idx, templatePara), which preserves ALL paragraph
+// attributes (including list-based indent) in a single server call — avoiding
+// the GAS batch-flush issue where setAttributes() is silently discarded unless
+// a subsequent replaceText() forces the batch to commit.
+function cacheTemplateSlot_(body) {
   var H2     = DocumentApp.ParagraphHeading.HEADING2;
   var H4     = DocumentApp.ParagraphHeading.HEADING4;
   var NORMAL = DocumentApp.ParagraphHeading.NORMAL;
   var modRe  = /^Module\s+1[:\s]/i;
-  var inMod  = false;
+  var inMod  = false, inSlot = false;
+  _tplEst = _tplTool = _tplDir = null;
   var n = body.getNumChildren();
   for (var i = 0; i < n; i++) {
     var child = body.getChild(i);
@@ -227,20 +232,18 @@ function getSubParaAttrs_(body) {
     if (h === H2) {
       if (modRe.test(para.getText().trim())) inMod = true;
       else if (inMod) break;
+      inSlot = false;
       continue;
     }
-    if (!inMod || h !== H4) continue;
-    for (var j = i + 1; j < Math.min(i + 6, n); j++) {
-      var sub = body.getChild(j);
-      if (sub.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
-      var subPara = sub.asParagraph();
-      var sh = subPara.getHeading();
-      if (sh === H4 || sh === H2) break;
-      if (sh === NORMAL) return subPara.getAttributes();
-    }
-    break;
+    if (!inMod) continue;
+    if (h === H4) { inSlot = true; continue; }
+    if (!inSlot || h !== NORMAL) continue;
+    var text = para.getText();
+    if (!_tplEst  && /^Estimated time/i.test(text))    { _tplEst  = para; continue; }
+    if (!_tplTool && text.includes('Link to settings')) { _tplTool = para; continue; }
+    if (!_tplDir  && /^Directions/i.test(text))         { _tplDir  = para; continue; }
+    if (_tplEst && _tplTool && _tplDir) break;
   }
-  return null;
 }
 // ── CREATE MODULE ─────────────────────────────────────────────────
 function createModule(body, modNum, params, indent, insertIdx, activities) {
@@ -251,6 +254,9 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
   let   idx    = insertIdx;
   function add(text) {
     return (idx < 0) ? body.appendParagraph(text) : body.insertParagraph(idx++, text);
+  }
+  function addPara(para) {
+    return (idx < 0) ? body.appendParagraph(para) : body.insertParagraph(idx++, para);
   }
   // Module heading — H2, bold
   const hPara = add(`Module ${modNum}: Title (start date - end date)`);
@@ -272,17 +278,17 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
     aPara.setHeading(H4);
     aPara.setIndentStart(indent);
     _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
-    // Estimated time
-    const ePara = add('Estimated time:');
-    if (_subAttrs) ePara.setAttributes(_subAttrs); else { ePara.setHeading(NORMAL); ePara.setIndentStart(indent); }
+    // Estimated time \u2014 copy template paragraph to preserve indent atomically
+    const ePara = _tplEst ? addPara(_tplEst) : add('Estimated time:');
+    ePara.setText('Estimated time:');
     _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
     // Select Tool; Link to settings tab
-    const tPara = add('Select Tool; Link to settings tab');
-    if (_subAttrs) tPara.setAttributes(_subAttrs); else { tPara.setHeading(NORMAL); tPara.setIndentStart(indent); }
+    const tPara = _tplTool ? addPara(_tplTool) : add('Select Tool; Link to settings tab');
+    tPara.setText('Select Tool; Link to settings tab');
     _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
     // Directions
-    const dPara = add('Directions go here\u2026');
-    if (_subAttrs) dPara.setAttributes(_subAttrs); else { dPara.setHeading(NORMAL); dPara.setIndentStart(indent); }
+    const dPara = _tplDir ? addPara(_tplDir) : add('Directions go here\u2026');
+    dPara.setText('Directions go here\u2026');
     _fmt(dPara.editAsText(), { font: FONT, size: 11, italic: false });
   }
   // Spacer between modules
@@ -375,6 +381,7 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   const NORMAL = DocumentApp.ParagraphHeading.NORMAL;
   let idx = insertIdx;
   function ins(text) { return body.insertParagraph(idx++, text); }
+  function insPara(para) { return body.insertParagraph(idx++, para); }
   let title = activity.name;
   if (params.timeEstimates && activity.time) title += ` (${activity.time})`;
   const prefix = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
@@ -384,14 +391,14 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
   stats.filled++;
   const estText = (!params.timeEstimates && activity.time) ? 'Estimated time: ' + activity.time : 'Estimated time:';
-  const ePara = ins(estText);
-  if (_subAttrs) ePara.setAttributes(_subAttrs); else { ePara.setHeading(NORMAL); ePara.setIndentStart(indent); }
+  const ePara = _tplEst ? insPara(_tplEst) : ins(estText);
+  ePara.setText(estText);
   _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
-  const tPara = ins('Select Tool; Link to settings tab');
-  if (_subAttrs) tPara.setAttributes(_subAttrs); else { tPara.setHeading(NORMAL); tPara.setIndentStart(indent); }
+  const tPara = _tplTool ? insPara(_tplTool) : ins('Select Tool; Link to settings tab');
+  tPara.setText('Select Tool; Link to settings tab');
   _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
-  const dPara = ins('Directions go here…');
-  if (_subAttrs) dPara.setAttributes(_subAttrs); else { dPara.setHeading(NORMAL); dPara.setIndentStart(indent); }
+  const dPara = _tplDir ? insPara(_tplDir) : ins('Directions go here…');
+  dPara.setText('Directions go here…');
   _fmt(dPara.editAsText(), { font: FONT, size: 11, italic: false });
   if (activity.tool && setNearbyTool(body, aPara, activity.tool)) stats.tools++;
   return { idx, h4Para: aPara };
