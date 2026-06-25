@@ -409,6 +409,9 @@ function buildAiDirectionsPrompt4(params) {
     '- For bullet lists, begin each item with "- " (dash then space).\n' +
     '- For inline bold text, wrap with **double asterisks**, e.g. **Submit by Sunday**.\n' +
     '- Separate paragraphs with a blank line.\n' +
+    '- Use "---" on its own line to insert a horizontal rule between major sections.\n' +
+    '- Omit any section entirely if it has no applicable content for this activity — ' +
+    'do not write "no X assigned" or similar placeholder text.\n' +
     '- Do not start with the activity title as a heading — begin directly with content.\n' +
     '- Aim for 150–400 words. Keep instructions focused and actionable for students.\n\n' +
     'Write student-facing directions for this activity now.'
@@ -518,6 +521,12 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
     var trimmed = lines[i].trim();
     if (!trimmed) continue; // blank lines are paragraph separators — skip
 
+    // Horizontal rule
+    if (trimmed === '---') {
+      tokens.push({ type: 'rule' });
+      continue;
+    }
+
     // Bullet list item: starts with "- " or "* "
     if (/^[-*]\s+/.test(trimmed)) {
       tokens.push({ type: 'list', text: trimmed.replace(/^[-*]\s+/, '') });
@@ -550,9 +559,11 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
     if (token.type === 'list') {
       var li = body.insertListItem(insertIdx, '');
       li.setGlyphType(DocumentApp.GlyphType.BULLET);
-      li.setIndentFirstLine(indent);
-      li.setIndentStart(indent + 18);
+      li.setIndentStart(indent);
       setParagraphText4(li, token.text, BLACK, false);
+
+    } else if (token.type === 'rule') {
+      body.insertHorizontalRule(insertIdx);
 
     } else if (token.type === 'heading') {
       var segs        = parseBoldSegments4(token.text);
@@ -567,6 +578,11 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
 
       var pt = hPara.editAsText();
       _fmt(pt, { font: FONT, size: 11, bold: false, italic: false, color: BLACK });
+
+      // Bold the heading text portion
+      if (cleanHeading.length > 0) {
+        pt.setBold(0, cleanHeading.length - 1, true);
+      }
 
       // (HX) marker: red and bold
       if (markerStart <= markerEnd) {
