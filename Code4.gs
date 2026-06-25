@@ -536,7 +536,9 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
     // Heading marker: ends with (H2), (H3), or (H4)
     var hMatch = trimmed.match(/^(.*?)\s*(\(H[2-4]\))\s*$/i);
     if (hMatch) {
-      tokens.push({ type: 'heading', text: hMatch[1].trim(), marker: hMatch[2] });
+      // Strip markdown heading prefix (###) the AI sometimes emits despite instructions
+      var headingText = hMatch[1].trim().replace(/^#+\s*/, '');
+      tokens.push({ type: 'heading', text: headingText, marker: hMatch[2] });
       continue;
     }
 
@@ -579,26 +581,12 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
       var pt = hPara.editAsText();
       _fmt(pt, { font: FONT, size: 11, bold: false, italic: false, color: BLACK });
 
-      // Bold the heading text portion
-      if (cleanHeading.length > 0) {
-        pt.setBold(0, cleanHeading.length - 1, true);
-      }
-
-      // (HX) marker: red and bold
+      // (HX) marker: red and bold (applied inline — character positions are known here)
       if (markerStart <= markerEnd) {
         pt.setForegroundColor(markerStart, markerEnd, RED);
         pt.setBold(markerStart, markerEnd, true);
       }
-
-      // Apply any **bold** ranges within the heading text portion
-      var pos = 0;
-      for (var k = 0; k < segs.length; k++) {
-        var segLen = segs[k].text.length;
-        if (segLen > 0 && segs[k].bold) {
-          pt.setBold(pos, pos + segLen - 1, true);
-        }
-        pos += segLen;
-      }
+      // Heading text bold is applied in the post-processing pass below
 
     } else {
       // Normal paragraph
@@ -607,6 +595,35 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
       para.setIndentStart(indent);
       setParagraphText4(para, token.text, BLACK, false);
     }
+  }
+
+  // Post-processing pass: bold heading text after all elements are inserted.
+  // Done here (not inline) so the GAS batch has fully flushed before we apply bold.
+  applyHeadingBold4(body, insertIdx, tokens.length);
+}
+
+// ── HEADING BOLD POST-PROCESSOR ───────────────────────────────────────
+
+/**
+ * Scans inserted paragraphs and bolds the heading text (everything before
+ * the space + (HX) marker). Called after all elements are inserted so the
+ * GAS write batch has flushed and setBold calls are not silently dropped.
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {number} startIdx   index where insertion began
+ * @param {number} tokenCount number of tokens that were inserted
+ */
+function applyHeadingBold4(body, startIdx, tokenCount) {
+  var headingRe = /^(.*?)\s*\(H[2-4]\)\s*$/i;
+  var end       = startIdx + tokenCount;
+  for (var i = startIdx; i < end && i < body.getNumChildren(); i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var para = child.asParagraph();
+    var text = para.getText();
+    var m    = text.match(headingRe);
+    if (!m || !m[1] || m[1].length === 0) continue;
+    para.editAsText().setBold(0, m[1].length - 1, true);
   }
 }
 
