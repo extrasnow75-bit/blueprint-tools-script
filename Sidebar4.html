@@ -410,6 +410,7 @@
           You may not have permission to view it. Open the document to check
           your access, then try again &mdash; or proceed without a style reference.
         </p>
+        <p class="decision-sub" id="tap-detail" style="font-style:italic; color:#cc0000;"></p>
         <div class="decision-btns">
           <button class="dec-btn dec-btn-open" id="dec-open-btn">
             &#128279; Open Template Document
@@ -672,6 +673,12 @@
       document.getElementById('spinner-wrap').classList.add('hidden');
       var panel = document.getElementById('template-access-panel');
       panel.classList.remove('hidden');
+
+      // Show the real underlying error (if the server captured one)
+      var detail = document.getElementById('tap-detail');
+      detail.textContent = session.templateError
+        ? 'Details: ' + session.templateError
+        : '';
 
       // Clone buttons to remove any previously attached listeners
       ['dec-open-btn', 'dec-retry-btn', 'dec-proceed-btn'].forEach(function (id) {

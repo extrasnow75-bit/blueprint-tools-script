@@ -191,6 +191,7 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
   var templateContentsByToolType = {};
   var templateAccessFailed       = false;
   var failedTemplateUrl          = null;
+  var templateError              = null;
 
   if (templateSource !== 'none') {
     var resolvedUrl   = (templateSource === 'standard') ? DEFAULT_SOURCE_URL : templateUrl;
@@ -222,6 +223,7 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
     } catch (e) {
       Logger.log('initAiSession4 template error: ' + e.message);
       templateAccessFailed = true;
+      templateError        = e.message || String(e);
       // failedTemplateUrl remains set so the sidebar can offer to open it
     }
   }
@@ -230,7 +232,8 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
     moduleContext:               moduleContext,
     templateContentsByToolType:  templateContentsByToolType,
     templateAccessFailed:        templateAccessFailed,
-    failedTemplateUrl:           failedTemplateUrl
+    failedTemplateUrl:           failedTemplateUrl,
+    templateError:               templateError
   };
 }
 
