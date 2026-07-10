@@ -122,8 +122,11 @@
   <div class="spinner" aria-hidden="true">⚙️</div>
   <span class="sr-only">Processing, please wait…</span>
   <p class="prog-label">Populating Development tab…</p>
-  <p class="elapsed">Elapsed: <strong><span id="clock">0:00</span></strong></p>
-  <p class="elapsed">Est. remaining: <strong><span id="eta">~0:00</span></strong></p>
+  <!-- aria-hidden: these numbers repaint every second; announcing them in the
+       aria-live region would flood the screen reader. The static sr-only line
+       above is the single announced status. -->
+  <p class="elapsed" aria-hidden="true">Elapsed: <strong><span id="clock">0:00</span></strong></p>
+  <p class="elapsed" aria-hidden="true">Est. remaining: <strong><span id="eta">~0:00</span></strong></p>
 </div>
 <!-- RESULT -->
 <div id="result">
@@ -173,12 +176,14 @@
     document.getElementById('progress').style.display = 'block';
     lastNumModules = n;
     const estTotalMs = getMsPerModule() * n;
+    const clockEl = document.getElementById('clock');
+    const etaEl   = document.getElementById('eta');
     startTime = Date.now();
     timer = setInterval(function() {
       const elapsedMs = Date.now() - startTime;
-      document.getElementById('clock').textContent = fmtClock(Math.floor(elapsedMs / 1000));
+      clockEl.textContent = fmtClock(Math.floor(elapsedMs / 1000));
       const remainMs = estTotalMs - elapsedMs;
-      document.getElementById('eta').textContent =
+      etaEl.textContent =
         remainMs > 0 ? '~' + fmtClock(Math.ceil(remainMs / 1000)) : 'almost done…';
     }, 1000);
     google.script.run

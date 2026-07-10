@@ -39,8 +39,7 @@ function processBlueprint(params) {
   const activities = parseCoursePattern(designTab.body);
   if (activities.length === 0)
     throw new Error('No activities found in the course pattern table.');
-  const stats      = { created: 0, deleted: 0, filled: 0, tools: 0, slotsDeleted: 0, headers: 0,
-                       newDueHeaders: [] };
+  const stats      = { created: 0, deleted: 0, filled: 0, tools: 0, slotsDeleted: 0, headers: 0 };
   const numModules = params.numModules;
   const existing   = countExistingModules(devTab.body);
   const indent     = getTemplateIndent(devTab.body);
@@ -57,10 +56,13 @@ function processBlueprint(params) {
   for (let m = 1; m <= numModules; m++) {
     processModule(devTab.body, m, activities, params, indent, stats);
   }
-  // Add blue top/bottom borders to ONLY the due-by headers created this run.
-  // Must be last — it persists the document (saveAndClose) so the Docs API
-  // can read the freshly inserted headers.
-  applyDueHeaderBorders(doc, devTab.body, devTab.title, stats.newDueHeaders);
+  // Add blue top/bottom borders to every due-by header in the Development tab.
+  // Paragraph borders are single-valued style attributes, so re-applying the
+  // same spec to a header that already has it is a harmless no-op — which lets
+  // us border all headers uniformly without tracking which are new.
+  // Must be last: it persists the document (saveAndClose) so the Docs API can
+  // read the freshly inserted headers.
+  applyDueHeaderBorders(doc, devTab.title);
   return buildSummary(stats, params, activities, numModules);
 }
 // ── COLLECT TABS ──────────────────────────────────────────────────
@@ -266,7 +268,7 @@ function processModule(body, modNum, activities, params, indent, stats) {
       slotParas.push(result.h4Para);
     }
   }
-  stats.headers += placeDueHeaders(body, slotParas, activities, params, stats);
+  stats.headers += placeDueHeaders(body, slotParas, activities, params);
 }
 // ── GET INDEX AFTER LAST SLOT ─────────────────────────────────────
 function getIndexAfterSlots(body, modNum, slots) {
@@ -473,7 +475,7 @@ function dueHeaderAlreadyExists(body, targetPara, day) {
   return false;
 }
 // ── PLACE DUE-DAY HEADERS ─────────────────────────────────────────
-function placeDueHeaders(body, slotParas, activities, params, stats) {
+function placeDueHeaders(body, slotParas, activities, params) {
   const H3 = DocumentApp.ParagraphHeading.HEADING3;
   const canvasText = {
     display:     'Text Header in Canvas',
@@ -501,63 +503,50 @@ function placeDueHeaders(body, slotParas, activities, params, stats) {
     const headerPara = body.insertParagraph(childIdx, `Due by ${day} at 11:59 p.m. Mountain Time`);
     headerPara.setHeading(H3);
     _fmt(headerPara.editAsText(), { font: FONT, size: 15, bold: true, color: DEEP_BLUE });
-    // Record this newly created header so Phase 2 can border ONLY these,
-    // never the template's pre-existing due-by markers.
-    if (stats && stats.newDueHeaders) stats.newDueHeaders.push(headerPara);
   }
   return targets.length;
 }
-// ── BLUE BORDERS ON NEWLY CREATED DUE-BY HEADERS ──────────────────
-// QA wants a blue horizontal line above and below each generated "Due by …"
-// header, matching the eCampus template. The DocumentApp API cannot set
-// paragraph borders, so this runs as a Phase-2 post-pass via the Docs
-// advanced service. It borders ONLY the headers created during this run —
-// pre-existing template markers are identified by document-order position
-// and deliberately left untouched.
+// ── BLUE BORDERS ON DUE-BY HEADERS ────────────────────────────────
+// QA wants a blue horizontal line above and below each "Due by …" header,
+// matching the eCampus template. The DocumentApp API cannot set paragraph
+// borders, so this runs as a Phase-2 post-pass via the Docs advanced service.
+//
+// It borders EVERY due-by header in the Development tab. A paragraph border is
+// a single-valued style attribute (one borderTop / one borderBottom per
+// paragraph), so re-applying the same spec to a header that already has it is
+// a harmless no-op — no stacking, no visible change. That lets us skip any
+// new-vs-existing tracking and simply normalize them all to the same look.
 //
 // Border spec (sampled from the template): #0000E7, 1.5 pt, 2 pt padding,
 // solid, top + bottom.
-function applyDueHeaderBorders(doc, devBody, devTabTitle, newHeaderParas) {
-  if (!newHeaderParas || newHeaderParas.length === 0) {
-    Logger.log('applyDueHeaderBorders: no newly created headers — nothing to border.');
-    return;
-  }
-
-  const DUE_RE = /due by .+mountain time/i;
-
-  // 1. In document order, work out which due-by header ORDINALS are new.
-  //    New and existing headers share identical text, so we distinguish by
-  //    position — never by a blanket text match.
-  const allDueIdx = [];
-  const childCount = devBody.getNumChildren();
-  for (let i = 0; i < childCount; i++) {
-    const child = devBody.getChild(i);
-    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-    if (DUE_RE.test(child.asParagraph().getText())) allDueIdx.push(i);
-  }
-  // allDueIdx is already ascending (built by increasing i).
-
-  const newOrdinals = {};
-  for (const para of newHeaderParas) {
-    const ci  = devBody.getChildIndex(para);   // reliable; never indexOf
-    const ord = allDueIdx.indexOf(ci);
-    if (ord !== -1) newOrdinals[ord] = true;
-  }
-  Logger.log('applyDueHeaderBorders: %s new header(s) of %s total due-by header(s).',
-             newHeaderParas.length, allDueIdx.length);
-
-  // 2. Persist the DocumentApp inserts so the Docs API sees the new headers.
+function applyDueHeaderBorders(doc, devTabTitle) {
+  // Persist the DocumentApp inserts so the Docs API sees the new headers.
   const docId = doc.getId();
   doc.saveAndClose();
 
-  // 3. Re-read via the Docs API. Locate the Development tab BY TITLE (the
-  //    DocumentApp tab id and the Docs API tabId are not guaranteed to match,
-  //    so we don't rely on that) and read its own tabId for the ranges.
+  // The module edits are now saved. The border pass is purely cosmetic, so any
+  // Docs-API failure here (advanced service disabled, permissions, transient
+  // error) must NOT surface as a full-run failure — log it and return.
+  try {
+    borderDueHeaders_(docId, devTabTitle);
+  } catch (e) {
+    Logger.log('applyDueHeaderBorders: border pass failed (run already saved): ' +
+               ((e && e.message) || e));
+  }
+}
+// Docs-API worker for applyDueHeaderBorders. Kept separate so the caller can
+// guard it in try/catch without deep-nesting the whole body.
+function borderDueHeaders_(docId, devTabTitle) {
+  const DUE_RE = /due by .+mountain time/i;
+
+  // Re-read via the Docs API. Locate the Development tab BY TITLE (the
+  // DocumentApp tab id and the Docs API tabId are not guaranteed to match, so
+  // we don't rely on that) and read its own tabId for the ranges.
   const structured = Docs.Documents.get(docId, { includeTabsContent: true });
   const allTabs    = flattenDocsTabs_(structured);
-  Logger.log('applyDueHeaderBorders: Docs API returned %s tab(s): [%s]',
-             allTabs.length,
-             allTabs.map(t => (t.tabProperties && t.tabProperties.title) || '?').join(' | '));
+  // Log counts/ids only — tab titles can encode course/program identifiers and
+  // would then persist in Cloud Logging beyond the document's sharing scope.
+  Logger.log('applyDueHeaderBorders: Docs API returned %s tab(s).', allTabs.length);
 
   let tab = null;
   for (const t of allTabs) {                 // exact title first
@@ -569,7 +558,7 @@ function applyDueHeaderBorders(doc, devBody, devTabTitle, newHeaderParas) {
     }
   }
   if (!tab) {
-    Logger.log('applyDueHeaderBorders: Development tab "%s" not found in Docs API response.', devTabTitle);
+    Logger.log('applyDueHeaderBorders: Development tab not found in Docs API response.');
     return;
   }
 
@@ -583,15 +572,13 @@ function applyDueHeaderBorders(doc, devBody, devTabTitle, newHeaderParas) {
     dashStyle: 'SOLID'
   };
 
+  // 3. One border request per due-by header in the tab.
   const requests = [];
-  let ordinal = -1;
   for (const el of content) {
     if (!el.paragraph || !el.paragraph.elements) continue;
     const text = el.paragraph.elements
       .map(e => (e.textRun && e.textRun.content) || '').join('');
     if (!DUE_RE.test(text)) continue;
-    ordinal++;
-    if (!newOrdinals[ordinal]) continue;   // pre-existing header — never touch
     requests.push({
       updateParagraphStyle: {
         range: { startIndex: el.startIndex, endIndex: el.endIndex, tabId: tabId },
@@ -603,8 +590,8 @@ function applyDueHeaderBorders(doc, devBody, devTabTitle, newHeaderParas) {
 
   // 4. Apply. updateParagraphStyle does not change text length, so there is
   //    no index drift and request order is irrelevant.
-  Logger.log('applyDueHeaderBorders: built %s border request(s) for tab "%s" (id %s).',
-             requests.length, (tab.tabProperties.title || '?'), tabId);
+  Logger.log('applyDueHeaderBorders: bordering %s due-by header(s) (tab id %s).',
+             requests.length, tabId);
   if (requests.length > 0) {
     Docs.Documents.batchUpdate({ requests: requests }, docId);
     Logger.log('applyDueHeaderBorders: batchUpdate applied.');
