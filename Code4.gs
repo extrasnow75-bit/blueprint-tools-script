@@ -639,9 +639,10 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
  * @param {number} tokenCount number of tokens that were inserted
  */
 function applyHeadingBold4(body, startIdx, tokenCount) {
-  var headingRe = /^(.*?)\s*\(H[2-4]\)\s*$/i;
-  var end       = startIdx + tokenCount;
-  for (var i = startIdx; i < end && i < body.getNumChildren(); i++) {
+  var headingRe  = /^(.*?)\s*\(H[2-4]\)\s*$/i;
+  var end        = startIdx + tokenCount;
+  var childCount = body.getNumChildren();   // cache once — avoid a server round-trip per iteration
+  for (var i = startIdx; i < end && i < childCount; i++) {
     var child = body.getChild(i);
     if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
     var para = child.asParagraph();

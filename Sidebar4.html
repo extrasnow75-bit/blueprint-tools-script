@@ -45,10 +45,19 @@
       padding: 6px 8px;
       font-size: 12px;
       font-family: Arial, sans-serif;
-      border: 1px solid #bbb;
+      border: 1px solid #767676;
       border-radius: 3px;
       color: #333;
       background: #fff;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
     .text-input:focus {
       outline: none;
@@ -102,7 +111,7 @@
       padding: 5px 7px;
       font-size: 12px;
       font-family: Arial, sans-serif;
-      border: 1px solid #bbb;
+      border: 1px solid #767676;
       border-radius: 3px;
       background: #fff;
       color: #333;
@@ -256,7 +265,7 @@
     .dec-btn-retry {
       background: #fff;
       color: #555;
-      border: 1px solid #bbb;
+      border: 1px solid #767676;
     }
     .dec-btn-retry:hover { background: #f5f5f5; }
 
@@ -406,7 +415,7 @@
       <!-- Spinner (shown during init and per-activity generation) -->
       <div id="spinner-wrap" class="spinner-wrap">
         <div class="spinner"></div>
-        <span class="spinner-label" id="progress-label">Preparing&hellip;</span>
+        <span class="spinner-label" id="progress-label" tabindex="-1">Preparing&hellip;</span>
       </div>
 
       <!-- Elapsed / estimated time -->
@@ -423,10 +432,10 @@
         <p class="decision-sub" id="tap-detail" style="font-style:italic; color:#cc0000;"></p>
         <div class="decision-btns">
           <button class="dec-btn dec-btn-open" id="dec-open-btn">
-            &#128279; Open Template Document
+            <span aria-hidden="true">&#128279;</span> Open Template Document
           </button>
           <button class="dec-btn dec-btn-retry" id="dec-retry-btn">
-            &#8635; Try Again
+            <span aria-hidden="true">&#8635;</span> Try Again
           </button>
           <button class="dec-btn dec-btn-proceed" id="dec-proceed-btn">
             Proceed Without Template &rarr;
@@ -439,7 +448,7 @@
 
       <!-- Stop controls (shown only during the activity loop) -->
       <div id="stop-controls" class="hidden">
-        <button class="stop-btn" onclick="stopGeneration()">&#9632; Stop</button>
+        <button class="stop-btn" onclick="stopGeneration()"><span aria-hidden="true">&#9632;</span> Stop</button>
         <p class="stop-note">
           Stopping waits for the current activity to finish, then halts.
           Use Ctrl+Z in the document to undo any changes if needed.
@@ -713,10 +722,16 @@
 
       document.getElementById('dec-retry-btn').addEventListener('click', function () {
         callInitSession(apiKey, moduleTitle, templateSource, templateUrl);
+        // Panel hides during re-init; move focus off the (now hidden) button
+        // so it doesn't fall to <body>.
+        document.getElementById('progress-label').focus();
       });
 
       document.getElementById('dec-proceed-btn').addEventListener('click', function () {
         panel.classList.add('hidden');
+        // Hiding the focused button drops focus to <body>; move it to the
+        // status region so keyboard/screen-reader users keep their place.
+        document.getElementById('progress-label').focus();
         // Keep the module context but drop template content
         sessionData.templateContentsByToolType = {};
         sessionData.templateAccessFailed = false;
@@ -823,11 +838,13 @@
 
       if (result.success) {
         row.innerHTML =
-          '<span class="result-ok">✓</span> ' + escHtml(title);
+          '<span class="result-ok" aria-hidden="true">✓</span>' +
+          '<span class="sr-only">Success: </span> ' + escHtml(title);
         successCount++;
       } else {
         row.innerHTML =
-          '<span class="result-err">✗</span> ' + escHtml(title) +
+          '<span class="result-err" aria-hidden="true">✗</span>' +
+          '<span class="sr-only">Error: </span> ' + escHtml(title) +
           '<span class="result-err-msg">' + escHtml(result.error || 'Unknown error') + '</span>';
         failCount++;
       }
