@@ -205,6 +205,13 @@
 
     .spinner-label { font-size: 12px; color: #555; }
 
+    /* ── Timing line ──────────────────────────────────────────── */
+    .timing-line {
+      font-size: 11px;
+      color: #555;
+      margin: -4px 0 10px 28px;
+    }
+
     /* ── Per-activity result rows ─────────────────────────────── */
     #activity-results { margin: 6px 0 10px; font-size: 12px; }
 
@@ -402,6 +409,9 @@
         <span class="spinner-label" id="progress-label">Preparing&hellip;</span>
       </div>
 
+      <!-- Elapsed / estimated time -->
+      <div id="timing-line" class="timing-line hidden" aria-live="off"></div>
+
       <!-- Template access decision panel (shown when template doc is inaccessible) -->
       <div id="template-access-panel" class="decision-panel hidden"
            role="dialog" aria-modal="true" aria-labelledby="tap-heading">
@@ -458,6 +468,12 @@
     var stopRequested     = false;
     var successCount      = 0;
     var failCount         = 0;
+
+    // ── Timing state ──────────────────────────────────────────────────
+    var genStartMs        = 0;    // wall-clock start of the activity loop
+    var activityDurations = [];   // ms per completed activity (for estimate)
+    var activityStartMs   = 0;    // start of the in-flight activity
+    var tickTimer         = null; // setInterval handle for the elapsed clock
 
     // ── Init ──────────────────────────────────────────────────────────
     window.addEventListener('load', function () {
@@ -713,7 +729,47 @@
       document.getElementById('template-access-panel').classList.add('hidden');
       document.getElementById('spinner-wrap').classList.remove('hidden');
       document.getElementById('stop-controls').classList.remove('hidden');
+      startTiming();
       processNextActivity(0, apiKey, moduleTitle);
+    }
+
+    // ── Timing helpers ────────────────────────────────────────────────
+    function startTiming() {
+      genStartMs        = Date.now();
+      activityDurations = [];
+      var line = document.getElementById('timing-line');
+      line.classList.remove('hidden');
+      line.textContent = 'Elapsed: 0:00';
+      if (tickTimer) clearInterval(tickTimer);
+      tickTimer = setInterval(updateTimingLine, 1000);
+    }
+
+    function stopTiming() {
+      if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    }
+
+    function updateTimingLine() {
+      var line = document.getElementById('timing-line');
+      if (!line) return;
+      var elapsed = Date.now() - genStartMs;
+      var done    = successCount + failCount;
+      var remain  = currentActivities.length - done;
+
+      var text = 'Elapsed: ' + fmtDuration(elapsed);
+      // Estimate only once we have at least one completed activity to average
+      if (activityDurations.length > 0 && remain > 0) {
+        var avg = activityDurations.reduce(function (a, b) { return a + b; }, 0) /
+                  activityDurations.length;
+        text += '  ·  Est. remaining: ~' + fmtDuration(avg * remain);
+      }
+      line.textContent = text;
+    }
+
+    function fmtDuration(ms) {
+      var totalSec = Math.max(0, Math.round(ms / 1000));
+      var m = Math.floor(totalSec / 60);
+      var s = totalSec % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
     }
 
     // Sequential activity loop
@@ -728,6 +784,7 @@
       setProgressLabel(
         'Generating ' + (index + 1) + ' of ' + total + ': ' + act.title + '…'
       );
+      activityStartMs = Date.now();
 
       var templateText = null;
       if (sessionData && sessionData.templateContentsByToolType && act.toolType) {
@@ -745,11 +802,15 @@
 
       google.script.run
         .withSuccessHandler(function (result) {
+          activityDurations.push(Date.now() - activityStartMs);
           addActivityResult(act.title, result);
+          updateTimingLine();
           processNextActivity(index + 1, apiKey, moduleTitle);
         })
         .withFailureHandler(function (err) {
+          activityDurations.push(Date.now() - activityStartMs);
           addActivityResult(act.title, { success: false, error: err.message || String(err) });
+          updateTimingLine();
           processNextActivity(index + 1, apiKey, moduleTitle);
         })
         .generateAndInsertOneActivity4(params);
@@ -783,8 +844,25 @@
     }
 
     function finishGeneration(moduleTitle) {
-      document.getElementById('progress-area').classList.add('hidden');
+      stopTiming();
+      var elapsedMs = genStartMs ? (Date.now() - genStartMs) : 0;
+
+      // Server-side writes are committed, but the open Google Doc syncs on a
+      // slight delay. Hold a "syncing" state briefly so "complete" doesn't
+      // appear before the inserted text becomes visible in the document.
       document.getElementById('stop-controls').classList.add('hidden');
+      document.getElementById('template-access-panel').classList.add('hidden');
+      document.getElementById('spinner-wrap').classList.remove('hidden');
+      setProgressLabel('Syncing to document… (this can take a few seconds)');
+      document.getElementById('timing-line').classList.add('hidden');
+
+      setTimeout(function () {
+        showCompletion(moduleTitle, elapsedMs);
+      }, 3000);
+    }
+
+    function showCompletion(moduleTitle, elapsedMs) {
+      document.getElementById('progress-area').classList.add('hidden');
       document.getElementById('spinner-wrap').classList.remove('hidden'); // reset for next run
       document.getElementById('generate-btn').disabled = false;
 
@@ -800,6 +878,7 @@
       if (failCount > 0)  lines.push('Errors: ' + failCount);
       if (stopped)        lines.push('Stopped early — ' +
         (total - successCount - failCount) + ' activity/activities skipped.');
+      lines.push('Total time: ' + fmtDuration(elapsedMs));
       lines.push('');
       lines.push('Review and revise the generated directions in the document,');
       lines.push('then run “Propagate to All Modules” to apply them.');

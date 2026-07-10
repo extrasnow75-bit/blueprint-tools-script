@@ -448,15 +448,37 @@ function callGemini4_(apiKey, prompt, model) {
     muteHttpExceptions: true
   };
 
-  var response     = UrlFetchApp.fetch(url, options);
-  var responseCode = response.getResponseCode();
-  var data         = JSON.parse(response.getContentText());
+  // Retry with exponential backoff on rate-limit (429) and transient 5xx errors.
+  var maxAttempts = 4;
+  var response, responseCode, data;
+
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    response     = UrlFetchApp.fetch(url, options);
+    responseCode = response.getResponseCode();
+
+    if (responseCode !== 429 && responseCode < 500) break; // success or non-retryable error
+
+    if (attempt < maxAttempts) {
+      // Backoff: 2s, 4s, 8s (+ small jitter to avoid synchronized retries)
+      var waitMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
+      Logger.log('callGemini4_ HTTP ' + responseCode + ' — retry ' + attempt +
+                 ' of ' + (maxAttempts - 1) + ' after ' + waitMs + 'ms');
+      Utilities.sleep(waitMs);
+    }
+  }
+
+  data = JSON.parse(response.getContentText());
 
   if (responseCode !== 200) {
-    var errMsg = (data.error && data.error.message)
+    var apiMsg = (data.error && data.error.message)
       ? data.error.message
       : 'Gemini API error (HTTP ' + responseCode + ')';
-    throw new Error(errMsg);
+    // Friendlier message for rate limits that survived all retries
+    if (responseCode === 429) {
+      apiMsg = 'Gemini rate limit reached (429) after ' + maxAttempts +
+               ' attempts. Wait a minute and try again, or use a lighter model. (' + apiMsg + ')';
+    }
+    throw new Error(apiMsg);
   }
 
   if (!data.candidates ||
