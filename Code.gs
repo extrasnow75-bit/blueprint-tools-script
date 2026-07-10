@@ -607,24 +607,6 @@ function flattenDocsTabs_(structuredDoc) {
   walk(structuredDoc.tabs);
   return out;
 }
-// ── GET NTH H4 SLOT IN MODULE ─────────────────────────────────────
-function getNthSlotPara(body, modNum, slotNum) {
-  const H2    = DocumentApp.ParagraphHeading.HEADING2;
-  const H4    = DocumentApp.ParagraphHeading.HEADING4;
-  const modRe = new RegExp(`^Module\\s+${modNum}[:\\s]`, 'i');
-  let inModule = false, count = 0;
-  for (const para of body.getParagraphs()) {
-    const h = para.getHeading();
-    const t = para.getText().trim();
-    if (h === H2) {
-      if (modRe.test(t)) { inModule = true; continue; }
-      if (inModule) return null;
-    }
-    if (!inModule || h !== H4) continue;
-    if (++count === slotNum) return para;
-  }
-  return null;
-}
 // ── FORMAT HELPER ─────────────────────────────────────────────────
 function _fmt(textEl, opts) {
   if (opts.font   !== undefined) textEl.setFontFamily(opts.font);
