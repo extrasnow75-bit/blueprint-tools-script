@@ -84,29 +84,46 @@ function parseCourseDesignMap(designBody) {
     var numRows = table.getNumRows();
     if (numRows < 4) continue;
 
-    // Identify as Course Design Map by presence of "clo" or "mlo" label
-    var isCDM = false;
-    scanRows:
-    for (var ri = 0; ri < Math.min(numRows, 15); ri++) {
+    // Cache of cell text keyed by row index. Rows fetched during the
+    // detection scan below are reused by the parse loop instead of being
+    // re-read from the document — each getText() is a server round-trip.
+    var rowCache = {};
+
+    // Identify as Course Design Map by presence of a "clo" or "mlo" label.
+    // Scan stops advancing rows once found; the current row is finished so
+    // its cells are fully cached.
+    var isCDM     = false;
+    var scanLimit = Math.min(numRows, 15);
+    for (var ri = 0; ri < scanLimit && !isCDM; ri++) {
       var scanRow = table.getRow(ri);
-      for (var ci = 0; ci < scanRow.getNumCells(); ci++) {
-        var ct = scanRow.getCell(ci).getText().toLowerCase();
-        if (ct.indexOf('clo') !== -1 || ct.indexOf('mlo') !== -1) {
-          isCDM = true;
-          break scanRows;
-        }
+      var scanN   = scanRow.getNumCells();
+      var rowText = [];
+      for (var ci = 0; ci < scanN; ci++) {
+        var cellStr = scanRow.getCell(ci).getText();
+        rowText.push(cellStr);
+        var lc = cellStr.toLowerCase();
+        if (lc.indexOf('clo') !== -1 || lc.indexOf('mlo') !== -1) isCDM = true;
       }
+      rowCache[ri] = rowText;
     }
     if (!isCDM) continue;
 
     var currentModule = null;
 
     for (var r = 0; r < numRows; r++) {
-      var row      = table.getRow(r);
-      var numCells = row.getNumCells();
+      // Reuse cached row text when available; otherwise read only cells 0–1
+      // (the columns used below) once from the document.
+      var cells = rowCache[r];
+      if (!cells) {
+        var dataRow = table.getRow(r);
+        var dataN   = dataRow.getNumCells();
+        cells = [];
+        for (var c = 0; c < dataN && c < 2; c++) cells.push(dataRow.getCell(c).getText());
+      }
+      var numCells = cells.length;
       if (numCells === 0) continue;
 
-      var firstCell = row.getCell(0).getText().trim();
+      var firstCell = cells[0].trim();
 
       // Module header row: "Module 1", "Module 2", etc.
       if (/^module\s+\d+/i.test(firstCell)) {
@@ -126,7 +143,7 @@ function parseCourseDesignMap(designBody) {
       if (!currentModule || numCells < 2) continue;
 
       var label = firstCell.toLowerCase();
-      var value = row.getCell(1).getText().trim();
+      var value = cells[1].trim();
       if (!value) continue;
 
       if (label === 'title') {

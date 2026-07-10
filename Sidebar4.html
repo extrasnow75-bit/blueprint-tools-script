@@ -409,13 +409,14 @@
     </div>
 
     <!-- ── Progress area (hidden until running) ── -->
-    <div id="progress-area" class="hidden" role="status" aria-live="polite">
+    <div id="progress-area" class="hidden">
       <hr class="divider">
 
       <!-- Spinner (shown during init and per-activity generation) -->
       <div id="spinner-wrap" class="spinner-wrap">
         <div class="spinner"></div>
-        <span class="spinner-label" id="progress-label" tabindex="-1">Preparing&hellip;</span>
+        <span class="spinner-label" id="progress-label" tabindex="-1"
+              role="status" aria-live="polite">Preparing&hellip;</span>
       </div>
 
       <!-- Elapsed / estimated time -->
@@ -423,7 +424,7 @@
 
       <!-- Template access decision panel (shown when template doc is inaccessible) -->
       <div id="template-access-panel" class="decision-panel hidden"
-           role="dialog" aria-modal="true" aria-labelledby="tap-heading">
+           role="group" aria-labelledby="tap-heading">
         <p id="tap-heading"><strong>Could not access the template document.</strong></p>
         <p class="decision-sub">
           You may not have permission to view it. Open the document to check
