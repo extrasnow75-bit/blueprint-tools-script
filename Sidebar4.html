@@ -882,6 +882,10 @@
       lines.push('');
       lines.push('Review and revise the generated directions in the document,');
       lines.push('then run “Propagate to All Modules” to apply them.');
+      lines.push('');
+      lines.push('Note: Icon markers may be missing from the generated ' +
+        'instructions due to Gemini’s inability to read information contained ' +
+        'in the “smart chips” used in Google Docs to create dropdowns.');
 
       document.getElementById('main-form').classList.add('hidden');
       document.getElementById('summary-box').textContent = lines.join('\n');
