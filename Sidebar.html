@@ -70,6 +70,7 @@
     }
     .prog-label { margin: 12px 0 4px; color: #555; }
     .elapsed    { font-size: 12px; color: #666; }
+    .sync-note  { font-size: 11px; color: #555; font-style: italic; margin: 10px 0 0; }
     #result     { display: none; }
     .summary {
       background: #f4f6fa;
@@ -122,14 +123,36 @@
   <span class="sr-only">Processing, please wait…</span>
   <p class="prog-label">Populating Development tab…</p>
   <p class="elapsed">Elapsed: <strong><span id="clock">0:00</span></strong></p>
+  <p class="elapsed">Est. remaining: <strong><span id="eta">~0:00</span></strong></p>
 </div>
 <!-- RESULT -->
 <div id="result">
   <div class="summary" id="summary" role="status" aria-live="polite"></div>
+  <p class="sync-note">Changes may take a short time to appear in the document
+    (sometimes up to a minute) while it finishes syncing.</p>
   <button class="again-btn" onclick="reset()">↩ Run Again</button>
 </div>
 <script>
-  let timer, startTime;
+  let timer, startTime, lastNumModules;
+  const EST_KEY = 'bpTool1_msPerModule';
+  const DEFAULT_MS_PER_MODULE = 2500; // first-run guess; self-calibrates below
+  // Rolling per-module duration, persisted so the estimate improves over runs.
+  // Wrapped in try/catch because localStorage can be unavailable in the sidebar
+  // sandbox — in that case we just fall back to the default each time.
+  function getMsPerModule() {
+    try {
+      const v = parseFloat(localStorage.getItem(EST_KEY));
+      if (v && v > 0) return v;
+    } catch (e) {}
+    return DEFAULT_MS_PER_MODULE;
+  }
+  function saveMsPerModule(v) {
+    try { localStorage.setItem(EST_KEY, String(v)); } catch (e) {}
+  }
+  function fmtClock(totalSeconds) {
+    return Math.floor(totalSeconds / 60) + ':' +
+           String(totalSeconds % 60).padStart(2, '0');
+  }
   function runScript() {
     const n = parseInt(document.getElementById('numModules').value);
     if (!n || n < 1) {
@@ -148,11 +171,15 @@
     };
     document.getElementById('form').style.display     = 'none';
     document.getElementById('progress').style.display = 'block';
+    lastNumModules = n;
+    const estTotalMs = getMsPerModule() * n;
     startTime = Date.now();
     timer = setInterval(function() {
-      const s = Math.floor((Date.now() - startTime) / 1000);
-      document.getElementById('clock').textContent =
-        Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      const elapsedMs = Date.now() - startTime;
+      document.getElementById('clock').textContent = fmtClock(Math.floor(elapsedMs / 1000));
+      const remainMs = estTotalMs - elapsedMs;
+      document.getElementById('eta').textContent =
+        remainMs > 0 ? '~' + fmtClock(Math.ceil(remainMs / 1000)) : 'almost done…';
     }, 1000);
     google.script.run
       .withSuccessHandler(onDone)
@@ -161,6 +188,12 @@
   }
   function onDone(msg) {
     clearInterval(timer);
+    // Calibrate the estimate from this run's actual server time. Weighted
+    // blend so it settles quickly but still adapts to changing doc sizes.
+    if (lastNumModules > 0) {
+      const actualPerModule = (Date.now() - startTime) / lastNumModules;
+      saveMsPerModule(Math.round(getMsPerModule() * 0.5 + actualPerModule * 0.5));
+    }
     document.getElementById('progress').style.display = 'none';
     document.getElementById('result').style.display   = 'block';
     document.getElementById('summary').textContent    = msg;

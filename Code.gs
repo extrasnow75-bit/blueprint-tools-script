@@ -36,7 +36,6 @@ function processBlueprint(params) {
   const devTab    = tabs.find(t => /\bdevelopment\b/i.test(t.title));
   if (!designTab || !devTab)
     throw new Error('Could not find "Design" and/or "Development" tabs.');
-  const devTabId   = getTabIdByTitle_(doc, /\bdevelopment\b/i);
   const activities = parseCoursePattern(designTab.body);
   if (activities.length === 0)
     throw new Error('No activities found in the course pattern table.');
@@ -61,7 +60,7 @@ function processBlueprint(params) {
   // Add blue top/bottom borders to ONLY the due-by headers created this run.
   // Must be last — it persists the document (saveAndClose) so the Docs API
   // can read the freshly inserted headers.
-  applyDueHeaderBorders(doc, devTab.body, devTabId, stats.newDueHeaders);
+  applyDueHeaderBorders(doc, devTab.body, devTab.title, stats.newDueHeaders);
   return buildSummary(stats, params, activities, numModules);
 }
 // ── COLLECT TABS ──────────────────────────────────────────────────
@@ -518,9 +517,11 @@ function placeDueHeaders(body, slotParas, activities, params, stats) {
 //
 // Border spec (sampled from the template): #0000E7, 1.5 pt, 2 pt padding,
 // solid, top + bottom.
-function applyDueHeaderBorders(doc, devBody, devTabId, newHeaderParas) {
-  if (!newHeaderParas || newHeaderParas.length === 0) return;
-  if (!devTabId) return; // cannot target a tab range without its id
+function applyDueHeaderBorders(doc, devBody, devTabTitle, newHeaderParas) {
+  if (!newHeaderParas || newHeaderParas.length === 0) {
+    Logger.log('applyDueHeaderBorders: no newly created headers — nothing to border.');
+    return;
+  }
 
   const DUE_RE = /due by .+mountain time/i;
 
@@ -542,16 +543,37 @@ function applyDueHeaderBorders(doc, devBody, devTabId, newHeaderParas) {
     const ord = allDueIdx.indexOf(ci);
     if (ord !== -1) newOrdinals[ord] = true;
   }
+  Logger.log('applyDueHeaderBorders: %s new header(s) of %s total due-by header(s).',
+             newHeaderParas.length, allDueIdx.length);
 
   // 2. Persist the DocumentApp inserts so the Docs API sees the new headers.
   const docId = doc.getId();
   doc.saveAndClose();
 
-  // 3. Re-read via the Docs API and, walking the SAME tab in the SAME order,
-  //    collect index ranges for the new ordinals only.
+  // 3. Re-read via the Docs API. Locate the Development tab BY TITLE (the
+  //    DocumentApp tab id and the Docs API tabId are not guaranteed to match,
+  //    so we don't rely on that) and read its own tabId for the ranges.
   const structured = Docs.Documents.get(docId, { includeTabsContent: true });
-  const tab = findDocsTabById_(structured, devTabId);
-  if (!tab) return;
+  const allTabs    = flattenDocsTabs_(structured);
+  Logger.log('applyDueHeaderBorders: Docs API returned %s tab(s): [%s]',
+             allTabs.length,
+             allTabs.map(t => (t.tabProperties && t.tabProperties.title) || '?').join(' | '));
+
+  let tab = null;
+  for (const t of allTabs) {                 // exact title first
+    if (t.tabProperties && t.tabProperties.title === devTabTitle) { tab = t; break; }
+  }
+  if (!tab) {                                // fall back to a loose match
+    for (const t of allTabs) {
+      if (t.tabProperties && /\bdevelopment\b/i.test(t.tabProperties.title || '')) { tab = t; break; }
+    }
+  }
+  if (!tab) {
+    Logger.log('applyDueHeaderBorders: Development tab "%s" not found in Docs API response.', devTabTitle);
+    return;
+  }
+
+  const tabId   = tab.tabProperties.tabId;
   const content = (tab.documentTab && tab.documentTab.body && tab.documentTab.body.content) || [];
 
   const BLUE = {
@@ -572,7 +594,7 @@ function applyDueHeaderBorders(doc, devBody, devTabId, newHeaderParas) {
     if (!newOrdinals[ordinal]) continue;   // pre-existing header — never touch
     requests.push({
       updateParagraphStyle: {
-        range: { startIndex: el.startIndex, endIndex: el.endIndex, tabId: devTabId },
+        range: { startIndex: el.startIndex, endIndex: el.endIndex, tabId: tabId },
         paragraphStyle: { borderTop: BLUE, borderBottom: BLUE },
         fields: 'borderTop,borderBottom'
       }
@@ -581,34 +603,22 @@ function applyDueHeaderBorders(doc, devBody, devTabId, newHeaderParas) {
 
   // 4. Apply. updateParagraphStyle does not change text length, so there is
   //    no index drift and request order is irrelevant.
+  Logger.log('applyDueHeaderBorders: built %s border request(s) for tab "%s" (id %s).',
+             requests.length, (tab.tabProperties.title || '?'), tabId);
   if (requests.length > 0) {
     Docs.Documents.batchUpdate({ requests: requests }, docId);
+    Logger.log('applyDueHeaderBorders: batchUpdate applied.');
   }
 }
-// Return the tabId of the first tab (searching nested child tabs) whose
-// title matches re, or null. Uses DocumentApp Tab.getId(), which matches the
-// Docs API tabProperties.tabId.
-function getTabIdByTitle_(doc, re) {
-  let found = null;
-  function walk(tab) {
-    if (found) return;
-    if (re.test(tab.getTitle())) { found = tab.getId(); return; }
-    tab.getChildTabs().forEach(walk);
+// Flatten a Docs API document's tabs (including nested child tabs) into a
+// single ordered array.
+function flattenDocsTabs_(structuredDoc) {
+  const out = [];
+  function walk(list) {
+    (list || []).forEach(function (t) { out.push(t); walk(t.childTabs); });
   }
-  doc.getTabs().forEach(walk);
-  return found;
-}
-// Find a tab (including nested child tabs) by tabId in a Docs API document.
-function findDocsTabById_(structuredDoc, tabId) {
-  function walk(tabList) {
-    for (const t of (tabList || [])) {
-      if (t.tabProperties && t.tabProperties.tabId === tabId) return t;
-      const found = walk(t.childTabs);
-      if (found) return found;
-    }
-    return null;
-  }
-  return walk(structuredDoc.tabs);
+  walk(structuredDoc.tabs);
+  return out;
 }
 // ── GET NTH H4 SLOT IN MODULE ─────────────────────────────────────
 function getNthSlotPara(body, modNum, slotNum) {
