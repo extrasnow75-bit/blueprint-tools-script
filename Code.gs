@@ -218,7 +218,7 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
     const tPara = add('Select Tool; Link to settings tab');
     tPara.setHeading(NORMAL);
     tPara.setIndentStart(indent);
-    _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, color: RED });
+    _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
     // Directions
     const dPara = add('Directions go here\u2026');
     dPara.setHeading(NORMAL);
@@ -331,7 +331,7 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   const tPara = ins('Select Tool; Link to settings tab');
   tPara.setHeading(NORMAL);
   tPara.setIndentStart(indent);
-  _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, color: RED });
+  _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
   const dPara = ins('Directions go here…');
   dPara.setHeading(NORMAL);
   dPara.setIndentStart(indent);
@@ -400,11 +400,12 @@ function setNearbyTool(body, headingPara, toolValue) {
           pt.setFontFamily(0, toolEnd, FONT);
           pt.setFontSize(0, toolEnd, 11);
           pt.setBold(0, toolEnd, true);
+          pt.setItalic(0, toolEnd, false);
           pt.setForegroundColor(0, toolEnd, RED);
         }
       } else if (hasSuffix) {
         para.setText(toolValue + suffix);
-        _fmt(para.editAsText(), { font: FONT, size: 11, bold: true, color: RED });
+        _fmt(para.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
       }
       Logger.log(`  Tool → ${toolValue}`);
       return true;
