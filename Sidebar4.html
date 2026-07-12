@@ -194,6 +194,16 @@
     }
     .again-btn:hover { background: #333; }
 
+    /* Pre-flight rate estimate */
+    .preflight-title  { font-weight: bold; color: #0033a0; font-size: 13px; margin-bottom: 6px; }
+    .preflight-level  { font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+    .preflight-detail { font-size: 12px; color: #444; margin-bottom: 10px; line-height: 1.5; }
+    .level-ok   { color: #1a7f37; }
+    .level-warn { color: #8a6100; }
+    .level-risk { color: #cc0000; }
+    .preflight-buttons { display: flex; gap: 8px; }
+    .preflight-buttons .run-btn, .preflight-buttons .again-btn { margin-top: 0; }
+
     /* ── Progress area ────────────────────────────────────────── */
     .spinner-wrap {
       display: flex;
@@ -421,6 +431,18 @@
 
       <!-- Elapsed / estimated time -->
       <div id="timing-line" class="timing-line hidden" aria-live="off"></div>
+
+      <!-- Pre-flight rate estimate: shown after access check, before the
+           token-heavy generation, so the user can decide whether to proceed. -->
+      <div id="preflight" class="hidden" role="group" aria-label="Rate-limit pre-check">
+        <p class="preflight-title">Rate-limit pre-check</p>
+        <p class="preflight-level"  id="preflight-level"></p>
+        <p class="preflight-detail" id="preflight-detail"></p>
+        <div class="preflight-buttons">
+          <button class="run-btn"   id="preflight-proceed" aria-describedby="preflight-level preflight-detail"><span aria-hidden="true">&#9658;</span> Proceed</button>
+          <button class="again-btn" id="preflight-cancel">Cancel</button>
+        </div>
+      </div>
 
       <!-- Template access decision panel (shown when template doc is inaccessible) -->
       <div id="template-access-panel" class="decision-panel hidden"
@@ -686,7 +708,7 @@
             return;
           }
 
-          beginActivityLoop(apiKey, moduleTitle);
+          showPreflight4(apiKey, moduleTitle);
         })
         .withFailureHandler(function (err) {
           document.getElementById('generate-btn').disabled = false;
@@ -738,8 +760,82 @@
         // Keep the module context but drop template content
         sessionData.templateContentsByToolType = {};
         sessionData.templateAccessFailed = false;
-        beginActivityLoop(apiKey, moduleTitle);
+        showPreflight4(apiKey, moduleTitle);
       });
+    }
+
+    // ── Pre-flight rate estimate ──────────────────────────────────────
+    // Gemini exposes NO API to query remaining quota, so this is a heuristic:
+    // known free-tier caps + a local same-day request tally (shared with the
+    // Deploy Activity Directions tool via the same localStorage key).
+    var FREE_RPM_4  = 20;    // requests/minute (observed free-tier cap)
+    var FREE_RPD_4  = 1000;  // approx requests/day (guidance only)
+    var USAGE_KEY_4 = 'bpGeminiReqsDaily';
+
+    function todayStr4() { return new Date().toISOString().slice(0, 10); }
+    function todayUsage4() {
+      try {
+        var raw = JSON.parse(localStorage.getItem(USAGE_KEY_4) || '{}');
+        if (raw.date === todayStr4()) return raw.count || 0;
+      } catch (e) {}
+      return 0;
+    }
+    function addUsage4(n) {
+      try {
+        localStorage.setItem(USAGE_KEY_4,
+          JSON.stringify({ date: todayStr4(), count: todayUsage4() + n }));
+      } catch (e) {}
+    }
+    function estimateSuccess4(callCount) {
+      var used   = todayUsage4();
+      var detail =
+        'This job will make about ' + callCount + ' Gemini request' +
+        (callCount === 1 ? '' : 's') + ' (one per activity). Free tier allows roughly ' +
+        FREE_RPM_4 + '/minute and ~' + FREE_RPD_4 + '/day' +
+        (used > 0 ? '; ~' + used + ' used today through these tools' : '') + '. ' +
+        'Gemini can’t report exact remaining quota, so this is an estimate.';
+      var level, tone;
+      if (FREE_RPD_4 - used <= callCount) {
+        level = 'May fail — you appear close to the daily free-tier limit.';
+        tone  = 'level-risk';
+      } else if (callCount > FREE_RPM_4) {
+        level = 'Likely to succeed, but may slow down (the tool paces and retries).';
+        tone  = 'level-warn';
+      } else {
+        level = 'Likely to succeed.';
+        tone  = 'level-ok';
+      }
+      return { level: level, detail: detail, tone: tone };
+    }
+
+    // Shows the estimate and waits for Proceed/Cancel before generation begins.
+    function showPreflight4(apiKey, moduleTitle) {
+      var count = currentActivities.length;
+      if (count === 0) { beginActivityLoop(apiKey, moduleTitle); return; }
+
+      var est     = estimateSuccess4(count);
+      var levelEl = document.getElementById('preflight-level');
+      levelEl.textContent = est.level;
+      levelEl.className   = 'preflight-level ' + est.tone;
+      document.getElementById('preflight-detail').textContent = est.detail;
+
+      document.getElementById('spinner-wrap').classList.add('hidden');
+      document.getElementById('template-access-panel').classList.add('hidden');
+      document.getElementById('preflight').classList.remove('hidden');
+      document.getElementById('preflight-proceed').focus();
+
+      document.getElementById('preflight-proceed').onclick = function () {
+        document.getElementById('preflight').classList.add('hidden');
+        document.getElementById('spinner-wrap').classList.remove('hidden');
+        beginActivityLoop(apiKey, moduleTitle);
+      };
+      document.getElementById('preflight-cancel').onclick = function () {
+        document.getElementById('preflight').classList.add('hidden');
+        document.getElementById('spinner-wrap').classList.remove('hidden');
+        document.getElementById('progress-area').classList.add('hidden');
+        document.getElementById('generate-btn').disabled = false;
+        document.getElementById('generate-btn').focus();
+      };
     }
 
     // Phase 2: start the per-activity generation loop.
@@ -803,6 +899,7 @@
         'Generating ' + (index + 1) + ' of ' + total + ': ' + act.title + '…'
       );
       activityStartMs = Date.now();
+      addUsage4(1); // one Gemini request per activity call (retries not counted here)
 
       var templateText = null;
       if (sessionData && sessionData.templateContentsByToolType && act.toolType) {

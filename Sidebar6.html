@@ -203,6 +203,16 @@
       margin: 4px 0 8px;
     }
 
+    /* Pre-flight rate estimate */
+    .preflight-title  { font-weight: bold; color: #0033a0; font-size: 13px; margin-bottom: 6px; }
+    .preflight-level  { font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+    .preflight-detail { font-size: 12px; color: #444; margin-bottom: 10px; line-height: 1.5; }
+    .level-ok   { color: #1a7f37; }
+    .level-warn { color: #8a6100; }
+    .level-risk { color: #cc0000; }
+    .preflight-buttons { display: flex; gap: 8px; }
+    .preflight-buttons .run-btn, .preflight-buttons .again-btn { margin-top: 0; }
+
     #activity-results { margin: 6px 0 10px; font-size: 12px; }
     .result-row { margin-bottom: 4px; line-height: 1.4; }
     .result-ok  { color: #1a7f37; font-weight: bold; }
@@ -319,10 +329,21 @@
         <div class="spinner" aria-hidden="true"></div>
         <span class="spinner-label" id="progress-label">Initializing&hellip;</span>
       </div>
+      <!-- Pre-flight rate estimate: shown after the access check, before the
+           token-heavy work, so the user can decide whether to proceed. -->
+      <div id="preflight" class="hidden" role="group" aria-label="Rate-limit pre-check">
+        <p class="preflight-title">Rate-limit pre-check</p>
+        <p class="preflight-level"  id="preflight-level"></p>
+        <p class="preflight-detail" id="preflight-detail"></p>
+        <div class="preflight-buttons">
+          <button class="run-btn"   id="preflight-proceed" aria-describedby="preflight-level preflight-detail"><span aria-hidden="true">&#9658;</span> Proceed</button>
+          <button class="again-btn" id="preflight-cancel">Cancel</button>
+        </div>
+      </div>
       <!-- aria-hidden: these numbers repaint every second; announcing them in the
            aria-live progress region would flood a screen reader. The spinner
            label above carries the meaningful status. -->
-      <p class="time-line" aria-hidden="true">
+      <p class="time-line hidden" id="time-line" aria-hidden="true">
         Elapsed: <strong><span id="clock">0:00</span></strong>
         &nbsp;&middot;&nbsp;
         Est. remaining: <strong><span id="eta">~0:00</span></strong>
@@ -364,7 +385,7 @@
 
     // Progress timing
     var deployTimer  = null;   // 1s interval driving the Elapsed/ETA display
-    var deployStart  = 0;      // ms timestamp when the run (incl. init) began
+    var deployStart  = 0;      // ms timestamp when the deploy loop began (drives Elapsed)
     var loopStart    = 0;      // ms timestamp when the per-module loop began
     var completedCount = 0;    // activities finished (success/skip/failed), for ETA
     // Key is versioned: batching made activities far faster than the old
@@ -485,6 +506,78 @@
       el.classList.remove('hidden');
     }
 
+    // ── Pre-flight rate estimate ──────────────────────────────────────
+    // Gemini exposes NO API to query remaining quota, so this is a heuristic:
+    // known free-tier caps + a local same-day request tally (this tool only).
+    var FREE_RPM_6  = 20;    // requests/minute (observed free-tier cap for lite)
+    var FREE_RPD_6  = 1000;  // approx requests/day (guidance only)
+    var USAGE_KEY_6 = 'bpGeminiReqsDaily'; // shared with the Create Model Module tool
+
+    function todayStr6() { return new Date().toISOString().slice(0, 10); }
+    function todayUsage6() {
+      try {
+        var raw = JSON.parse(localStorage.getItem(USAGE_KEY_6) || '{}');
+        if (raw.date === todayStr6()) return raw.count || 0;
+      } catch (e) {}
+      return 0;
+    }
+    function addUsage6(n) {
+      try {
+        localStorage.setItem(USAGE_KEY_6,
+          JSON.stringify({ date: todayStr6(), count: todayUsage6() + n }));
+      } catch (e) {}
+    }
+    function estimateSuccess6(callCount) {
+      var used   = todayUsage6();
+      var detail =
+        'This job will make about ' + callCount + ' Gemini request' +
+        (callCount === 1 ? '' : 's') + ' (one per module). Free tier allows roughly ' +
+        FREE_RPM_6 + '/minute and ~' + FREE_RPD_6 + '/day' +
+        (used > 0 ? '; ~' + used + ' used today through this tool' : '') + '. ' +
+        'Gemini can’t report exact remaining quota, so this is an estimate.';
+      var level, tone;
+      if (FREE_RPD_6 - used <= callCount) {
+        level = 'May fail — you appear close to the daily free-tier limit.';
+        tone  = 'level-risk';
+      } else if (callCount > FREE_RPM_6) {
+        level = 'Likely to succeed, but may slow down (the tool paces and retries).';
+        tone  = 'level-warn';
+      } else {
+        level = 'Likely to succeed.';
+        tone  = 'level-ok';
+      }
+      return { level: level, detail: detail, tone: tone };
+    }
+
+    // Shows the estimate and waits for Proceed/Cancel before the heavy work.
+    function showPreflight6(modelModule) {
+      if (workQueue.length === 0) { beginModuleLoop(modelModule); return; }
+
+      var est     = estimateSuccess6(workQueue.length); // one call per module
+      var levelEl = document.getElementById('preflight-level');
+      levelEl.textContent = est.level;
+      levelEl.className   = 'preflight-level ' + est.tone;
+      document.getElementById('preflight-detail').textContent = est.detail;
+
+      document.getElementById('spinner-wrap').classList.add('hidden');
+      document.getElementById('preflight').classList.remove('hidden');
+      // Move focus into the panel (run-btn, previously focused, is now disabled).
+      document.getElementById('preflight-proceed').focus();
+
+      document.getElementById('preflight-proceed').onclick = function () {
+        document.getElementById('preflight').classList.add('hidden');
+        document.getElementById('spinner-wrap').classList.remove('hidden');
+        beginModuleLoop(modelModule);
+      };
+      document.getElementById('preflight-cancel').onclick = function () {
+        document.getElementById('preflight').classList.add('hidden');
+        document.getElementById('spinner-wrap').classList.remove('hidden'); // reset for next run
+        document.getElementById('progress-area').classList.add('hidden');
+        document.getElementById('run-btn').disabled = false;
+        document.getElementById('run-btn').focus(); // restore focus off the hidden Cancel
+      };
+    }
+
     // ── Progress timing (spinner + Elapsed + Est. remaining) ──────────
     function fmtClock6(totalSeconds) {
       return Math.floor(totalSeconds / 60) + ':' +
@@ -508,6 +601,8 @@
     function startClock6() {
       var clockEl = document.getElementById('clock');
       var etaEl   = document.getElementById('eta');
+      clockEl.textContent = '0:00';   // reset so a repeat run never flashes the prior value
+      etaEl.textContent   = '~0:00';
       var seedMs  = getMsPerActivity6();
       deployTimer = setInterval(function () {
         clockEl.textContent = fmtClock6(Math.floor((Date.now() - deployStart) / 1000));
@@ -576,17 +671,18 @@
       document.getElementById('run-btn').disabled = true;
       document.getElementById('activity-results').innerHTML = '';
       document.getElementById('stop-controls').classList.add('hidden');
+      document.getElementById('preflight').classList.add('hidden');
+      document.getElementById('spinner-wrap').classList.remove('hidden');
       document.getElementById('progress-area').classList.remove('hidden');
       hideError();
-      setProgressLabel('Initializing… (reading model module and course design)');
+      setProgressLabel('Checking access & rate limits…');
 
-      deployStart = Date.now();
-      startClock6();
+      // The init step makes one live Gemini call (key validation) — count it.
+      addUsage6(1);
 
       google.script.run
         .withSuccessHandler(function (result) {
           if (result.keyError) {
-            stopClock6();
             document.getElementById('run-btn').disabled = false;
             document.getElementById('progress-area').classList.add('hidden');
             showError('API key error: ' + result.keyError);
@@ -594,7 +690,8 @@
           }
           sessionData = result;
           buildWorkQueue(modelModule, targets);
-          beginModuleLoop(modelModule);
+          // Pre-flight estimate before the token-heavy work; user proceeds/cancels.
+          showPreflight6(modelModule);
         })
         .withFailureHandler(function (err) {
           stopClock6();
@@ -633,7 +730,12 @@
         finishDeploy(modelModule);
         return;
       }
-      loopStart = Date.now();
+      // Start the clock here (not at init) so Elapsed measures the actual
+      // deploy work, not the time spent on the access check / pre-flight prompt.
+      deployStart = Date.now();
+      loopStart   = Date.now();
+      document.getElementById('time-line').classList.remove('hidden');
+      startClock6();
       document.getElementById('stop-controls').classList.remove('hidden');
       processNextModule(0, modelModule, 1);
     }
@@ -648,6 +750,7 @@
       }
 
       var mod = workQueue[idx];
+      addUsage6(1); // one Gemini request per module call (retries counted too)
       setProgressLabel(
         mod.targetModuleTitle + ' — adapting ' + mod.activities.length + ' activities' +
         ' (module ' + (idx + 1) + ' / ' + workQueue.length + ')' +

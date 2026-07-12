@@ -334,6 +334,7 @@ function buildModuleAdaptPrompt6_(params) {
     '- Separate paragraphs with a blank line.\n' +
     '- Do not add a title heading for an activity — after its delimiter, begin ' +
     'directly with the directions content.\n' +
+    '- If you refer to the campus help desk, call it exactly "Boise State Help Desk".\n' +
     '- Do NOT include any "Due by … Mountain Time" date header, nor any Canvas ' +
     'header annotation such as "Unpublished text header in Canvas" — those are ' +
     'generated separately and must never appear in the directions.\n\n' +

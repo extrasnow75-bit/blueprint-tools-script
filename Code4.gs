@@ -433,6 +433,7 @@ function buildAiDirectionsPrompt4(params) {
     '- Omit any section entirely if it has no applicable content for this activity — ' +
     'do not write "no X assigned" or similar placeholder text.\n' +
     '- Do not start with the activity title as a heading — begin directly with content.\n' +
+    '- If you refer to the campus help desk, call it exactly "Boise State Help Desk".\n' +
     '- Aim for 150–400 words. Keep instructions focused and actionable for students.\n\n' +
     'Write student-facing directions for this activity now.'
   );
@@ -689,6 +690,54 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
   // Post-processing pass: bold heading text after all elements are inserted.
   // Done here (not inline) so the GAS batch has fully flushed before we apply bold.
   applyHeadingBold4(body, insertIdx, tokens.length);
+
+  // Normalize + hyperlink any "help desk" mention in the inserted text.
+  linkifyHelpDesk4_(body, insertIdx, tokens.length);
+}
+
+// ── HELP DESK LINKIFIER ───────────────────────────────────────────────
+
+/**
+ * In the just-inserted paragraphs, normalizes any "help desk" mention to the
+ * canonical "Boise State Help Desk" and hyperlinks it to OIT assistance. The AI
+ * is also prompted to use that exact wording; this pass makes it reliable and
+ * adds the link (the formatter itself produces no hyperlinks). Shared by the
+ * Create Model Module (AI) and Deploy Activity Directions (AI) tools.
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {number} startIdx   index where insertion began
+ * @param {number} count      number of inserted elements to scan
+ */
+function linkifyHelpDesk4_(body, startIdx, count) {
+  var URL    = 'https://www.boisestate.edu/oit/assistance/';
+  var PHRASE = 'Boise State Help Desk';
+  var end    = Math.min(startIdx + count, body.getNumChildren());
+
+  for (var i = startIdx; i < end; i++) {
+    var child = body.getChild(i);
+    var type  = child.getType();
+    if (type !== DocumentApp.ElementType.PARAGRAPH &&
+        type !== DocumentApp.ElementType.LIST_ITEM) continue;
+
+    try {
+      // Collapse any existing "Boise State Help Desk" back to "Help Desk", then
+      // promote every "help desk" (any case) to the canonical phrase — so the
+      // result carries exactly one "Boise State" prefix regardless of AI casing.
+      child.replaceText('(?i)boise state\\s+help desk', 'Help Desk');
+      child.replaceText('(?i)help desk', PHRASE);
+
+      var textEl = child.editAsText();
+      var s      = textEl.getText();
+      var from   = 0, idx;
+      while ((idx = s.indexOf(PHRASE, from)) !== -1) {
+        textEl.setLinkUrl(idx, idx + PHRASE.length - 1, URL);
+        from = idx + PHRASE.length;
+      }
+    } catch (e) {
+      // Linking is cosmetic — never let it fail the whole insertion.
+      Logger.log('linkifyHelpDesk4_: skipped a paragraph (' + ((e && e.message) || e) + ')');
+    }
+  }
 }
 
 // ── HEADING BOLD POST-PROCESSOR ───────────────────────────────────────
