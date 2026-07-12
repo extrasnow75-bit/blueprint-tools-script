@@ -6,12 +6,22 @@
 // Reuses from the shared GAS namespace:
 //   Code4.gs — parseCourseDesignMap, extractTextFromElements4,
 //               insertFormattedText4, callGemini4_, validateGeminiKey4,
-//               findPlaceholderInTool4, GEMINI_PRIMARY_4, INDENT_4
+//               findPlaceholderInTool4, INDENT_4
+//               (deploy model is GEMINI_DEPLOY_6, defined below)
 //   Code2.gs — readModuleContent_, findMatchingModelContent_,
 //               getDevelopmentTabBody, collectTabs, collectAllModuleActivities,
 //               stripActivityHeading, findDirectionsPlaceholder
 //   Code.gs  — FONT, RED, BLACK
 // ============================================================
+
+// ── CONSTANTS ─────────────────────────────────────────────────
+// Adaptation model. Lite has the highest free-tier request throughput, which
+// matters because this tool makes one Gemini call per activity across many
+// modules — the full flash (thinking) model saturates the free-tier rate limit
+// quickly and spends tokens "thinking" about what is really a constrained
+// adaptation task. Lite also matches validateGeminiKey4 (which validates against
+// the lite model), so the key check now tests the same model deployment uses.
+var GEMINI_DEPLOY_6 = 'gemini-2.5-flash-lite';
 
 // ── SIDEBAR OPENER ────────────────────────────────────────────
 
@@ -149,54 +159,128 @@ function initDeployAiSession6(params) {
   };
 }
 
-// ── PER-ACTIVITY ADAPTATION ────────────────────────────────────
+// ── PER-MODULE ADAPTATION (BATCHED) ────────────────────────────
 
 /**
- * Adapts model directions for one activity in one target module and
- * inserts the AI-generated text into the blueprint document.
+ * Adapts every activity in ONE target module with a SINGLE Gemini call, then
+ * inserts each activity's adapted directions into its placeholder.
  *
- * Called sequentially from the sidebar — once per activity per module.
+ * Batching (one call per module instead of one per activity) cuts the number of
+ * API requests ~10x, which is the difference between constantly tripping the
+ * free-tier rate limit and finishing in a couple of minutes.
  *
  * @param {Object} params
  *   .apiKey            {string}
  *   .modelModuleTitle  {string}
  *   .targetModuleTitle {string}
- *   .activityTitle     {string}   stripped title
- *   .modelText         {string}   plain-text model directions
- *   .moduleContext     {Object|null}  CDM data for target module
- * @returns {{ success: boolean, skipped?: boolean, error?: string }}
+ *   .activities        {Array<{activityTitle: string, modelText: string}>}
+ *   .moduleContext     {Object|null}  CDM data for the target module
+ * @returns {{
+ *   success: boolean,
+ *   results?: Array<{activityTitle: string, success: boolean, skipped?: boolean, error?: string}>,
+ *   error?: string
+ * }}
  */
-function adaptAndDeployActivity6(params) {
+function adaptAndDeployModule6(params) {
+  var activities = params.activities || [];
+  if (activities.length === 0) return { success: true, results: [] };
+
   try {
+    var prompt = buildModuleAdaptPrompt6_(params);
+    // One call now returns directions for the whole module, so give it a
+    // generous output budget (default caps can truncate a multi-activity reply).
+    var aiText = callGemini4_(params.apiKey, prompt, GEMINI_DEPLOY_6, { maxOutputTokens: 32768 });
+    var blocks = splitModuleResponse6_(aiText, activities.length);
+
     var doc     = DocumentApp.getActiveDocument();
     var devBody = getDevelopmentTabBody(doc);
     if (!devBody) throw new Error('Could not find the Development tab.');
 
-    var placeholder = findPlaceholderInTool4(
-      devBody, params.targetModuleTitle, params.activityTitle
-    );
-    if (!placeholder) {
-      // Slot already filled or title mismatch — skip.
-      return { success: true, skipped: true };
+    var results = [];
+    for (var i = 0; i < activities.length; i++) {
+      var act     = activities[i];
+      var aiBlock = blocks[i];
+
+      // The model omitted this activity — report it, but leave the placeholder
+      // in place so nothing is destroyed.
+      if (!aiBlock || !aiBlock.trim()) {
+        results.push({ activityTitle: act.activityTitle, success: false,
+                       error: 'No adapted text returned for this activity.' });
+        continue;
+      }
+
+      var placeholder = findPlaceholderInTool4(devBody, params.targetModuleTitle, act.activityTitle);
+      if (!placeholder) {
+        // Slot already filled or title mismatch — skip (not an error).
+        results.push({ activityTitle: act.activityTitle, success: true, skipped: true });
+        continue;
+      }
+
+      var indent    = placeholder.getIndentStart() || INDENT_4;
+      var insertIdx = devBody.getChildIndex(placeholder);
+      placeholder.removeFromParent();
+      insertFormattedText4(devBody, insertIdx, aiBlock, indent);
+      results.push({ activityTitle: act.activityTitle, success: true });
     }
 
-    var indent    = placeholder.getIndentStart() || INDENT_4;
-    var prompt    = buildAdaptPrompt6_(params);
-    var aiText    = callGemini4_(params.apiKey, prompt, GEMINI_PRIMARY_4);
-    var insertIdx = devBody.getChildIndex(placeholder);
-    placeholder.removeFromParent();
-    insertFormattedText4(devBody, insertIdx, aiText, indent);
-
-    return { success: true };
+    return { success: true, results: results };
   } catch (e) {
-    Logger.log('adaptAndDeployActivity6 [' + params.targetModuleTitle + ' / ' + params.activityTitle + ']: ' + e.message);
+    // Whole-module failure (e.g. a rate limit that survived callGemini4_'s
+    // retries). Nothing was inserted, so the client can safely retry the module.
+    Logger.log('adaptAndDeployModule6 [' + params.targetModuleTitle + ']: ' + e.message);
     return { success: false, error: e.message };
   }
 }
 
+// ── RESPONSE SPLITTER ──────────────────────────────────────────
+
+/**
+ * Splits a batched Gemini reply into per-activity blocks using the
+ * "@@@ACTIVITY N@@@" delimiter the prompt requires. Mapping is by the 1-based
+ * number N (robust to the model reordering activities). Any block the model
+ * omits is left undefined so the caller flags it rather than mis-assigning it.
+ *
+ * @param {string} aiText
+ * @param {number} expectedCount
+ * @returns {Array<string|undefined>} blocks[i] = directions for activity i (0-based)
+ */
+function splitModuleResponse6_(aiText, expectedCount) {
+  aiText = String(aiText || '');
+
+  // Strip a markdown code fence ONLY when it wraps the entire reply (anchored).
+  // A non-anchored match would grab just the first ```…``` block and discard
+  // everything after it — fatal if the model fences each activity separately.
+  // Per-activity fences (if any) are handled downstream by insertFormattedText4.
+  var whole = aiText.trim().match(/^```(?:markdown|text)?\n?([\s\S]*?)\n?```$/);
+  if (whole) aiText = whole[1];
+
+  var re      = /@@@ACTIVITY\s+(\d+)@@@/g;
+  var blocks  = new Array(expectedCount);
+  var matches = [];
+  var m;
+  while ((m = re.exec(aiText)) !== null) {
+    matches.push({ num: parseInt(m[1], 10), contentStart: re.lastIndex, markerStart: m.index });
+  }
+
+  // No delimiters at all — only safe to use the whole reply if a single
+  // activity was requested; otherwise we cannot split reliably.
+  if (matches.length === 0) {
+    if (expectedCount === 1) blocks[0] = aiText.trim();
+    return blocks;
+  }
+
+  for (var i = 0; i < matches.length; i++) {
+    var end  = (i + 1 < matches.length) ? matches[i + 1].markerStart : aiText.length;
+    var text = aiText.slice(matches[i].contentStart, end).trim();
+    var idx  = matches[i].num - 1; // 1-based → 0-based
+    if (idx >= 0 && idx < expectedCount) blocks[idx] = text;
+  }
+  return blocks;
+}
+
 // ── PROMPT BUILDER ─────────────────────────────────────────────
 
-function buildAdaptPrompt6_(params) {
+function buildModuleAdaptPrompt6_(params) {
   var ctx = params.moduleContext;
 
   var contextLines = [];
@@ -212,25 +296,47 @@ function buildAdaptPrompt6_(params) {
     ? 'TARGET MODULE CONTEXT:\n' + contextLines.join('\n') + '\n\n'
     : '';
 
+  var activities = params.activities || [];
+  var actBlocks  = [];
+  for (var i = 0; i < activities.length; i++) {
+    // Neutralize any literal "@@@" in doc-sourced text so it can't spoof the
+    // "@@@ACTIVITY N@@@" delimiter we split the reply on (collapsing to a single
+    // "@" cannot match the 3-@ marker).
+    var safeTitle = String(activities[i].activityTitle || '').replace(/@{2,}/g, '@');
+    var safeModel = String(activities[i].modelText || '').replace(/@{2,}/g, '@');
+    actBlocks.push(
+      'ACTIVITY ' + (i + 1) + ': ' + safeTitle + '\n' +
+      'MODEL DIRECTIONS (adapt these):\n' + safeModel
+    );
+  }
+
   return (
     'You are an instructional designer adapting student-facing activity directions ' +
     'for a college online course.\n\n' +
     'The directions below were written for "' +
     (params.modelModuleTitle || 'the model module') +
-    '". Adapt them for "' + params.targetModuleTitle + '". ' +
+    '". Adapt EACH activity for "' + params.targetModuleTitle + '". ' +
     'Keep the structure, tone, and formatting identical — only update content ' +
     'that should genuinely differ between modules, such as module-specific ' +
     'activity numbers or references to specific readings listed in the context.\n\n' +
     contextBlock +
-    'ACTIVITY: ' + params.activityTitle + '\n\n' +
-    'MODEL DIRECTIONS (adapt these):\n' + params.modelText + '\n\n' +
+    'There are ' + activities.length + ' activities to adapt:\n\n' +
+    actBlocks.join('\n\n---\n\n') + '\n\n' +
     'FORMATTING RULES — follow exactly:\n' +
+    '- Return the adapted directions for EVERY activity, in order, each preceded ' +
+    'by a delimiter line EXACTLY of the form "@@@ACTIVITY N@@@" where N is the ' +
+    'activity number shown above (e.g. "@@@ACTIVITY 1@@@"). Put the delimiter on ' +
+    'its own line, then that activity\'s directions beneath it.\n' +
     '- For section headings, write the heading text followed by (H2) or (H3) on the ' +
     'same line. Example: "Overview (H2)". Do NOT use # markdown syntax.\n' +
     '- For bullet lists, begin each item with "- " (dash then space).\n' +
     '- For inline bold text, wrap with **double asterisks**.\n' +
     '- Separate paragraphs with a blank line.\n' +
-    '- Do not add a title heading — begin directly with content.\n\n' +
-    'Write the adapted directions now.'
+    '- Do not add a title heading for an activity — after its delimiter, begin ' +
+    'directly with the directions content.\n' +
+    '- Do NOT include any "Due by … Mountain Time" date header, nor any Canvas ' +
+    'header annotation such as "Unpublished text header in Canvas" — those are ' +
+    'generated separately and must never appear in the directions.\n\n' +
+    'Write the adapted directions for all ' + activities.length + ' activities now.'
   );
 }

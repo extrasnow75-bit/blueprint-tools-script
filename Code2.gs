@@ -322,6 +322,17 @@ function readModuleContent_(body, moduleTitle) {
 
       if (!currentTitle) continue;
 
+      // Structural due-date markers are NOT activity directions. Skip them so
+      // the deploy tools (AI adaptation + No-AI copy) never fold them into an
+      // activity's content and reproduce them in a target module — which
+      // already has its own "Due by" headers from "Add Activity Titles."
+      //   • "Due by … Mountain Time"            (the H3 due-date header)
+      //   • "… text header in Canvas" / "Do not build in Canvas" (its annotation)
+      if (/due by .+mountain time/i.test(text) ||
+          /(text header in canvas|do not build in canvas)/i.test(text)) {
+        continue;
+      }
+
       // Skip the "Tool; Link to settings tab" line and leading blank lines.
       if (!pastPreamble) {
         if (/link to settings tab/i.test(text)) continue;

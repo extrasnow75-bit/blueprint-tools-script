@@ -197,6 +197,12 @@
 
     .spinner-label { font-size: 12px; color: #555; }
 
+    .time-line {
+      font-size: 12px;
+      color: #444;
+      margin: 4px 0 8px;
+    }
+
     #activity-results { margin: 6px 0 10px; font-size: 12px; }
     .result-row { margin-bottom: 4px; line-height: 1.4; }
     .result-ok  { color: #1a7f37; font-weight: bold; }
@@ -268,8 +274,11 @@
     <div style="margin-bottom:14px;">
       <h3>Model Module</h3>
       <p class="help-text">
-        Select the module already set up with &ldquo;Create Model Module.&rdquo;
-        Its directions will be adapted by AI for each target module below.
+        Select the module you set up with &ldquo;Create Model Module.&rdquo;
+        The tool analyzes the course design map, then adapts that model
+        module&rsquo;s directions &mdash; matching its structure, tone, and
+        formatting &mdash; to create instructions for each target module you
+        check below.
       </p>
       <select id="model-select" class="activity-select" aria-label="Model module">
         <!-- Populated by JS -->
@@ -310,6 +319,14 @@
         <div class="spinner" aria-hidden="true"></div>
         <span class="spinner-label" id="progress-label">Initializing&hellip;</span>
       </div>
+      <!-- aria-hidden: these numbers repaint every second; announcing them in the
+           aria-live progress region would flood a screen reader. The spinner
+           label above carries the meaningful status. -->
+      <p class="time-line" aria-hidden="true">
+        Elapsed: <strong><span id="clock">0:00</span></strong>
+        &nbsp;&middot;&nbsp;
+        Est. remaining: <strong><span id="eta">~0:00</span></strong>
+      </p>
       <div id="activity-results"></div>
       <div id="stop-controls" class="hidden">
         <button class="stop-btn" onclick="stopDeploy()"><span aria-hidden="true">&#9632;</span> Stop</button>
@@ -338,11 +355,25 @@
     // ── State ────────────────────────────────────────────────────────
     var sessionData        = null;  // result of initDeployAiSession6
     var targetModuleTitles = [];    // user-checked modules (ordered)
-    var workQueue          = [];    // [{targetModuleTitle, actTitle, modelText}]
+    var workQueue          = [];    // [{targetModuleTitle, modelModuleTitle, activities[], moduleContext}]
+    var totalActivities    = 0;     // sum of activities across all queued modules (for ETA)
     var stopRequested      = false;
     var successCount       = 0;
     var failCount          = 0;
     var currentApiKey      = '';
+
+    // Progress timing
+    var deployTimer  = null;   // 1s interval driving the Elapsed/ETA display
+    var deployStart  = 0;      // ms timestamp when the run (incl. init) began
+    var loopStart    = 0;      // ms timestamp when the per-module loop began
+    var completedCount = 0;    // activities finished (success/skip/failed), for ETA
+    // Key is versioned: batching made activities far faster than the old
+    // per-activity estimate, so start fresh rather than inherit a stale seed.
+    var EST_KEY_6 = 'bpTool6_msPerActivity_batched';
+
+    // Reliability tuning
+    var THROTTLE_MS        = 3000; // pacing between module calls (few now, so cheap insurance)
+    var MAX_MODULE_RETRIES = 2;    // extra attempts per module on transient/rate errors
 
     // ── Init ─────────────────────────────────────────────────────────
     window.addEventListener('load', function () {
@@ -454,6 +485,63 @@
       el.classList.remove('hidden');
     }
 
+    // ── Progress timing (spinner + Elapsed + Est. remaining) ──────────
+    function fmtClock6(totalSeconds) {
+      return Math.floor(totalSeconds / 60) + ':' +
+             String(totalSeconds % 60).padStart(2, '0');
+    }
+
+    // Rolling per-activity duration, persisted so the first estimate on the
+    // next run is closer. localStorage may be unavailable in the sandbox, so
+    // every access is wrapped in try/catch with a sensible fallback.
+    function getMsPerActivity6() {
+      try {
+        var v = parseFloat(localStorage.getItem(EST_KEY_6));
+        if (v && v > 0) return v;
+      } catch (e) {}
+      return 4000; // first-run guess: ~4s/activity amortized across a batched module call
+    }
+    function saveMsPerActivity6(v) {
+      try { localStorage.setItem(EST_KEY_6, String(v)); } catch (e) {}
+    }
+
+    function startClock6() {
+      var clockEl = document.getElementById('clock');
+      var etaEl   = document.getElementById('eta');
+      var seedMs  = getMsPerActivity6();
+      deployTimer = setInterval(function () {
+        clockEl.textContent = fmtClock6(Math.floor((Date.now() - deployStart) / 1000));
+        var total = totalActivities;
+        if (total > 0) {
+          var remaining = total - completedCount;
+          // Once activities have finished, base the estimate on the actual
+          // observed pace (which naturally includes throttle + retry waits);
+          // before that, fall back to the persisted per-activity seed.
+          var avgMs = (completedCount > 0 && loopStart > 0)
+            ? (Date.now() - loopStart) / completedCount
+            : seedMs;
+          etaEl.textContent = remaining > 0
+            ? '~' + fmtClock6(Math.ceil((remaining * avgMs) / 1000))
+            : 'almost done…';
+        }
+      }, 1000);
+    }
+    function stopClock6() {
+      if (deployTimer) { clearInterval(deployTimer); deployTimer = null; }
+    }
+
+    // Wait before retrying a failed activity. Honor a "retry in Xs" hint from a
+    // rate-limit message; otherwise pause briefly for transient server errors.
+    function retryWaitMs6(errMsg) {
+      var m = String(errMsg || '');
+      if (/429|rate limit|quota/i.test(m)) {
+        var hint = m.match(/retry in\s+([\d.]+)/i);
+        if (hint) return Math.min(Math.ceil(parseFloat(hint[1]) * 1000) + 500, 60000);
+        return 15000;
+      }
+      return 3000;
+    }
+
     // ── Deploy ────────────────────────────────────────────────────────
     function startDeploy() {
       var apiKey      = document.getElementById('api-key-input').value.trim();
@@ -478,6 +566,9 @@
       stopRequested      = false;
       successCount       = 0;
       failCount          = 0;
+      completedCount     = 0;
+      totalActivities    = 0;
+      loopStart          = 0;
       sessionData        = null;
       targetModuleTitles = targets;
       currentApiKey      = apiKey;
@@ -489,9 +580,13 @@
       hideError();
       setProgressLabel('Initializing… (reading model module and course design)');
 
+      deployStart = Date.now();
+      startClock6();
+
       google.script.run
         .withSuccessHandler(function (result) {
           if (result.keyError) {
+            stopClock6();
             document.getElementById('run-btn').disabled = false;
             document.getElementById('progress-area').classList.add('hidden');
             showError('API key error: ' + result.keyError);
@@ -499,9 +594,10 @@
           }
           sessionData = result;
           buildWorkQueue(modelModule, targets);
-          beginActivityLoop(modelModule);
+          beginModuleLoop(modelModule);
         })
         .withFailureHandler(function (err) {
+          stopClock6();
           document.getElementById('run-btn').disabled = false;
           document.getElementById('progress-area').classList.add('hidden');
           showError('Initialization error: ' + (err.message || err));
@@ -515,62 +611,107 @@
 
     function buildWorkQueue(modelModule, targets) {
       workQueue = [];
+      totalActivities = 0;
       targets.forEach(function (target) {
         var acts = (sessionData.activitiesByTarget || {})[target] || [];
-        acts.forEach(function (item) {
-          workQueue.push({
-            modelModuleTitle:  modelModule,
-            targetModuleTitle: target,
-            activityTitle:     item.actTitle,
-            modelText:         item.modelText,
-            moduleContext:     (sessionData.moduleContextByTarget || {})[target] || null
-          });
+        if (acts.length === 0) return; // nothing to adapt in this module
+        var activities = acts.map(function (item) {
+          return { activityTitle: item.actTitle, modelText: item.modelText };
+        });
+        totalActivities += activities.length;
+        workQueue.push({
+          modelModuleTitle:  modelModule,
+          targetModuleTitle: target,
+          activities:        activities,
+          moduleContext:     (sessionData.moduleContextByTarget || {})[target] || null
         });
       });
     }
 
-    function beginActivityLoop(modelModule) {
+    function beginModuleLoop(modelModule) {
       if (workQueue.length === 0) {
         finishDeploy(modelModule);
         return;
       }
+      loopStart = Date.now();
       document.getElementById('stop-controls').classList.remove('hidden');
-      processNext(0, modelModule);
+      processNextModule(0, modelModule, 1);
     }
 
-    function processNext(idx, modelModule) {
+    // Adapts one whole module per server call (all its activities in a single
+    // batched Gemini request) — far fewer requests, so far less rate limiting.
+    function processNextModule(idx, modelModule, attempt) {
+      attempt = attempt || 1;
       if (stopRequested || idx >= workQueue.length) {
         finishDeploy(modelModule);
         return;
       }
 
-      var item  = workQueue[idx];
-      var total = workQueue.length;
+      var mod = workQueue[idx];
       setProgressLabel(
-        item.targetModuleTitle + ' — ' + item.activityTitle +
-        ' (' + (idx + 1) + ' / ' + total + ')…'
+        mod.targetModuleTitle + ' — adapting ' + mod.activities.length + ' activities' +
+        ' (module ' + (idx + 1) + ' / ' + workQueue.length + ')' +
+        (attempt > 1 ? ' — retry ' + (attempt - 1) : '') + '…'
       );
-
-      var callParams = {
-        apiKey:            currentApiKey,
-        modelModuleTitle:  item.modelModuleTitle,
-        targetModuleTitle: item.targetModuleTitle,
-        activityTitle:     item.activityTitle,
-        modelText:         item.modelText,
-        moduleContext:     item.moduleContext
-      };
 
       google.script.run
         .withSuccessHandler(function (result) {
-          if (!result.skipped) addResult(item.targetModuleTitle, item.activityTitle, result);
-          processNext(idx + 1, modelModule);
+          onModuleDone(idx, modelModule, attempt, mod,
+            result || { success: false, error: 'Empty response from server.' });
         })
         .withFailureHandler(function (err) {
-          addResult(item.targetModuleTitle, item.activityTitle,
-            { success: false, error: err.message || String(err) });
-          processNext(idx + 1, modelModule);
+          // Only infrastructure/transport failures ("a server error occurred")
+          // reach the failure handler; adaptAndDeployModule6 catches its own.
+          onModuleDone(idx, modelModule, attempt, mod,
+            { success: false, error: (err && (err.message || String(err))) || 'Server error.' });
         })
-        .adaptAndDeployActivity6(callParams);
+        .adaptAndDeployModule6({
+          apiKey:            currentApiKey,
+          modelModuleTitle:  mod.modelModuleTitle,
+          targetModuleTitle: mod.targetModuleTitle,
+          activities:        mod.activities,
+          moduleContext:     mod.moduleContext
+        });
+    }
+
+    // Records each activity's row (or retries the whole module), then paces on.
+    function onModuleDone(idx, modelModule, attempt, mod, result) {
+      if (result.success) {
+        (result.results || []).forEach(function (r) {
+          if (!r.skipped) addResult(mod.targetModuleTitle, r.activityTitle, r);
+        });
+        advance(idx, modelModule, mod.activities.length);
+        return;
+      }
+
+      // Whole-module failure (rate limit survived server retries, or a transient
+      // server error). Nothing was inserted, so retrying the module is safe.
+      if (!stopRequested && attempt <= MAX_MODULE_RETRIES) {
+        setProgressLabel(mod.targetModuleTitle + ' — retrying…');
+        setTimeout(function () {
+          processNextModule(idx, modelModule, attempt + 1);
+        }, retryWaitMs6(result.error));
+        return;
+      }
+
+      // Out of retries (or stopped) — mark every activity in the module failed.
+      mod.activities.forEach(function (a) {
+        addResult(mod.targetModuleTitle, a.activityTitle,
+          { success: false, error: result.error });
+      });
+      advance(idx, modelModule, mod.activities.length);
+    }
+
+    // Advances the ETA counter by this module's activity count, then schedules
+    // the next module after a short pace (cheap insurance against rate limits).
+    function advance(idx, modelModule, activityCount) {
+      completedCount += activityCount;
+      var next = idx + 1;
+      if (stopRequested || next >= workQueue.length) {
+        processNextModule(next, modelModule, 1); // finishes immediately
+        return;
+      }
+      setTimeout(function () { processNextModule(next, modelModule, 1); }, THROTTLE_MS);
     }
 
     function addResult(moduleTitle, actTitle, result) {
@@ -601,24 +742,30 @@
     }
 
     function finishDeploy(modelModule) {
+      stopClock6();
+      // Calibrate the per-activity estimate from this run's observed pace so the
+      // next run's ETA starts closer. Guard against a zero/partial sample.
+      if (loopStart > 0 && completedCount > 0) {
+        var observed = (Date.now() - loopStart) / completedCount;
+        saveMsPerActivity6(Math.round(getMsPerActivity6() * 0.5 + observed * 0.5));
+      }
       document.getElementById('progress-area').classList.add('hidden');
       document.getElementById('stop-controls').classList.add('hidden');
       document.getElementById('run-btn').disabled = false;
 
-      var total   = workQueue.length;
-      var stopped = stopRequested && (successCount + failCount < total);
+      var total   = totalActivities; // activity count, not module count
+      var stopped = stopRequested && (completedCount < total);
       var lines   = [
         '✅ Deploy complete',
         '',
         'Model module:        ' + modelModule,
         'Target modules:      ' + targetModuleTitles.length,
         'Directions adapted:  ' + successCount +
-          (total > 0 ? ' of ' + (stopped ? successCount + failCount : total) : '')
+          (total > 0 ? ' of ' + (stopped ? completedCount : total) : '')
       ];
       if (failCount > 0) lines.push('Errors:              ' + failCount);
       if (stopped) {
-        lines.push('Stopped early — ' +
-          (total - successCount - failCount) + ' remaining.');
+        lines.push('Stopped early — ' + (total - completedCount) + ' remaining.');
       }
       lines.push('');
       lines.push('Review the deployed directions and update any');

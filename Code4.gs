@@ -449,12 +449,17 @@ function buildAiDirectionsPrompt4(params) {
  * @param {string} model   e.g. GEMINI_PRIMARY_4 or GEMINI_FAST_4
  * @returns {string}  generated text
  */
-function callGemini4_(apiKey, prompt, model) {
+function callGemini4_(apiKey, prompt, model, opts) {
   var url = GEMINI_BASE_URL_4 + model + ':generateContent';
+
+  // generationConfig defaults, with optional per-call overrides (e.g. a larger
+  // maxOutputTokens for a batched call that returns a whole module at once).
+  var genConfig = { temperature: 0.7 };
+  if (opts && opts.maxOutputTokens) genConfig.maxOutputTokens = opts.maxOutputTokens;
 
   var payload = {
     contents:         [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.7 }
+    generationConfig: genConfig
   };
 
   var options = {
@@ -466,7 +471,7 @@ function callGemini4_(apiKey, prompt, model) {
   };
 
   // Retry with exponential backoff on rate-limit (429) and transient 5xx errors.
-  var maxAttempts = 4;
+  var maxAttempts = 5;
   var response, responseCode, data;
 
   for (var attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -476,10 +481,15 @@ function callGemini4_(apiKey, prompt, model) {
     if (responseCode !== 429 && responseCode < 500) break; // success or non-retryable error
 
     if (attempt < maxAttempts) {
-      // Backoff: 2s, 4s, 8s (+ small jitter to avoid synchronized retries)
-      var waitMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
+      // Exponential backoff (2s, 4s, 8s, 16s + jitter) as the floor, but honor
+      // the API's own RetryInfo hint (e.g. "retry in 11s") when it asks for
+      // longer — waiting less than requested just guarantees another 429.
+      var backoffMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
+      var serverMs  = extractRetryDelayMs4_(response);
+      var waitMs    = Math.min(Math.max(backoffMs, serverMs), 60000); // cap at 60s
       Logger.log('callGemini4_ HTTP ' + responseCode + ' — retry ' + attempt +
-                 ' of ' + (maxAttempts - 1) + ' after ' + waitMs + 'ms');
+                 ' of ' + (maxAttempts - 1) + ' after ' + waitMs + 'ms' +
+                 (serverMs ? ' (server hint ' + serverMs + 'ms)' : ''));
       Utilities.sleep(waitMs);
     }
   }
@@ -506,7 +516,44 @@ function callGemini4_(apiKey, prompt, model) {
     throw new Error('Gemini returned no content. The prompt may have been blocked by safety filters.');
   }
 
+  // Truncated output (hit the token cap) would otherwise be returned as if it
+  // were complete — for a batched module reply that silently deploys partial
+  // directions. Fail instead, so the caller flags/retries rather than inserting
+  // a cut-off block.
+  if (data.candidates[0].finishReason === 'MAX_TOKENS') {
+    throw new Error('Gemini response hit the output length limit (MAX_TOKENS) and was ' +
+                    'truncated. Try deploying fewer modules at once, or a smaller module.');
+  }
+
   return data.candidates[0].content.parts[0].text || '';
+}
+
+/**
+ * Pulls the server-suggested retry delay out of a 429/5xx response body.
+ * Gemini returns it as a RetryInfo detail, e.g.
+ *   { error: { details: [ { "@type": "...RetryInfo", retryDelay: "11s" } ] } }
+ *
+ * @param {GoogleAppsScript.URL_Fetch.HTTPResponse} response
+ * @returns {number} delay in milliseconds, or 0 if none was provided
+ */
+function extractRetryDelayMs4_(response) {
+  try {
+    var data    = JSON.parse(response.getContentText());
+    var details = data && data.error && data.error.details;
+    if (!details || !details.length) return 0;
+    for (var i = 0; i < details.length; i++) {
+      var rd = details[i] && details[i].retryDelay;
+      if (rd) {
+        // e.g. "11s", "7.2s", or "1200ms"
+        var m = String(rd).match(/([\d.]+)\s*(ms|s)?/);
+        if (m) {
+          var val = parseFloat(m[1]);
+          return (m[2] === 'ms') ? Math.round(val) : Math.round(val * 1000);
+        }
+      }
+    }
+  } catch (e) { /* body not JSON or shape unexpected — fall back to backoff */ }
+  return 0;
 }
 
 /**
