@@ -183,7 +183,7 @@
 
     <h3>What Does This Tool Do?</h3>
     <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 12px;">
-      Copies the directions from your finished model module into the other modules you check off. It matches by activity type and pastes the model&rsquo;s wording as-is &mdash; no AI and no rewording. Use this when your activities are consistent enough that the same directions work across modules.
+      Copies directions from your finished model module into the other modules you check off. You choose which activities to deploy and which modules receive them, and the tool pastes the model&rsquo;s wording as-is &mdash; no AI and no rewording. Use this when your activities are consistent enough that the same directions work across modules.
     </p>
 
     <hr class="divider" />
@@ -197,6 +197,27 @@
       <select id="model-select" class="activity-select" aria-labelledby="model-heading">
         <!-- Populated by JS -->
       </select>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ── Activities to deploy ── -->
+    <div>
+      <h4 id="activities-heading">Activities to deploy</h4>
+      <p style="font-size:12px; color:#555; margin-bottom:8px;">
+        Choose which of the model module&rsquo;s activities to copy. Only the checked
+        activities are written into the target modules.
+      </p>
+      <div class="check-links">
+        <button type="button" onclick="checkAllActivities(true)">Select all</button>
+        &nbsp;&middot;&nbsp;
+        <button type="button" onclick="checkAllActivities(false)">Deselect all</button>
+      </div>
+      <div role="group" aria-labelledby="activities-heading">
+        <ul id="activity-checklist" class="module-list">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
     </div>
 
     <hr class="divider" />
@@ -271,6 +292,7 @@
       });
 
       buildChecklist(modelSelect.value, modules);
+      loadActivityChecklist(modelSelect.value);
 
       document.getElementById('loading-notice').classList.add('hidden');
       document.getElementById('main-form').classList.remove('hidden');
@@ -285,7 +307,59 @@
     // ── Model module change ───────────────────────────────────
     document.getElementById('model-select').addEventListener('change', function () {
       buildChecklist(this.value, sidebarData ? sidebarData.moduleList : []);
+      loadActivityChecklist(this.value);
     });
+
+    // ── Activity picker (which model-module activities to deploy) ──────
+    function loadActivityChecklist(modelModule) {
+      var ul = document.getElementById('activity-checklist');
+      ul.innerHTML = '<li class="no-modules-note">Loading activities&hellip;</li>';
+      google.script.run
+        .withSuccessHandler(function (r) { buildActivityChecklist((r && r.activities) || []); })
+        .withFailureHandler(function () {
+          ul.innerHTML = '<li class="no-modules-note">Could not read activities.</li>';
+        })
+        .getModelActivitiesNoAi(modelModule);
+    }
+
+    function buildActivityChecklist(activities) {
+      var ul = document.getElementById('activity-checklist');
+      ul.innerHTML = '';
+
+      if (activities.length === 0) {
+        var li = document.createElement('li');
+        li.className   = 'no-modules-note';
+        li.textContent = 'No activities with directions in this module.';
+        ul.appendChild(li);
+        return;
+      }
+
+      activities.forEach(function (act, idx) {
+        var li  = document.createElement('li');
+        li.className = 'module-item';
+
+        var cb  = document.createElement('input');
+        cb.type    = 'checkbox';
+        cb.id      = 'act-cb-' + idx;
+        cb.value   = act;
+        cb.checked = true;
+
+        var lbl = document.createElement('label');
+        lbl.htmlFor     = cb.id;
+        lbl.textContent = act;
+
+        li.appendChild(cb);
+        li.appendChild(lbl);
+        ul.appendChild(li);
+      });
+    }
+
+    function checkAllActivities(state) {
+      var boxes = document.querySelectorAll('#activity-checklist input[type="checkbox"]');
+      for (var i = 0; i < boxes.length; i++) {
+        boxes[i].checked = state;
+      }
+    }
 
     function buildChecklist(modelModule, modules) {
       var ul = document.getElementById('module-checklist');
@@ -357,8 +431,18 @@
         targets.push(checked[i].value);
       }
 
+      var checkedActs = document.querySelectorAll('#activity-checklist input[type="checkbox"]:checked');
+      var selectedActivities = [];
+      for (var a = 0; a < checkedActs.length; a++) {
+        selectedActivities.push(checkedActs[a].value);
+      }
+
       if (!modelModule) {
         showError('Please select a model module.');
+        return;
+      }
+      if (selectedActivities.length === 0) {
+        showError('Please check at least one activity to deploy.');
         return;
       }
       if (targets.length === 0) {
@@ -376,7 +460,8 @@
         .withFailureHandler(onRunError)
         .applyDirectionsFromModel({
           modelModuleTitle:   modelModule,
-          targetModuleTitles: targets
+          targetModuleTitles: targets,
+          selectedActivities: selectedActivities
         });
     }
 

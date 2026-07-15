@@ -218,6 +218,23 @@ function getActivityPatternForModule(moduleTitle) {
 }
 
 /**
+ * Lists the activity titles that have directions in one model module, so the
+ * sidebar can offer a per-activity picker (deploy only the chosen activities).
+ * Titles are in document order; placeholder-only slots are excluded by
+ * readModuleContent_, so this reflects activities that actually have content.
+ *
+ * @param {string} modelModuleTitle
+ * @returns {{ activities: string[] }}
+ */
+function getModelActivitiesNoAi(modelModuleTitle) {
+  var doc     = DocumentApp.getActiveDocument();
+  var devBody = getDevelopmentTabBody(doc);
+  if (!devBody) return { activities: [] };
+  var content = readModuleContent_(devBody, modelModuleTitle);
+  return { activities: Object.keys(content) };
+}
+
+/**
  * Returns an ordered list of numbered module titles found in the Development tab.
  * e.g. ['Module 1', 'Module 2', 'Module 3']
  *
@@ -389,6 +406,16 @@ function applyDirectionsFromModel(params) {
   var modelModuleTitle   = params.modelModuleTitle;
   var targetModuleTitles = params.targetModuleTitles;
 
+  // Optional per-activity filter (case-insensitive on stripped title).
+  // Empty/undefined ⇒ deploy all activities (backward compatible).
+  var selectedSet = null;
+  if (params.selectedActivities && params.selectedActivities.length) {
+    selectedSet = {};
+    params.selectedActivities.forEach(function (t) {
+      selectedSet[String(t).toLowerCase()] = true;
+    });
+  }
+
   var blueprintDoc = DocumentApp.getActiveDocument();
   var devBody      = getDevelopmentTabBody(blueprintDoc);
   if (!devBody) throw new Error('Could not find a "Development" tab in this document.');
@@ -429,10 +456,16 @@ function applyDirectionsFromModel(params) {
 
       if (!inTarget || heading !== H4) continue;
 
+      // Cheap in-memory checks first: skip unchosen activities before the
+      // placeholder scan (findDirectionsPlaceholder crosses the document
+      // service up to ~11 times per activity).
+      var actTitle = stripActivityHeading(para.getText());
+
+      if (selectedSet && !selectedSet[actTitle.toLowerCase()]) continue; // not chosen
+
       var placeholder = findDirectionsPlaceholder(devBody, para, i);
       if (!placeholder) continue;
 
-      var actTitle      = stripActivityHeading(para.getText());
       var modelElements = findMatchingModelContent_(modelContent, actTitle);
 
       if (!modelElements || modelElements.length === 0) {
