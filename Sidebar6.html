@@ -145,6 +145,17 @@
 
     .no-modules-note { font-size: 12px; color: #555; padding: 4px 0; }
 
+    /* Live insertion-count hint (updates as activities/modules are checked) */
+    .insertion-hint {
+      font-size: 12px;
+      font-weight: bold;
+      margin: 4px 0 0;
+      min-height: 16px;
+    }
+    .hint-ok   { color: #1a7f37; }
+    .hint-warn { color: #8a6100; }
+    .hint-risk { color: #cc0000; }
+
     /* Buttons */
     .btn-row { margin-top: 16px; }
 
@@ -297,6 +308,27 @@
 
     <hr class="divider">
 
+    <!-- ── Activities to deploy ── -->
+    <div>
+      <h3>Activities to Deploy</h3>
+      <p class="help-text">
+        Choose which of the model module&rsquo;s activities to adapt and deploy.
+        Only the checked activities are written into the target modules.
+      </p>
+      <div class="check-links">
+        <button type="button" onclick="checkAllActivities(true)">Select all</button>
+        &nbsp;&middot;&nbsp;
+        <button type="button" onclick="checkAllActivities(false)">Deselect all</button>
+      </div>
+      <div role="group" aria-label="Activities to deploy">
+        <ul id="activity-checklist" class="module-list">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
+    </div>
+
+    <hr class="divider">
+
     <!-- ── Target modules ── -->
     <div>
       <h3>Target Modules</h3>
@@ -314,6 +346,22 @@
         </ul>
       </div>
     </div>
+
+    <!-- ── Size guidance ── -->
+    <p class="help-text" style="margin-top:12px;">
+      <strong>How big a job is reasonable?</strong> The work =
+      <em>activities &times; target modules</em> (&ldquo;insertions&rdquo;). On the free
+      Gemini tier, keep it under about <strong>40</strong> for a fast, reliable run;
+      <strong>40&ndash;90</strong> still works but slows down; over <strong>90</strong>
+      is best split into a few smaller passes.
+    </p>
+    <p class="help-text">
+      <strong>Example:</strong> in a 15-module course, one module is your model,
+      leaving 14 as targets. Deploying <strong>1 activity &rarr; 14 insertions</strong>
+      (fast, ~1&ndash;2&nbsp;min). Deploying <strong>all 8 activities &rarr; 112
+      insertions</strong> (large &mdash; deploy in a few smaller passes).
+    </p>
+    <p class="insertion-hint" id="insertion-hint" aria-live="polite"></p>
 
     <!-- ── Deploy button ── -->
     <div class="btn-row">
@@ -421,6 +469,7 @@
           sel.appendChild(opt);
         });
         buildChecklist(sel.value, modules);
+        loadActivityChecklist(sel.value);
       }
 
       document.getElementById('loading-notice').classList.add('hidden');
@@ -440,7 +489,12 @@
         all.push(o.value);
       });
       buildChecklist(this.value, all);
+      loadActivityChecklist(this.value);
     });
+
+    // Recount insertions whenever a target module or activity is toggled.
+    document.getElementById('module-checklist').addEventListener('change', updateInsertionHint);
+    document.getElementById('activity-checklist').addEventListener('change', updateInsertionHint);
 
     function buildChecklist(modelModule, modules) {
       var ul = document.getElementById('module-checklist');
@@ -452,6 +506,7 @@
         li.className = 'no-modules-note';
         li.textContent = 'No other modules found.';
         ul.appendChild(li);
+        updateInsertionHint();
         return;
       }
 
@@ -466,12 +521,96 @@
         li.appendChild(cb); li.appendChild(lbl);
         ul.appendChild(li);
       });
+      updateInsertionHint();
     }
 
     function checkAll(state) {
       document.querySelectorAll('#module-checklist input[type="checkbox"]').forEach(function (cb) {
         cb.checked = state;
       });
+      updateInsertionHint();
+    }
+
+    // ── Activity picker (which model-module activities to deploy) ──────
+    function loadActivityChecklist(modelModule) {
+      var ul = document.getElementById('activity-checklist');
+      ul.innerHTML = '<li class="no-modules-note">Loading activities…</li>';
+      google.script.run
+        .withSuccessHandler(function (r) { buildActivityChecklist((r && r.activities) || []); })
+        .withFailureHandler(function () {
+          ul.innerHTML = '<li class="no-modules-note">Could not read activities.</li>';
+          updateInsertionHint();
+        })
+        .getModelModuleActivities6(modelModule);
+    }
+
+    function buildActivityChecklist(activities) {
+      var ul = document.getElementById('activity-checklist');
+      ul.innerHTML = '';
+
+      if (activities.length === 0) {
+        var li = document.createElement('li');
+        li.className = 'no-modules-note';
+        li.textContent = 'No activities found in this module.';
+        ul.appendChild(li);
+        updateInsertionHint();
+        return;
+      }
+
+      activities.forEach(function (act, idx) {
+        var li  = document.createElement('li');
+        li.className = 'module-item';
+        var cb  = document.createElement('input');
+        cb.type = 'checkbox'; cb.id = 'act-cb-' + idx;
+        cb.value = act; cb.checked = true;
+        var lbl = document.createElement('label');
+        lbl.htmlFor = cb.id; lbl.textContent = act;
+        li.appendChild(cb); li.appendChild(lbl);
+        ul.appendChild(li);
+      });
+      updateInsertionHint();
+    }
+
+    function checkAllActivities(state) {
+      document.querySelectorAll('#activity-checklist input[type="checkbox"]').forEach(function (cb) {
+        cb.checked = state;
+      });
+      updateInsertionHint();
+    }
+
+    // ── Live insertion-count hint ─────────────────────────────────────
+    // insertions = checked activities × checked target modules. Steers the
+    // user toward a reasonable job size before they commit to the run.
+    function countChecked6(sel) {
+      return document.querySelectorAll(sel + ' input[type="checkbox"]:checked').length;
+    }
+    function updateInsertionHint() {
+      var hint = document.getElementById('insertion-hint');
+      if (!hint) return;
+      var acts = countChecked6('#activity-checklist');
+      var mods = countChecked6('#module-checklist');
+      if (acts === 0 || mods === 0) {
+        hint.textContent = '';
+        hint.className = 'insertion-hint';
+        return;
+      }
+      var n = acts * mods, zone, cls;
+      if (n > 90 || mods > 15) {
+        zone = 'large; consider a few smaller passes'; cls = 'hint-risk';
+      } else if (n > 40) {
+        zone = 'workable, but expect it to slow down'; cls = 'hint-warn';
+      } else {
+        zone = 'fast, reliable run'; cls = 'hint-ok';
+      }
+      // "up to" because a target module that lacks a placeholder for a selected
+      // activity contributes no insertion, so the true count (shown in the
+      // pre-flight estimate) can be lower than acts × mods. This keeps the live
+      // hint from visibly contradicting the pre-flight number.
+      hint.textContent =
+        'This run: up to ' + n + ' insertion' + (n === 1 ? '' : 's') +
+        ' (' + acts + ' activit' + (acts === 1 ? 'y' : 'ies') + ' × ' +
+        mods + ' module' + (mods === 1 ? '' : 's') + ') — ' + zone + '.';
+      hint.className = 'insertion-hint ' + cls;
     }
 
     // ── API key validation ────────────────────────────────────────────
@@ -527,19 +666,25 @@
           JSON.stringify({ date: todayStr6(), count: todayUsage6() + n }));
       } catch (e) {}
     }
-    function estimateSuccess6(callCount) {
+    function estimateSuccess6(callCount, totalInsertions) {
       var used   = todayUsage6();
+      var estMin = Math.max(1, Math.round((totalInsertions * getMsPerActivity6()) / 1000 / 60));
       var detail =
         'This job will make about ' + callCount + ' Gemini request' +
-        (callCount === 1 ? '' : 's') + ' (one per module). Free tier allows roughly ' +
-        FREE_RPM_6 + '/minute and ~' + FREE_RPD_6 + '/day' +
-        (used > 0 ? '; ~' + used + ' used today through this tool' : '') + '. ' +
+        (callCount === 1 ? '' : 's') + ' (one per module), ' + totalInsertions +
+        ' insertion' + (totalInsertions === 1 ? '' : 's') + ' total, est. ~' + estMin +
+        ' min. Free tier allows roughly ' + FREE_RPM_6 + '/minute and ~' + FREE_RPD_6 +
+        '/day' + (used > 0 ? '; ~' + used + ' used today through this tool' : '') + '. ' +
         'Gemini can’t report exact remaining quota, so this is an estimate.';
       var level, tone;
       if (FREE_RPD_6 - used <= callCount) {
         level = 'May fail — you appear close to the daily free-tier limit.';
         tone  = 'level-risk';
-      } else if (callCount > FREE_RPM_6) {
+      } else if (totalInsertions > 90 || callCount > 15) {
+        level = 'Large job — likely to slow down and may hit limits. ' +
+                'Consider deploying fewer activities or modules per pass.';
+        tone  = 'level-risk';
+      } else if (totalInsertions > 40 || callCount > FREE_RPM_6) {
         level = 'Likely to succeed, but may slow down (the tool paces and retries).';
         tone  = 'level-warn';
       } else {
@@ -553,7 +698,7 @@
     function showPreflight6(modelModule) {
       if (workQueue.length === 0) { beginModuleLoop(modelModule); return; }
 
-      var est     = estimateSuccess6(workQueue.length); // one call per module
+      var est     = estimateSuccess6(workQueue.length, totalActivities); // calls = modules; insertions = activities
       var levelEl = document.getElementById('preflight-level');
       levelEl.textContent = est.level;
       levelEl.className   = 'preflight-level ' + est.tone;
@@ -645,12 +790,20 @@
       var targets = [];
       for (var i = 0; i < checked.length; i++) targets.push(checked[i].value);
 
+      var checkedActs = document.querySelectorAll('#activity-checklist input[type="checkbox"]:checked');
+      var selectedActivities = [];
+      for (var a = 0; a < checkedActs.length; a++) selectedActivities.push(checkedActs[a].value);
+
       if (!apiKey) {
         showError('Please enter your Gemini API key.');
         return;
       }
       if (!modelModule) {
         showError('Please select a model module.');
+        return;
+      }
+      if (selectedActivities.length === 0) {
+        showError('Please check at least one activity to deploy.');
         return;
       }
       if (targets.length === 0) {
@@ -702,7 +855,8 @@
         .initDeployAiSession6({
           apiKey:             apiKey,
           modelModuleTitle:   modelModule,
-          targetModuleTitles: targets
+          targetModuleTitles: targets,
+          selectedActivities: selectedActivities
         });
     }
 

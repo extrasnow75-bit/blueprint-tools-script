@@ -45,6 +45,23 @@ function getDeployAiSidebarData6() {
   return { moduleList: collectAllModuleActivities(body).moduleList };
 }
 
+/**
+ * Lists the activity titles found in one model module, so the sidebar can offer
+ * a per-activity picker (deploy only the chosen activities across targets).
+ * Returns titles in document order. readModuleContent_ already skips the due-by
+ * and Canvas-header markers, so these are clean activity titles only.
+ *
+ * @param {string} modelModuleTitle
+ * @returns {{ activities: string[] }}
+ */
+function getModelModuleActivities6(modelModuleTitle) {
+  var doc     = DocumentApp.getActiveDocument();
+  var devBody = getDevelopmentTabBody(doc);
+  if (!devBody) return { activities: [] };
+  var content = readModuleContent_(devBody, modelModuleTitle);
+  return { activities: Object.keys(content) };
+}
+
 // ── SESSION INITIALIZATION ─────────────────────────────────────
 
 /**
@@ -83,6 +100,19 @@ function initDeployAiSession6(params) {
   var modelTextByActivity = {};
   for (var actTitle in modelElements) {
     modelTextByActivity[actTitle] = extractTextFromElements4(modelElements[actTitle]);
+  }
+
+  // Restrict to the activities the user checked in the picker. Each target
+  // activity is only included when it matches a model activity (below), so
+  // shrinking this map is all that's needed to deploy just the chosen
+  // activities. Empty/undefined means "all" (backwards compatible).
+  if (params.selectedActivities && params.selectedActivities.length) {
+    var keep = {};
+    for (var s = 0; s < params.selectedActivities.length; s++) {
+      var sel = params.selectedActivities[s];
+      if (modelTextByActivity[sel] !== undefined) keep[sel] = modelTextByActivity[sel];
+    }
+    modelTextByActivity = keep;
   }
 
   if (Object.keys(modelTextByActivity).length === 0) {

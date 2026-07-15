@@ -6,6 +6,7 @@
 const RED       = '#ff0000';
 const DEEP_BLUE = '#0033a0';
 const BLACK     = '#000000';
+const GREY_CHIP = '#e8eaed'; // background highlight that mimics the Canvas-tool dropdown chip
 const FONT      = 'Arial';
 // ── MENU ──────────────────────────────────────────────────────────
 function onOpen() {
@@ -402,10 +403,16 @@ function setNearbyTool(body, headingPara, toolValue) {
           pt.setBold(0, toolEnd, true);
           pt.setItalic(0, toolEnd, false);
           pt.setForegroundColor(0, toolEnd, RED);
+          // Grey chip highlight on the tool name only (not the "; Link…" suffix),
+          // mimicking the Canvas dropdown chip QA uses as a visual cue.
+          pt.setBackgroundColor(0, toolEnd, GREY_CHIP);
         }
       } else if (hasSuffix) {
         para.setText(toolValue + suffix);
-        _fmt(para.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
+        const pt = para.editAsText();
+        _fmt(pt, { font: FONT, size: 11, bold: true, italic: false, color: RED });
+        // Grey chip highlight on the tool name only (not the "; Link…" suffix).
+        if (toolValue.length > 0) pt.setBackgroundColor(0, toolValue.length - 1, GREY_CHIP);
       }
       Logger.log(`  Tool → ${toolValue}`);
       return true;
