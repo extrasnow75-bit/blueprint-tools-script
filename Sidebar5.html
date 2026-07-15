@@ -238,14 +238,17 @@
   <!-- ── Main form ─────────────────────────────────────────────── -->
   <div id="main-form" class="hidden">
 
+    <!-- ── What does this tool do? ── -->
+    <h3>What Does This Tool Do?</h3>
+    <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 12px;">
+      Fills one module with ready-made direction text so you can shape it into a model for the rest of the course. For each activity you pick a direction type from a dropdown, and the tool inserts that template&rsquo;s wording. No AI is used &mdash; the text comes straight from the Template Activity Directions 2.0 doc (or a document you supply).
+    </p>
+
+    <hr class="divider">
+
     <!-- ── Target module ── -->
     <h3>Target Module</h3>
-    <p style="font-size:12px; color:#555; margin-bottom:8px;">
-      Templated directions will be inserted into each activity in the module you select.
-      Revise them before running the Deploy tool.
-    </p>
-    <label class="field-label" for="module-select">Target module</label>
-    <select id="module-select" class="module-select">
+    <select id="module-select" class="module-select" aria-label="Target module">
       <!-- Populated by JS -->
     </select>
 
