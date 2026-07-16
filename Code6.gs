@@ -143,6 +143,15 @@ function initDeployAiSession6(params) {
     moduleContextByTarget[target] = ctx;
   }
 
+  // Fetch real titles for every target module's reading/video links in one
+  // parallel batch (de-duplicated by URL inside enrichMediaTitles_).
+  var ctxToEnrich = [];
+  for (var e = 0; e < targetModuleTitles.length; e++) {
+    var ec = moduleContextByTarget[targetModuleTitles[e]];
+    if (ec) ctxToEnrich.push(ec);
+  }
+  enrichMediaTitles_(ctxToEnrich);
+
   // Pre-compute which activities to adapt in each target module.
   // An activity is included if it has a placeholder AND a matching model direction.
   // The resolved model text is stored alongside the activity title so the client
@@ -177,7 +186,13 @@ function initDeployAiSession6(params) {
 
       var at        = stripActivityHeading(para.getText());
       var modelText = findMatchingModelContent_(modelTextByActivity, at);
-      if (modelText) matches.push({ actTitle: at, modelText: modelText });
+      if (modelText) {
+        matches.push({
+          actTitle:  at,
+          modelText: modelText,
+          toolType:  getToolTypeForSlot(devBody, para, j)  // for the assignment help section
+        });
+      }
     }
 
     activitiesByTarget[tgt] = matches;
@@ -222,6 +237,12 @@ function adaptAndDeployModule6(params) {
     var aiText = callGemini4_(params.apiKey, prompt, GEMINI_DEPLOY_6, { maxOutputTokens: 32768 });
     var blocks = splitModuleResponse6_(aiText, activities.length);
 
+    // Resolve the target module's design-map link tokens (VIDEO1, READING1, …).
+    var media = buildMediaTokens4_(params.moduleContext ? params.moduleContext.mediaLinks : null);
+
+    // Course code for the assignment help section (read once per module).
+    var courseCode = extractCourseCode_();
+
     var doc     = DocumentApp.getActiveDocument();
     var devBody = getDevelopmentTabBody(doc);
     if (!devBody) throw new Error('Could not find the Development tab.');
@@ -246,10 +267,18 @@ function adaptAndDeployModule6(params) {
         continue;
       }
 
+      // Assignments get the standardized "Where to go for help" section appended
+      // deterministically (never AI-authored) so wording and links are exact.
+      // Strip any code fence first so the appended block survives insertion.
+      if (isAssignmentToolType4_(act.toolType)) {
+        aiBlock = stripCodeFence4_(aiBlock) +
+                  assignmentHelpBlock4_(courseCode, act.activityTitle);
+      }
+
       var indent    = placeholder.getIndentStart() || INDENT_4;
       var insertIdx = devBody.getChildIndex(placeholder);
       placeholder.removeFromParent();
-      insertFormattedText4(devBody, insertIdx, aiBlock, indent);
+      insertFormattedText4(devBody, insertIdx, aiBlock, indent, media.linkMap);
       results.push({ activityTitle: act.activityTitle, success: true });
     }
 
@@ -326,6 +355,20 @@ function buildModuleAdaptPrompt6_(params) {
     ? 'TARGET MODULE CONTEXT:\n' + contextLines.join('\n') + '\n\n'
     : '';
 
+  // Available-links block for THIS target module — reference-by-TOKEN.
+  var media = buildMediaTokens4_(ctx ? ctx.mediaLinks : null);
+  var mediaBlock = media.hasLinks
+    ? 'AVAILABLE LINKS for "' + params.targetModuleTitle + '" — reference each by its ' +
+      'TOKEN, never by retyping the URL:\n' + media.promptLines.join('\n') + '\n\n'
+    : '';
+  var linkRule = media.hasLinks
+    ? '- When an activity references a reading or video, embed the link in its TITLE ' +
+      'using markdown syntax with the TOKEN as the target, e.g. "[Read Chapter 3](READING1)". ' +
+      'When AVAILABLE LINKS supplies a title in quotes, use that exact title as the link text. ' +
+      'Use only tokens from AVAILABLE LINKS; never write the raw URL or a "[Link here]" ' +
+      'placeholder.\n'
+    : '- Do NOT invent link placeholders such as "[Link to video here]".\n';
+
   var activities = params.activities || [];
   var actBlocks  = [];
   for (var i = 0; i < activities.length; i++) {
@@ -334,8 +377,23 @@ function buildModuleAdaptPrompt6_(params) {
     // "@" cannot match the 3-@ marker).
     var safeTitle = String(activities[i].activityTitle || '').replace(/@{2,}/g, '@');
     var safeModel = String(activities[i].modelText || '').replace(/@{2,}/g, '@');
+    // Assignments get a standardized help section appended in code. The model
+    // directions may already contain one — tell the AI to omit it so it isn't
+    // duplicated (and don't let it author its own).
+    var assignNote = isAssignmentToolType4_(activities[i].toolType)
+      ? '\n(NOTE: This is an assignment. OMIT any "Where to go for help", technical ' +
+        'support, or Help Desk section from your adaptation — a standardized one is ' +
+        'added automatically.)'
+      : '';
+    // Keep readings-only / videos-only activities from picking up the other type.
+    var actKind   = classifyActivityKind_(activities[i].activityTitle);
+    var scopeNote = (actKind === 'reading')
+      ? '\n(This activity covers READINGS ONLY — do not add a videos/multimedia section.)'
+      : (actKind === 'video')
+        ? '\n(This activity covers VIDEOS ONLY — do not add a readings section.)'
+        : '';
     actBlocks.push(
-      'ACTIVITY ' + (i + 1) + ': ' + safeTitle + '\n' +
+      'ACTIVITY ' + (i + 1) + ': ' + safeTitle + assignNote + scopeNote + '\n' +
       'MODEL DIRECTIONS (adapt these):\n' + safeModel
     );
   }
@@ -350,6 +408,7 @@ function buildModuleAdaptPrompt6_(params) {
     'that should genuinely differ between modules, such as module-specific ' +
     'activity numbers or references to specific readings listed in the context.\n\n' +
     contextBlock +
+    mediaBlock +
     'There are ' + activities.length + ' activities to adapt:\n\n' +
     actBlocks.join('\n\n---\n\n') + '\n\n' +
     'FORMATTING RULES — follow exactly:\n' +
@@ -364,6 +423,7 @@ function buildModuleAdaptPrompt6_(params) {
     '- Separate paragraphs with a blank line.\n' +
     '- Do not add a title heading for an activity — after its delimiter, begin ' +
     'directly with the directions content.\n' +
+    linkRule +
     '- If you refer to the campus help desk, call it exactly "Boise State Help Desk".\n' +
     '- Do NOT include any "Due by … Mountain Time" date header, nor any Canvas ' +
     'header annotation such as "Unpublished text header in Canvas" — those are ' +

@@ -132,8 +132,11 @@ function parseCourseDesignMap(designBody) {
           moduleLabel:          labelMatch[1],
           moduleTitle:          '',
           clos:                 '',
-          readings:             '',
-          activityDescriptions: []
+          readings:             '',   // merged (fallback for combined activities)
+          readingsText:         '',   // readings-only rows
+          videosText:           '',   // videos-only rows
+          activityDescriptions: [],
+          mediaLinks:           []    // [{ kind: 'video'|'reading', url, text }]
         };
         modules.push(currentModule);
         continue;
@@ -153,7 +156,39 @@ function parseCourseDesignMap(designBody) {
       } else if (label.indexOf('reading') !== -1 ||
                  label.indexOf('video')   !== -1 ||
                  label.indexOf('content') !== -1) {
-        currentModule.readings = value;
+        // Keep a merged blob (fallback for combined/ambiguous activities) plus
+        // separate readings/videos text so per-activity scoping can pick one.
+        currentModule.readings = currentModule.readings
+          ? currentModule.readings + '\n' + value
+          : value;
+        var labelSaysVideo   = label.indexOf('video')   !== -1;
+        var labelSaysReading = label.indexOf('reading') !== -1;
+        if (labelSaysReading && !labelSaysVideo) {
+          currentModule.readingsText = currentModule.readingsText
+            ? currentModule.readingsText + '\n' + value : value;
+        } else if (labelSaysVideo && !labelSaysReading) {
+          currentModule.videosText = currentModule.videosText
+            ? currentModule.videosText + '\n' + value : value;
+        } else {
+          // Combined / "content" row — contributes to both buckets.
+          currentModule.readingsText = currentModule.readingsText
+            ? currentModule.readingsText + '\n' + value : value;
+          currentModule.videosText = currentModule.videosText
+            ? currentModule.videosText + '\n' + value : value;
+        }
+        // Pull the real hyperlink targets so they can be embedded downstream.
+        // Tag each link's kind by its URL (a video host → 'video'), falling back
+        // to the row label — this stays correct even in a combined cell that
+        // mixes readings and videos ("Readings & Multimedia").
+        var cellLinks = collectCellLinks_(table.getRow(r).getCell(1));
+        for (var lk = 0; lk < cellLinks.length; lk++) {
+          var kind = isVideoUrl_(cellLinks[lk].url)
+            ? 'video'
+            : (labelSaysVideo && !labelSaysReading ? 'video' : 'reading');
+          currentModule.mediaLinks.push({
+            kind: kind, url: cellLinks[lk].url, text: cellLinks[lk].text
+          });
+        }
       } else if (label.indexOf('activity')   !== -1 ||
                  label.indexOf('assessment') !== -1) {
         currentModule.activityDescriptions.push(value);
@@ -164,6 +199,400 @@ function parseCourseDesignMap(designBody) {
   }
 
   return modules;
+}
+
+/**
+ * Extracts hyperlink targets from a table cell — both real hyperlink runs
+ * (whose display text may be a title rather than the URL) and bare http(s) URLs
+ * typed as plain text. Returns [{ url, text }] in document order, de-duplicated
+ * by URL. Shared by the Course Design Map parser.
+ *
+ * @param {GoogleAppsScript.Document.TableCell} cell
+ * @returns {Array<{url: string, text: string}>}
+ */
+function collectCellLinks_(cell) {
+  var links = [];
+  var seen  = {};
+  var n     = cell.getNumChildren();
+
+  for (var i = 0; i < n; i++) {
+    var el   = cell.getChild(i);
+    var type = el.getType();
+    var textEl;
+    if      (type === DocumentApp.ElementType.PARAGRAPH) textEl = el.asParagraph().editAsText();
+    else if (type === DocumentApp.ElementType.LIST_ITEM) textEl = el.asListItem().editAsText();
+    else continue;
+
+    var s = textEl.getText();
+    if (!s) continue;
+
+    // 1) Real hyperlink runs — getLinkUrl changes at attribute boundaries.
+    var idxs = textEl.getTextAttributeIndices();
+    for (var k = 0; k < idxs.length; k++) {
+      var start = idxs[k];
+      var url   = textEl.getLinkUrl(start);
+      if (url && !seen[url]) {
+        seen[url] = true;
+        var stop = (k + 1 < idxs.length) ? idxs[k + 1] : s.length;
+        links.push({ url: url, text: s.substring(start, stop).trim() || url });
+      }
+    }
+
+    // 2) Bare URLs typed as plain text (visible in the doc but not hyperlinked).
+    var re = /https?:\/\/[^\s\]\)]+/g;
+    var m;
+    while ((m = re.exec(s)) !== null) {
+      var bare = m[0].replace(/[.,;]+$/, '');
+      if (!seen[bare]) { seen[bare] = true; links.push({ url: bare, text: bare }); }
+    }
+  }
+  return links;
+}
+
+/**
+ * Builds the media-link scaffolding shared by the AI tools from a module's
+ * parsed mediaLinks array. Returns:
+ *   linkMap     { TOKEN: url }          — resolves [title](TOKEN) at insert time
+ *   promptLines [ "VIDEO1 — context" ]  — lists available links in the prompt
+ *   hasLinks    boolean
+ * Tokens are VIDEO1, VIDEO2, … and READING1, READING2, … in document order.
+ *
+ * @param {Array<{kind, url, text}>} mediaLinks
+ * @returns {{ linkMap: Object, promptLines: string[], hasLinks: boolean }}
+ */
+function buildMediaTokens4_(mediaLinks) {
+  var linkMap  = {};
+  var lines    = [];
+  var counters = { video: 0, reading: 0 };
+
+  (mediaLinks || []).forEach(function (lk) {
+    if (!lk || !lk.url) return;
+    var kind  = (lk.kind === 'video') ? 'video' : 'reading';
+    counters[kind]++;
+    var token = kind.toUpperCase() + counters[kind];
+    linkMap[token] = lk.url;
+    // Prefer the fetched page/video title; mark it so the prompt knows it is the
+    // canonical title to use verbatim as the link text. Scrub "@@@" and newlines
+    // from fetched titles so a crafted page title can't spoof the batched-deploy
+    // "@@@ACTIVITY N@@@" delimiter (Code6) or break the prompt across lines.
+    var ctx;
+    if (lk.title) {
+      var safeTitle = String(lk.title).replace(/@{2,}/g, '@').replace(/[\r\n]+/g, ' ');
+      ctx = '"' + safeTitle + '" (use this exact title as the link text)';
+    } else {
+      ctx = (lk.text && lk.text !== lk.url) ? lk.text : lk.url;
+    }
+    lines.push(token + ' — ' + ctx);
+  });
+
+  return { linkMap: linkMap, promptLines: lines, hasLinks: lines.length > 0 };
+}
+
+/**
+ * Resolves a markdown link target to a real URL. A target that already looks
+ * like an http(s) URL is used as-is; otherwise it is treated as a media TOKEN
+ * (e.g. VIDEO1, READING2) and looked up in linkMap. Returns null if unresolved,
+ * so the caller can leave the visible text unlinked rather than link to junk.
+ *
+ * @param {string} target
+ * @param {Object|null} linkMap
+ * @returns {string|null}
+ */
+function resolveLinkTarget4_(target, linkMap) {
+  if (!target) return null;
+  var t = String(target).trim();
+  if (/^https?:\/\//i.test(t)) return t;
+  if (linkMap) {
+    var key = t.toUpperCase().replace(/[\s_\-]/g, '');
+    if (linkMap[key]) return linkMap[key];
+  }
+  return null;
+}
+
+// ── PER-ACTIVITY CONTEXT SCOPING ──────────────────────────────────────
+
+/**
+ * True when a URL points at a known video host or a video file. Used to tag a
+ * link's kind independently of the CDM row label, so a combined cell that mixes
+ * readings and videos still classifies each link correctly.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isVideoUrl_(url) {
+  return /(?:youtube\.com|youtu\.be|vimeo\.com|panopto\.|kaltura\.|mediaspace|loom\.com|wistia\.|brightcove|\.mp4(?:[?#]|$))/i
+    .test(String(url || ''));
+}
+
+/**
+ * Classifies an activity by its title so its directions can be scoped to the
+ * matching slice of module context:
+ *   'reading' — readings-only activity
+ *   'video'   — videos-only activity
+ *   'all'     — combined or unrecognized (gets the FULL module context)
+ *
+ * Biased toward 'all': the only harmful error is hiding content, so it scopes
+ * down only for a simple single-type title. Any conjunction ("and", "&", "+",
+ * "/", ",") signals a combined activity ("Readings and Videos", "Readings &
+ * Multimedia", "Articles and Videos") and returns 'all'.
+ *
+ * @param {string} title
+ * @returns {'reading'|'video'|'all'}
+ */
+function classifyActivityKind_(title) {
+  var t = String(title || '').toLowerCase();
+  if (!t) return 'all';
+
+  // A conjunction joins multiple content types → treat as combined.
+  if (/\band\b/.test(t) || /[&/+,]/.test(t)) return 'all';
+
+  var isRead  = /read|article|text|chapter|paper|essay/.test(t);
+  var isVideo = /video|watch|multimedia|media|recording|lecture|screencast/.test(t);
+
+  if (isRead && !isVideo) return 'reading';
+  if (isVideo && !isRead) return 'video';
+  return 'all';
+}
+
+/**
+ * Returns a module-context object scoped to one activity's kind — a readings
+ * activity gets readings text + non-video links; a videos activity gets videos
+ * text + video links. A combined/unrecognized activity ('all') gets the shared
+ * context unchanged. Shallow-clones before overriding so the module context
+ * (reused by sibling activities) is never mutated.
+ *
+ * @param {Object|null} moduleContext
+ * @param {string} activityTitle
+ * @returns {Object|null}
+ */
+function scopeModuleContextForActivity_(moduleContext, activityTitle) {
+  if (!moduleContext) return moduleContext;
+  var kind = classifyActivityKind_(activityTitle);
+  if (kind === 'all') return moduleContext;
+
+  var scoped = {};
+  for (var k in moduleContext) {
+    if (moduleContext.hasOwnProperty(k)) scoped[k] = moduleContext[k];
+  }
+
+  if (kind === 'reading') {
+    scoped.readings   = moduleContext.readingsText || moduleContext.readings || '';
+    scoped.mediaLinks = (moduleContext.mediaLinks || []).filter(function (lk) {
+      return lk && lk.kind !== 'video';
+    });
+  } else { // 'video'
+    scoped.readings   = moduleContext.videosText || moduleContext.readings || '';
+    scoped.mediaLinks = (moduleContext.mediaLinks || []).filter(function (lk) {
+      return lk && lk.kind === 'video';
+    });
+  }
+  return scoped;
+}
+
+// ── LINK METADATA (TITLES) ────────────────────────────────────────────
+
+/**
+ * Fetches a human-readable title for each media link in the given module
+ * contexts and stores it on the link as `.title`. Uses oEmbed for YouTube/Vimeo
+ * (no key, reliable) and a best-effort og:title / <title> scrape for everything
+ * else. All fetches run in ONE parallel UrlFetchApp.fetchAll batch and every
+ * failure is swallowed — a missing title just falls back to the raw URL text.
+ *
+ * These are UrlFetchApp calls, NOT Gemini calls, so they add no model-side
+ * rate-limit pressure. De-duplicates by URL so a link shared across modules is
+ * fetched once.
+ *
+ * @param {Array<Object>} moduleContexts  parsed CDM module objects (with mediaLinks)
+ */
+function enrichMediaTitles_(moduleContexts) {
+  if (!moduleContexts || !moduleContexts.length) return;
+
+  // Group link objects by URL so each unique URL is fetched exactly once.
+  var byUrl = {};
+  for (var mi = 0; mi < moduleContexts.length; mi++) {
+    var mc = moduleContexts[mi];
+    if (!mc || !mc.mediaLinks) continue;
+    for (var li = 0; li < mc.mediaLinks.length; li++) {
+      var lk = mc.mediaLinks[li];
+      if (!lk || !lk.url) continue;
+      if (!byUrl[lk.url]) byUrl[lk.url] = [];
+      byUrl[lk.url].push(lk);
+    }
+  }
+
+  var urls = Object.keys(byUrl);
+  if (!urls.length) return;
+
+  var requests = [];
+  var meta     = []; // parallel to requests: { url, mode }
+  for (var u = 0; u < urls.length; u++) {
+    var oembed = oembedEndpointFor_(urls[u]);
+    if (oembed) {
+      requests.push({ url: oembed, muteHttpExceptions: true, followRedirects: true });
+      meta.push({ url: urls[u], mode: 'oembed' });
+    } else {
+      requests.push({
+        url: urls[u], muteHttpExceptions: true, followRedirects: true,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BlueprintTools/1.0)' }
+      });
+      meta.push({ url: urls[u], mode: 'html' });
+    }
+  }
+
+  var responses;
+  try {
+    responses = UrlFetchApp.fetchAll(requests);
+  } catch (e) {
+    Logger.log('enrichMediaTitles_ fetchAll failed: ' + ((e && e.message) || e));
+    return; // leave titles unset — callers fall back to URL text
+  }
+
+  for (var ri = 0; ri < responses.length; ri++) {
+    try {
+      var resp = responses[ri];
+      if (resp.getResponseCode() !== 200) continue;
+      var title = (meta[ri].mode === 'oembed')
+        ? extractOembedTitle_(resp.getContentText())
+        : extractHtmlTitle_(resp.getContentText());
+      if (title) {
+        var refs = byUrl[meta[ri].url];
+        for (var rf = 0; rf < refs.length; rf++) refs[rf].title = title;
+      }
+    } catch (e2) {
+      Logger.log('enrichMediaTitles_ parse [' + meta[ri].url + ']: ' + ((e2 && e2.message) || e2));
+    }
+  }
+}
+
+/**
+ * Returns the oEmbed JSON endpoint for a YouTube or Vimeo URL, or null for any
+ * other host (which is handled by the generic HTML scrape instead).
+ *
+ * @param {string} url
+ * @returns {string|null}
+ */
+function oembedEndpointFor_(url) {
+  var u = String(url);
+  if (/(?:youtube\.com\/(?:watch|shorts|embed|live)|youtu\.be\/)/i.test(u)) {
+    return 'https://www.youtube.com/oembed?url=' + encodeURIComponent(u) + '&format=json';
+  }
+  if (/(?:player\.)?vimeo\.com\//i.test(u)) {
+    return 'https://vimeo.com/api/oembed.json?url=' + encodeURIComponent(u);
+  }
+  return null;
+}
+
+/**
+ * Extracts the "title" field from an oEmbed JSON response body.
+ *
+ * @param {string} body
+ * @returns {string}  title, or '' if unparseable/absent
+ */
+function extractOembedTitle_(body) {
+  try {
+    var j = JSON.parse(body);
+    return (j && j.title) ? String(j.title).trim() : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Best-effort title from an HTML page: prefers the Open Graph og:title meta
+ * tag, falling back to the <title> element. Returns '' when neither is present
+ * (paywalls, JS-rendered pages, bot blocks). Decodes common HTML entities and
+ * caps the length.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+function extractHtmlTitle_(html) {
+  if (!html) return '';
+  // Cap length before matching — the title lives in <head>, and matching greedy
+  // patterns against a multi-MB body risks burning the script's execution quota.
+  html = String(html).slice(0, 200000);
+  var m = html.match(/<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']*)["']/i)
+       || html.match(/<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:title["']/i);
+  var raw = m ? m[1] : null;
+  if (!raw) {
+    var tm = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (tm) raw = tm[1];
+  }
+  if (!raw) return '';
+  raw = decodeEntities_(raw).replace(/\s+/g, ' ').trim();
+  if (raw.length > 200) raw = raw.slice(0, 197) + '…';
+  return raw;
+}
+
+/**
+ * Decodes the handful of HTML entities that commonly appear in page titles.
+ *
+ * @param {string} s
+ * @returns {string}
+ */
+function decodeEntities_(s) {
+  return String(s)
+    .replace(/&amp;/g,  '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g,   '<')
+    .replace(/&gt;/g,   '>')
+    .replace(/&nbsp;/g, ' ');
+}
+
+// ── ASSIGNMENT "WHERE TO GO FOR HELP" SECTION ─────────────────────────
+
+/**
+ * True for Canvas assignment slots ("assignment" and "assignment (not graded)")
+ * — the only tool types that receive the standard help section. Discussions,
+ * quizzes, and blank/page slots return false.
+ *
+ * @param {string|null} toolType
+ * @returns {boolean}
+ */
+function isAssignmentToolType4_(toolType) {
+  return !!toolType && /^assignment\b/i.test(String(toolType).trim());
+}
+
+/**
+ * Reads the active document's name and returns the course code as "DEPT ###"
+ * (e.g. "MATH 101", "RESPCARE 516"). Blueprints are named like "MATH 101
+ * Blueprint" or "ENGL 101 Blueprint Redesign (SU26)"; only the department +
+ * number is used. Returns "CLASS 101" when no code can be found.
+ *
+ * @returns {string}
+ */
+function extractCourseCode_() {
+  try {
+    var name = DocumentApp.getActiveDocument().getName() || '';
+    var m = name.match(/\b([A-Za-z]{2,10})\s*(\d{3}[A-Za-z]?)\b/);
+    if (m) return m[1].toUpperCase() + ' ' + m[2].toUpperCase();
+  } catch (e) {
+    Logger.log('extractCourseCode_: ' + ((e && e.message) || e));
+  }
+  return 'CLASS 101';
+}
+
+/**
+ * Returns the standard "Where to go for help" block as markdown text, ready to
+ * append to an activity's AI directions before insertFormattedText4 renders it.
+ * The Help Desk phrase carries a markdown link so the formatter embeds the real
+ * OIT URL; the professor bullet is plain guidance text with a suggested subject.
+ *
+ * @param {string} courseCode     e.g. "MATH 101"
+ * @param {string} activityTitle  the activity's title
+ * @returns {string}
+ */
+function assignmentHelpBlock4_(courseCode, activityTitle) {
+  var HELP_URL = 'https://www.boisestate.edu/oit/assistance/';
+  return '\n\n---\n' +
+    'Where to go for help (H2)\n' +
+    '- If you have any technical questions, contact the ' +
+      '[Boise State Help Desk](' + HELP_URL + ').\n' +
+    '- For questions about content or expectations, email the professor using a ' +
+      'title something like, "' + courseCode + ': Help with ' + activityTitle + '".';
 }
 
 // ── SESSION INITIALIZATION ────────────────────────────────────────────
@@ -203,6 +632,10 @@ function initAiSession4(moduleTitle, templateSource, templateUrl) {
       break;
     }
   }
+
+  // Fetch real titles for this module's reading/video links (best-effort, one
+  // parallel batch). Missing titles fall back to the raw URL text downstream.
+  if (moduleContext) enrichMediaTitles_([moduleContext]);
 
   // ── Fetch template content (default choice per tool type) ───────
   var templateContentsByToolType = {};
@@ -318,10 +751,23 @@ function generateAndInsertOneActivity4(params) {
     var prompt = buildAiDirectionsPrompt4(params);
     var aiText = callGemini4_(params.apiKey, prompt, GEMINI_PRIMARY_4);
 
+    // Assignments get a standardized "Where to go for help" section appended
+    // deterministically (never AI-authored) so wording and links are exact.
+    // Strip any code fence first so the appended block survives insertion.
+    if (isAssignmentToolType4_(params.toolType)) {
+      aiText = stripCodeFence4_(aiText) +
+               assignmentHelpBlock4_(extractCourseCode_(), params.activityTitle);
+    }
+
+    // Resolve the design-map link tokens the AI may have embedded (VIDEO1, …).
+    // Scope to the activity's kind so tokens line up with the (scoped) prompt.
+    var scopedCtx = scopeModuleContextForActivity_(params.moduleContext, params.activityTitle);
+    var media = buildMediaTokens4_(scopedCtx ? scopedCtx.mediaLinks : null);
+
     // Remove placeholder and insert formatted content at the same position
     var insertIdx = devBody.getChildIndex(placeholder);
     placeholder.removeFromParent();
-    insertFormattedText4(devBody, insertIdx, aiText, indent);
+    insertFormattedText4(devBody, insertIdx, aiText, indent, media.linkMap);
 
     return { success: true };
   } catch (e) {
@@ -382,7 +828,13 @@ function findPlaceholderInTool4(devBody, moduleTitle, activityTitle) {
  * @returns {string}
  */
 function buildAiDirectionsPrompt4(params) {
-  var moduleContext = params.moduleContext || null;
+  // Scope the module context to this activity's kind (readings-only / videos-
+  // only / all) so a "Readings" activity never sees the module's videos, etc.
+  var activityKind  = classifyActivityKind_(params.activityTitle);
+  var moduleContext = params.moduleContext
+    ? scopeModuleContextForActivity_(params.moduleContext, params.activityTitle)
+    : null;
+  var media = buildMediaTokens4_(moduleContext ? moduleContext.mediaLinks : null);
 
   // Module context block
   var contextLines = [];
@@ -405,6 +857,40 @@ function buildAiDirectionsPrompt4(params) {
     ? 'MODULE CONTEXT:\n' + contextLines.join('\n') + '\n\n'
     : '';
 
+  // Available-links block — real URLs offered as reference-by-TOKEN.
+  var mediaBlock = media.hasLinks
+    ? 'AVAILABLE LINKS — the course design map provides these readings/videos with ' +
+      'real URLs. Reference each by its TOKEN, never by retyping the URL:\n' +
+      media.promptLines.join('\n') + '\n\n'
+    : '';
+
+  // Link-embedding rule, tailored to whether any links are available.
+  var linkRule = media.hasLinks
+    ? '- Embed each relevant reading/video link directly in its TITLE using markdown ' +
+      'link syntax with the TOKEN as the target, e.g. "[Introduction to Vectors](VIDEO1)". ' +
+      'When AVAILABLE LINKS supplies a title in quotes, use that exact title as the link ' +
+      'text. Use the exact token from AVAILABLE LINKS; never write out the raw URL and never ' +
+      'invent placeholders like "[Link to video 1 here]". If a link has no title, put it on ' +
+      'its own line as "[Watch the video](VIDEO1)". Only use tokens listed above.\n'
+    : '- Do NOT invent link placeholders such as "[Link to video 1 here]"; if no links are ' +
+      'provided, simply omit them.\n';
+
+  // Content-scope rule: reinforce the withheld context so the AI doesn't invent
+  // the other type's section for a single-type activity.
+  var scopeRule = (activityKind === 'reading')
+    ? '- This activity covers READINGS ONLY — do not include a videos or ' +
+      'multimedia section.\n'
+    : (activityKind === 'video')
+      ? '- This activity covers VIDEOS ONLY — do not include a readings section.\n'
+      : '';
+
+  // Help-section rule: assignments get a standardized help block appended in
+  // code, so the AI must not author its own; other tool types keep the mention.
+  var helpDeskRule = isAssignmentToolType4_(params.toolType)
+    ? '- Do NOT write your own "Where to go for help", technical support, or Help Desk ' +
+      'section — a standardized one is appended automatically.\n'
+    : '- If you refer to the campus help desk, call it exactly "Boise State Help Desk".\n';
+
   // Template reference block
   var templateBlock = params.templateText
     ? 'STYLE REFERENCE — standard directions for this activity type. Use this as a model ' +
@@ -417,6 +903,7 @@ function buildAiDirectionsPrompt4(params) {
     'You are an instructional designer writing student-facing activity instructions ' +
     'for a college online course.\n\n' +
     contextBlock +
+    mediaBlock +
     'ACTIVITY:\n' +
     'Title: '            + params.activityTitle + '\n' +
     'Canvas tool type: ' + (params.toolType || 'unspecified') + '\n\n' +
@@ -433,7 +920,9 @@ function buildAiDirectionsPrompt4(params) {
     '- Omit any section entirely if it has no applicable content for this activity — ' +
     'do not write "no X assigned" or similar placeholder text.\n' +
     '- Do not start with the activity title as a heading — begin directly with content.\n' +
-    '- If you refer to the campus help desk, call it exactly "Boise State Help Desk".\n' +
+    scopeRule +
+    linkRule +
+    helpDeskRule +
     '- Aim for 150–400 words. Keep instructions focused and actionable for students.\n\n' +
     'Write student-facing directions for this activity now.'
   );
@@ -576,6 +1065,21 @@ function validateGeminiKey4(apiKey) {
 // ── FORMATTED TEXT INSERTION ──────────────────────────────────────────
 
 /**
+ * Strips a surrounding markdown code fence (```…```) the AI sometimes wraps its
+ * reply in, returning the inner content. Idempotent: text with no fence is
+ * returned unchanged. Callers append their own content AFTER calling this, so
+ * appended blocks are never swallowed by a later fence strip.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function stripCodeFence4_(text) {
+  var s = String(text == null ? '' : text);
+  var m = s.match(/```(?:markdown|text)?\n?([\s\S]*?)\n?```/);
+  return m ? m[1].trim() : s;
+}
+
+/**
  * Parses AI-generated text and inserts styled GDoc elements at insertIdx.
  *
  * Recognised patterns:
@@ -595,13 +1099,15 @@ function validateGeminiKey4(apiKey) {
  * @param {number} insertIdx
  * @param {string} aiText
  * @param {number} indent   left indent in points for inserted paragraphs
+ * @param {Object} [linkMap] TOKEN → URL map for resolving [title](TOKEN) links
  */
-function insertFormattedText4(body, insertIdx, aiText, indent) {
+function insertFormattedText4(body, insertIdx, aiText, indent, linkMap) {
   indent = indent || INDENT_4;
 
-  // Strip markdown code fences if the AI includes them despite instructions
-  var fenceMatch = aiText.match(/```(?:markdown|text)?\n?([\s\S]*?)\n?```/);
-  if (fenceMatch) aiText = fenceMatch[1].trim();
+  // Strip markdown code fences if the AI includes them despite instructions.
+  // (Callers that append content after the AI text strip first, so this is a
+  // no-op there and their appended block is never discarded.)
+  aiText = stripCodeFence4_(aiText);
 
   // ── Pass 1: tokenise ───────────────────────────────────────────────
   var tokens = [];
@@ -652,13 +1158,13 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
       var li = body.insertListItem(insertIdx, '');
       li.setGlyphType(DocumentApp.GlyphType.BULLET);
       li.setIndentStart(indent);
-      setParagraphText4(li, token.text, BLACK, false);
+      setParagraphText4(li, token.text, BLACK, false, linkMap);
 
     } else if (token.type === 'rule') {
       body.insertHorizontalRule(insertIdx);
 
     } else if (token.type === 'heading') {
-      var segs        = parseBoldSegments4(token.text);
+      var segs        = parseInlineSegments4(token.text);
       var cleanHeading = segs.map(function(s) { return s.text; }).join('');
       var fullText    = cleanHeading + ' ' + token.marker;
       var markerStart = cleanHeading.length + 1; // +1 for the space
@@ -670,6 +1176,17 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
 
       var pt = hPara.editAsText();
       _fmt(pt, { font: FONT, size: 11, bold: false, italic: false, color: BLACK });
+
+      // Embed any [title](TOKEN|url) links found within the heading text.
+      var hpos = 0;
+      for (var hs = 0; hs < segs.length; hs++) {
+        var hlen = segs[hs].text.length;
+        if (hlen > 0 && segs[hs].link) {
+          var hurl = resolveLinkTarget4_(segs[hs].link, linkMap);
+          if (hurl) pt.setLinkUrl(hpos, hpos + hlen - 1, hurl);
+        }
+        hpos += hlen;
+      }
 
       // (HX) marker: red and bold (applied inline — character positions are known here)
       if (markerStart <= markerEnd) {
@@ -683,7 +1200,7 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
       var para = body.insertParagraph(insertIdx, '');
       para.setHeading(DocumentApp.ParagraphHeading.NORMAL);
       para.setIndentStart(indent);
-      setParagraphText4(para, token.text, BLACK, false);
+      setParagraphText4(para, token.text, BLACK, false, linkMap);
     }
   }
 
@@ -693,6 +1210,10 @@ function insertFormattedText4(body, insertIdx, aiText, indent) {
 
   // Normalize + hyperlink any "help desk" mention in the inserted text.
   linkifyHelpDesk4_(body, insertIdx, tokens.length);
+
+  // Safety net: attach real links to any leftover "[Link to video N here]"
+  // placeholders the AI emitted despite the token rule, and auto-link bare URLs.
+  linkifyMediaFallback4_(body, insertIdx, tokens.length, linkMap);
 }
 
 // ── HELP DESK LINKIFIER ───────────────────────────────────────────────
@@ -720,14 +1241,20 @@ function linkifyHelpDesk4_(body, startIdx, count) {
         type !== DocumentApp.ElementType.LIST_ITEM) continue;
 
     try {
+      // Cheap in-memory guard: skip the replaceText round-trips (2 per paragraph)
+      // unless this paragraph actually mentions a help desk — most don't.
+      var textEl = child.editAsText();
+      var s      = textEl.getText();
+      if (s.toLowerCase().indexOf('help desk') === -1) continue;
+
       // Collapse any existing "Boise State Help Desk" back to "Help Desk", then
       // promote every "help desk" (any case) to the canonical phrase — so the
       // result carries exactly one "Boise State" prefix regardless of AI casing.
       child.replaceText('(?i)boise state\\s+help desk', 'Help Desk');
       child.replaceText('(?i)help desk', PHRASE);
 
-      var textEl = child.editAsText();
-      var s      = textEl.getText();
+      textEl = child.editAsText();
+      s      = textEl.getText();
       var from   = 0, idx;
       while ((idx = s.indexOf(PHRASE, from)) !== -1) {
         textEl.setLinkUrl(idx, idx + PHRASE.length - 1, URL);
@@ -776,9 +1303,10 @@ function applyHeadingBold4(body, startIdx, tokenCount) {
  * @param {string}  rawText  may contain **bold** markers
  * @param {string}  color    foreground colour (hex)
  * @param {boolean} bold     base bold state
+ * @param {Object}  [linkMap] TOKEN → URL map for resolving [title](TOKEN) links
  */
-function setParagraphText4(el, rawText, color, bold) {
-  var segs      = parseBoldSegments4(rawText);
+function setParagraphText4(el, rawText, color, bold, linkMap) {
+  var segs      = parseInlineSegments4(rawText);
   var cleanText = segs.map(function(s) { return s.text; }).join('');
 
   el.setText(cleanText);
@@ -792,8 +1320,12 @@ function setParagraphText4(el, rawText, color, bold) {
   var pos = 0;
   for (var i = 0; i < segs.length; i++) {
     var len = segs[i].text.length;
-    if (len > 0 && segs[i].bold) {
-      pt.setBold(pos, pos + len - 1, true);
+    if (len > 0) {
+      if (segs[i].bold) pt.setBold(pos, pos + len - 1, true);
+      if (segs[i].link) {
+        var url = resolveLinkTarget4_(segs[i].link, linkMap);
+        if (url) pt.setLinkUrl(pos, pos + len - 1, url);
+      }
     }
     pos += len;
   }
@@ -826,4 +1358,123 @@ function parseBoldSegments4(raw) {
     segments.push({ text: raw, bold: false });
   }
   return segments;
+}
+
+/**
+ * Splits inline text into styled segments, honoring both **bold** markers and
+ * [text](target) markdown links. A link's visible text may itself contain bold.
+ *
+ * @param {string} raw
+ * @returns {Array<{text: string, bold: boolean, link: string|null}>}
+ *   link is the raw target (a media TOKEN or a URL), or null.
+ */
+function parseInlineSegments4(raw) {
+  raw = String(raw == null ? '' : raw);
+  var segments = [];
+  var linkRe   = /\[([^\]]+)\]\(([^)]+)\)/g;
+  var lastEnd  = 0;
+  var match;
+
+  while ((match = linkRe.exec(raw)) !== null) {
+    if (match.index > lastEnd) {
+      pushBoldSegments4_(segments, raw.slice(lastEnd, match.index), null);
+    }
+    pushBoldSegments4_(segments, match[1], match[2]);
+    lastEnd = match.index + match[0].length;
+  }
+  if (lastEnd < raw.length) {
+    pushBoldSegments4_(segments, raw.slice(lastEnd), null);
+  }
+  if (segments.length === 0) segments.push({ text: raw, bold: false, link: null });
+  return segments;
+}
+
+/**
+ * Splits `text` on **bold** markers and appends the resulting segments to
+ * `segments`, each carrying the given link target (or null). Helper for
+ * parseInlineSegments4.
+ */
+function pushBoldSegments4_(segments, text, link) {
+  var re      = /\*\*(.+?)\*\*/g;
+  var lastEnd = 0;
+  var m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > lastEnd) {
+      segments.push({ text: text.slice(lastEnd, m.index), bold: false, link: link });
+    }
+    segments.push({ text: m[1], bold: true, link: link });
+    lastEnd = m.index + m[0].length;
+  }
+  if (lastEnd < text.length) {
+    segments.push({ text: text.slice(lastEnd), bold: false, link: link });
+  }
+}
+
+// ── MEDIA-LINK FALLBACK ───────────────────────────────────────────────
+
+/**
+ * Safety net for AI output that ignored the token convention. In the just-
+ * inserted range it (1) swaps "[Link to video N here]" / "[Link to reading N
+ * here]" placeholders for the matching real URL, and (2) auto-links any bare
+ * http(s) URL that isn't already a hyperlink. No-ops when linkMap is empty.
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {number} startIdx   index where insertion began
+ * @param {number} count      number of inserted elements to scan
+ * @param {Object} [linkMap]  TOKEN → URL map
+ */
+function linkifyMediaFallback4_(body, startIdx, count, linkMap) {
+  var end = Math.min(startIdx + count, body.getNumChildren());
+
+  for (var i = startIdx; i < end; i++) {
+    var child = body.getChild(i);
+    var type  = child.getType();
+    if (type !== DocumentApp.ElementType.PARAGRAPH &&
+        type !== DocumentApp.ElementType.LIST_ITEM) continue;
+
+    try {
+      var el = child.editAsText();
+      var s  = el.getText();
+
+      // 1) Swap explicit "[Link to <kind> N here]" placeholders for the real URL
+      //    — only when a placeholder is actually present (rare), so the common
+      //    path skips the replaceText round-trips entirely.
+      if (linkMap && s.toLowerCase().indexOf('[link to') !== -1) {
+        replaceMediaPlaceholders4_(child, 'video',   linkMap);
+        replaceMediaPlaceholders4_(child, 'reading', linkMap);
+        el = child.editAsText();
+        s  = el.getText();
+      }
+
+      // 2) Auto-link any bare URL still sitting as plain text.
+      var re = /https?:\/\/[^\s\]\)]+/g;
+      var m;
+      while ((m = re.exec(s)) !== null) {
+        var url = m[0].replace(/[.,;]+$/, '');
+        var st  = m.index;
+        var en  = st + url.length - 1;
+        if (!el.getLinkUrl(st)) el.setLinkUrl(st, en, url);
+      }
+    } catch (e) {
+      // Linking is cosmetic — never let it fail the whole insertion.
+      Logger.log('linkifyMediaFallback4_: skipped a paragraph (' + ((e && e.message) || e) + ')');
+    }
+  }
+}
+
+/**
+ * Replaces "[Link to <kind> N here]" placeholders (any case) in one element with
+ * the real URL from linkMap, for as many numbered tokens as exist for that kind.
+ *
+ * @param {GoogleAppsScript.Document.Element} child
+ * @param {string} kind    'video' | 'reading'
+ * @param {Object} linkMap TOKEN → URL map
+ */
+function replaceMediaPlaceholders4_(child, kind, linkMap) {
+  var n = 1;
+  while (linkMap[kind.toUpperCase() + n]) {
+    var pattern = '(?i)\\[\\s*link to ' + kind + '\\s+' + n + '\\s+here\\s*\\]';
+    child.replaceText(pattern, linkMap[kind.toUpperCase() + n]);
+    n++;
+  }
 }

@@ -875,7 +875,7 @@
         var acts = (sessionData.activitiesByTarget || {})[target] || [];
         if (acts.length === 0) return; // nothing to adapt in this module
         var activities = acts.map(function (item) {
-          return { activityTitle: item.actTitle, modelText: item.modelText };
+          return { activityTitle: item.actTitle, modelText: item.modelText, toolType: item.toolType };
         });
         totalActivities += activities.length;
         workQueue.push({
@@ -1035,6 +1035,10 @@
       lines.push('');
       lines.push('Review the deployed directions and update any');
       lines.push('module-specific details as needed.');
+      lines.push('');
+      lines.push('⚠️ Treat Gemini’s output like a draft. Check that the results ' +
+        'align with the notes in the course design map — especially reading/video ' +
+        'titles and links.');
 
       document.getElementById('main-form').classList.add('hidden');
       document.getElementById('summary-box').textContent = lines.join('\n');
