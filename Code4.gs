@@ -1167,8 +1167,6 @@ function insertFormattedText4(body, insertIdx, aiText, indent, linkMap) {
       var segs        = parseInlineSegments4(token.text);
       var cleanHeading = segs.map(function(s) { return s.text; }).join('');
       var fullText    = cleanHeading + ' ' + token.marker;
-      var markerStart = cleanHeading.length + 1; // +1 for the space
-      var markerEnd   = fullText.length - 1;
 
       var hPara = body.insertParagraph(insertIdx, fullText);
       hPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
@@ -1188,12 +1186,10 @@ function insertFormattedText4(body, insertIdx, aiText, indent, linkMap) {
         hpos += hlen;
       }
 
-      // (HX) marker: red and bold (applied inline — character positions are known here)
-      if (markerStart <= markerEnd) {
-        pt.setForegroundColor(markerStart, markerEnd, RED);
-        pt.setBold(markerStart, markerEnd, true);
-      }
-      // Heading text bold is applied in the post-processing pass below
+      // The (HX) marker's red+bold AND the heading-text bold are BOTH applied in
+      // the deferred applyHeadingBold4 pass below — inline character formatting
+      // on freshly inserted text can be silently dropped before the write batch
+      // flushes, which left markers black on large/link-heavy activities.
 
     } else {
       // Normal paragraph
@@ -1267,19 +1263,24 @@ function linkifyHelpDesk4_(body, startIdx, count) {
   }
 }
 
-// ── HEADING BOLD POST-PROCESSOR ───────────────────────────────────────
+// ── HEADING STYLE POST-PROCESSOR ──────────────────────────────────────
 
 /**
- * Scans inserted paragraphs and bolds the heading text (everything before
- * the space + (HX) marker). Called after all elements are inserted so the
- * GAS write batch has flushed and setBold calls are not silently dropped.
+ * Scans inserted paragraphs and applies heading styling: bolds the heading
+ * text (everything before the marker) and colours the "(HX)" marker red + bold.
+ *
+ * Runs after ALL elements are inserted so the GAS write batch has flushed —
+ * inline character formatting on freshly inserted text can be silently dropped,
+ * which previously left markers black on large / link-heavy activities. Applying
+ * both the text bold and the marker colour here (not inline) makes them reliable
+ * regardless of how big the activity is.
  *
  * @param {GoogleAppsScript.Document.Body} body
  * @param {number} startIdx   index where insertion began
  * @param {number} tokenCount number of tokens that were inserted
  */
 function applyHeadingBold4(body, startIdx, tokenCount) {
-  var headingRe  = /^(.*?)\s*\(H[2-4]\)\s*$/i;
+  var headingRe  = /^(.*?)\s*(\(H[2-4]\))\s*$/i;
   var end        = startIdx + tokenCount;
   var childCount = body.getNumChildren();   // cache once — avoid a server round-trip per iteration
   for (var i = startIdx; i < end && i < childCount; i++) {
@@ -1288,8 +1289,25 @@ function applyHeadingBold4(body, startIdx, tokenCount) {
     var para = child.asParagraph();
     var text = para.getText();
     var m    = text.match(headingRe);
-    if (!m || !m[1] || m[1].length === 0) continue;
-    para.editAsText().setBold(0, m[1].length - 1, true);
+    if (!m) continue;
+
+    var pt = para.editAsText();
+
+    // Bold the heading text (everything before the marker).
+    if (m[1] && m[1].length > 0) {
+      pt.setBold(0, m[1].length - 1, true);
+    }
+
+    // Colour the (HX) marker red + bold. The marker sits at the end of the line
+    // (ignoring any trailing whitespace), so its span is the last m[2].length
+    // characters of the trimmed text.
+    var trimmed     = text.replace(/\s+$/, '');
+    var markerStart = trimmed.length - m[2].length;
+    var markerEnd   = trimmed.length - 1;
+    if (markerStart >= 0 && markerStart <= markerEnd) {
+      pt.setForegroundColor(markerStart, markerEnd, RED);
+      pt.setBold(markerStart, markerEnd, true);
+    }
   }
 }
 
