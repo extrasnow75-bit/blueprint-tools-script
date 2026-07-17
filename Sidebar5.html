@@ -205,6 +205,8 @@
 
     .spinner-label { font-size: 13px; color: #555; }
 
+    .elapsed { font-size: 12px; color: #666; margin-top: 8px; }
+
     /* ── Summary & error ─────────────────────────────────────── */
     .summary-box {
       background: #f4f6fa;
@@ -303,6 +305,8 @@
         <div class="spinner" aria-hidden="true"></div>
         <span class="spinner-label">Applying directions&hellip;</span>
       </div>
+      <p class="elapsed" aria-hidden="true">Elapsed: <strong><span id="elapsed-time">0:00</span></strong>
+        &nbsp;&middot;&nbsp; Est. time: <strong><span id="est-time">~&hellip;</span></strong></p>
     </div>
 
     <!-- ── Error area ── -->
@@ -496,6 +500,30 @@
       return keyMap[raw.toLowerCase().trim()] || null;
     }
 
+    // ── Clock + estimate ──────────────────────────────────────────
+    // This tool fills a single module, so there's no per-module progress to
+    // report — a live Elapsed clock plus a rough up-front estimate (scaled by
+    // how many activities are actually being inserted) is the right fit.
+    var elapsedTimer = null, runStart = 0;
+    var SECS_PER_ACTIVITY = 4; // rough insert cost per activity (source re-scan + copy)
+
+    function fmtClock(sec) {
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+    function startClock() {
+      runStart = Date.now();
+      document.getElementById('elapsed-time').textContent = '0:00';
+      elapsedTimer = setInterval(function () {
+        document.getElementById('elapsed-time').textContent =
+          fmtClock(Math.floor((Date.now() - runStart) / 1000));
+      }, 1000);
+    }
+    function stopClock() {
+      if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+    }
+
     // ── Run ───────────────────────────────────────────────────────
     function runScript() {
       var moduleTitle = document.getElementById('module-select').value;
@@ -514,9 +542,19 @@
         }
       });
 
+      // Estimate scales with the activities actually being inserted
+      // ("[Leave Blank]" selections do no work).
+      var applyCount = 0;
+      for (var key in selections) {
+        if (selections[key] && selections[key] !== '[Leave Blank]') applyCount++;
+      }
+      var estSec = Math.max(5, applyCount * SECS_PER_ACTIVITY);
+
       document.getElementById('run-btn').disabled = true;
       document.getElementById('spinner-area').classList.remove('hidden');
+      document.getElementById('est-time').textContent = '~' + fmtClock(estSec);
       hideError();
+      startClock();
 
       google.script.run
         .withSuccessHandler(onRunSuccess)
@@ -525,6 +563,7 @@
     }
 
     function onRunSuccess(summary) {
+      stopClock();
       document.getElementById('spinner-area').classList.add('hidden');
       document.getElementById('main-form').classList.add('hidden');
       document.getElementById('summary-box').textContent = summary;
@@ -534,6 +573,7 @@
     }
 
     function onRunError(err) {
+      stopClock();
       document.getElementById('spinner-area').classList.add('hidden');
       document.getElementById('run-btn').disabled = false;
       var msg = err.message || String(err);

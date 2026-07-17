@@ -152,6 +152,8 @@
 
     .spinner-label { font-size: 13px; color: #555; }
 
+    .elapsed { font-size: 12px; color: #666; margin-top: 8px; }
+
     /* Summary */
     .summary-box {
       background: #f4f6fa;
@@ -249,8 +251,10 @@
     <div id="spinner-area" class="hidden" role="status" aria-live="polite">
       <div class="spinner-wrap">
         <div class="spinner" aria-hidden="true"></div>
-        <span class="spinner-label">Deploying directions&hellip; <span id="elapsed-time" aria-hidden="true"></span></span>
+        <span class="spinner-label" id="progress-label">Deploying directions&hellip;</span>
       </div>
+      <p class="elapsed" aria-hidden="true">Elapsed: <strong><span id="elapsed-time">0:00</span></strong>
+        &nbsp;&middot;&nbsp; Est. remaining: <strong><span id="eta-time">~&hellip;</span></strong></p>
     </div>
 
     <!-- ── Error ── -->
@@ -402,24 +406,53 @@
       }
     }
 
-    // ── Timer ─────────────────────────────────────────────────
-    var elapsedTimer = null, elapsedSeconds = 0;
+    // ── Clock + ETA ───────────────────────────────────────────
+    // The tool deploys module-by-module (one server call per target) so it can
+    // show live progress and a real "estimated remaining" based on the average
+    // time of the modules already finished. This also keeps each server run
+    // short, avoiding the per-execution time limit on large jobs.
+    var elapsedTimer = null;
+    var runStart     = 0;
+    var totalModules = 0;
+    var doneModules  = 0;
+    var acc          = { replaced: 0, noMatch: 0 };
+    var deployModel  = '';
+    var deployActs   = [];
 
-    function startTimer() {
-      elapsedSeconds = 0;
-      document.getElementById('elapsed-time').textContent = '(0:00)';
-      elapsedTimer = setInterval(function () {
-        elapsedSeconds++;
-        var m = Math.floor(elapsedSeconds / 60);
-        var s = elapsedSeconds % 60;
-        document.getElementById('elapsed-time').textContent =
-          '(' + m + ':' + (s < 10 ? '0' : '') + s + ')';
-      }, 1000);
+    function fmtClock(totalSec) {
+      var m = Math.floor(totalSec / 60);
+      var s = totalSec % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
     }
 
-    function stopTimer() {
+    function startClock() {
+      runStart = Date.now();
+      setClock();
+      elapsedTimer = setInterval(setClock, 1000);
+    }
+    function setClock() {
+      var sec = Math.floor((Date.now() - runStart) / 1000);
+      document.getElementById('elapsed-time').textContent = fmtClock(sec);
+    }
+    function stopClock() {
       if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
-      document.getElementById('elapsed-time').textContent = '';
+    }
+
+    function updateEta() {
+      // Seed with a rough 30 s/module (measured: ~30.6 s/module on a 10-activity,
+      // 14-module run) until the first module reports a real time.
+      var perModuleMs = (doneModules > 0)
+        ? (Date.now() - runStart) / doneModules
+        : 30000;
+      var remainingMs = perModuleMs * (totalModules - doneModules);
+      document.getElementById('eta-time').textContent =
+        '~' + fmtClock(Math.max(0, Math.round(remainingMs / 1000)));
+    }
+
+    function setProgress() {
+      var n = Math.min(doneModules + 1, totalModules);
+      document.getElementById('progress-label').textContent =
+        'Deploying to module ' + n + ' of ' + totalModules + '…';
     }
 
     // ── Run ───────────────────────────────────────────────────
@@ -453,20 +486,51 @@
       document.getElementById('run-btn').disabled = true;
       document.getElementById('spinner-area').classList.remove('hidden');
       hideError();
-      startTimer();
+
+      deployModel  = modelModule;
+      deployActs   = selectedActivities;
+      totalModules = targets.length;
+      doneModules  = 0;
+      acc          = { replaced: 0, noMatch: 0 };
+
+      startClock();
+      setProgress();
+      updateEta();
+      deployNext(targets, 0);
+    }
+
+    function deployNext(targets, idx) {
+      if (idx >= targets.length) { finishDeploy(); return; }
 
       google.script.run
-        .withSuccessHandler(onRunSuccess)
+        .withSuccessHandler(function (res) {
+          acc.replaced += (res && res.replaced) || 0;
+          acc.noMatch  += (res && res.noMatch)  || 0;
+          doneModules++;
+          setProgress();
+          updateEta();
+          deployNext(targets, idx + 1);
+        })
         .withFailureHandler(onRunError)
         .applyDirectionsFromModel({
-          modelModuleTitle:   modelModule,
-          targetModuleTitles: targets,
-          selectedActivities: selectedActivities
+          modelModuleTitle:   deployModel,
+          targetModuleTitles: [targets[idx]],
+          selectedActivities: deployActs
         });
     }
 
-    function onRunSuccess(summary) {
-      stopTimer();
+    function finishDeploy() {
+      stopClock();
+      var totalSec = Math.floor((Date.now() - runStart) / 1000);
+      var summary =
+        '✅ Directions deployed to ' + totalModules +
+        (totalModules === 1 ? ' module' : ' modules') + '!\n\n' +
+        'Activity slots filled:  ' + acc.replaced + '\n' +
+        'No match in model:      ' + acc.noMatch  + '\n' +
+        'Total time:             ' + fmtClock(totalSec) + '\n\n' +
+        'Review the deployed directions and update any\n' +
+        'module-specific details as needed.';
+
       document.getElementById('spinner-area').classList.add('hidden');
       document.getElementById('main-form').classList.add('hidden');
       document.getElementById('summary-box').textContent = summary;
@@ -476,7 +540,7 @@
     }
 
     function onRunError(err) {
-      stopTimer();
+      stopClock();
       document.getElementById('spinner-area').classList.add('hidden');
       document.getElementById('run-btn').disabled = false;
       showError(err.message || String(err));

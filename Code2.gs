@@ -483,15 +483,13 @@ function applyDirectionsFromModel(params) {
     }
   }
 
-  var nTargets = targetModuleTitles.length;
-  return (
-    '✅ Directions deployed to ' + nTargets +
-    (nTargets === 1 ? ' module' : ' modules') + '!\n\n' +
-    'Activity slots filled:  ' + totalReplaced + '\n' +
-    'No match in model:      ' + totalNoMatch  + '\n\n' +
-    'Review the deployed directions and update any\n' +
-    'module-specific details as needed.'
-  );
+  // Structured counts so the sidebar can call this once per target module and
+  // accumulate totals across the run (enabling per-module progress + ETA).
+  return {
+    replaced: totalReplaced,
+    noMatch:  totalNoMatch,
+    targets:  targetModuleTitles.length
+  };
 }
 
 
@@ -850,6 +848,30 @@ function findContentStartByIndex(body, h2Index) {
   var H3 = DocumentApp.ParagraphHeading.HEADING3;
   var numChildren = body.getNumChildren();
 
+  // PRIMARY: anchor on the first section-heading marker — a paragraph whose text
+  // ends with "(H2)", "(H3)", or "(H4)". Every direction block in the source doc
+  // begins its real content with such a marker (e.g. "Overview (H2)", "[Reading
+  // Icon] Required Readings (H2)", "Activity Directions (H2)"), and NONE of the
+  // boilerplate lines above it — the demo title ("X.XX …"), "Estimated time:", or
+  // the "<Tool>; Link to settings tab" line — ever contain one. Anchoring here is
+  // far more robust than enumerating every boilerplate line to skip: it doesn't
+  // depend on the demo header's heading style, on the tool being a dropdown chip
+  // (whose getText() is unreliable), or on how long the block's intro is — the
+  // exact things that made the fallback heuristic below miss the tool-line blocks.
+  var MARKER_RE = /\(H[2-4]\)\s*$/i;
+  for (var m = h2Index + 1; m < numChildren; m++) {
+    var mc = body.getChild(m);
+    if (mc.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var mp = mc.asParagraph();
+    // Reached the next section's real H2 heading without finding a marker —
+    // give up and let the fallback heuristic decide.
+    if (mp.getHeading() === H2) break;
+    if (MARKER_RE.test(mp.getText().trim())) return m;
+  }
+
+  // FALLBACK (no marker found): the original demo-header + boilerplate-denylist
+  // heuristic. Kept so an unusual block that lacks (Hn) markers still degrades
+  // gracefully instead of returning nothing.
   // Pass 1: find the H3 demo-activity header that marks the start of the
   // example block (look within the next 10 elements to avoid overshooting).
   var h3Index = -1;
