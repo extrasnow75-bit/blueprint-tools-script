@@ -961,7 +961,11 @@ function callGemini4_(apiKey, prompt, model, opts) {
   };
 
   // Retry with exponential backoff on rate-limit (429) and transient 5xx errors.
-  var maxAttempts = 5;
+  // Fail FAST: a sustained free-tier 429 won't clear inside a few retries, and
+  // each doomed attempt is itself a slow, large generation. Two attempts with a
+  // 15s cap surfaces "rate limit — wait and retry" in ~30s instead of stalling
+  // the sidebar for 10+ minutes on a call that ultimately fails anyway.
+  var maxAttempts = 2;
   var response, responseCode, data;
 
   for (var attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -976,7 +980,7 @@ function callGemini4_(apiKey, prompt, model, opts) {
       // longer — waiting less than requested just guarantees another 429.
       var backoffMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
       var serverMs  = extractRetryDelayMs4_(response);
-      var waitMs    = Math.min(Math.max(backoffMs, serverMs), 60000); // cap at 60s
+      var waitMs    = Math.min(Math.max(backoffMs, serverMs), 15000); // cap at 15s (fail fast)
       Logger.log('callGemini4_ HTTP ' + responseCode + ' — retry ' + attempt +
                  ' of ' + (maxAttempts - 1) + ' after ' + waitMs + 'ms' +
                  (serverMs ? ' (server hint ' + serverMs + 'ms)' : ''));

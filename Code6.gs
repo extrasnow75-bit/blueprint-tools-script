@@ -232,13 +232,13 @@ function adaptAndDeployModule6(params) {
 
   try {
     var prompt = buildModuleAdaptPrompt6_(params);
-    // One call now returns directions for the whole module, so give it a
-    // generous output budget (default caps can truncate a multi-activity reply).
-    var aiText = callGemini4_(params.apiKey, prompt, GEMINI_DEPLOY_6, { maxOutputTokens: 32768 });
+    // One call returns directions for the whole module. 8192 tokens (~6000 words)
+    // comfortably fits ~10 adapted activities while capping runaway generation —
+    // a 32K budget let the model ramble, which was slow and burned rate-limit
+    // headroom. If a genuinely huge module truncates, the MAX_TOKENS guard in
+    // callGemini4_ surfaces a clear "deploy fewer" error instead of partial text.
+    var aiText = callGemini4_(params.apiKey, prompt, GEMINI_DEPLOY_6, { maxOutputTokens: 8192 });
     var blocks = splitModuleResponse6_(aiText, activities.length);
-
-    // Resolve the target module's design-map link tokens (VIDEO1, READING1, …).
-    var media = buildMediaTokens4_(params.moduleContext ? params.moduleContext.mediaLinks : null);
 
     // Course code for the assignment help section (read once per module).
     var courseCode = extractCourseCode_();
@@ -274,6 +274,13 @@ function adaptAndDeployModule6(params) {
         aiBlock = stripCodeFence4_(aiBlock) +
                   assignmentHelpBlock4_(courseCode, act.activityTitle);
       }
+
+      // Scope the link tokens to THIS activity so a readings-only activity can
+      // only resolve reading links (and vice-versa) — mirrors the model-module
+      // tool. Deterministic: the same scoped list drove this activity's token
+      // block in the prompt, so READING1/VIDEO1 map identically here.
+      var scopedCtx = scopeModuleContextForActivity_(params.moduleContext, act.activityTitle);
+      var media     = buildMediaTokens4_(scopedCtx ? scopedCtx.mediaLinks : null);
 
       var indent    = placeholder.getIndentStart() || INDENT_4;
       var insertIdx = devBody.getChildIndex(placeholder);
@@ -346,7 +353,6 @@ function buildModuleAdaptPrompt6_(params) {
   if (ctx) {
     if (ctx.moduleTitle) contextLines.push('Module title: ' + ctx.moduleTitle);
     if (ctx.clos)        contextLines.push('Learning Outcomes: ' + ctx.clos);
-    if (ctx.readings)    contextLines.push('Readings/content: ' + ctx.readings);
     if (ctx.activityDescriptions && ctx.activityDescriptions.length > 0) {
       contextLines.push('Activity notes: ' + ctx.activityDescriptions.join('; '));
     }
@@ -355,22 +361,9 @@ function buildModuleAdaptPrompt6_(params) {
     ? 'TARGET MODULE CONTEXT:\n' + contextLines.join('\n') + '\n\n'
     : '';
 
-  // Available-links block for THIS target module — reference-by-TOKEN.
-  var media = buildMediaTokens4_(ctx ? ctx.mediaLinks : null);
-  var mediaBlock = media.hasLinks
-    ? 'AVAILABLE LINKS for "' + params.targetModuleTitle + '" — reference each by its ' +
-      'TOKEN, never by retyping the URL:\n' + media.promptLines.join('\n') + '\n\n'
-    : '';
-  var linkRule = media.hasLinks
-    ? '- When an activity references a reading or video, embed the link in its TITLE ' +
-      'using markdown syntax with the TOKEN as the target, e.g. "[Read Chapter 3](READING1)". ' +
-      'When AVAILABLE LINKS supplies a title in quotes, use that exact title as the link text. ' +
-      'Use only tokens from AVAILABLE LINKS; never write the raw URL or a "[Link here]" ' +
-      'placeholder.\n'
-    : '- Do NOT invent link placeholders such as "[Link to video here]".\n';
-
-  var activities = params.activities || [];
-  var actBlocks  = [];
+  var activities   = params.activities || [];
+  var actBlocks    = [];
+  var anyHasLinks  = false;   // gate the general link rule below
   for (var i = 0; i < activities.length; i++) {
     // Neutralize any literal "@@@" in doc-sourced text so it can't spoof the
     // "@@@ACTIVITY N@@@" delimiter we split the reply on (collapsing to a single
@@ -385,18 +378,42 @@ function buildModuleAdaptPrompt6_(params) {
         'support, or Help Desk section from your adaptation — a standardized one is ' +
         'added automatically.)'
       : '';
-    // Keep readings-only / videos-only activities from picking up the other type.
+    // Scope readings/content AND link tokens to THIS activity so a readings-only
+    // activity never sees video links (and vice-versa) — mirrors the model-module
+    // tool. Each activity carries its own AVAILABLE LINKS block; the SAME scoped
+    // list drives token resolution at insert time, so tokens map identically.
     var actKind   = classifyActivityKind_(activities[i].activityTitle);
+    var scoped    = scopeModuleContextForActivity_(ctx, activities[i].activityTitle);
+    var actMedia  = buildMediaTokens4_(scoped ? scoped.mediaLinks : null);
+    if (actMedia.hasLinks) anyHasLinks = true;
+
     var scopeNote = (actKind === 'reading')
       ? '\n(This activity covers READINGS ONLY — do not add a videos/multimedia section.)'
       : (actKind === 'video')
         ? '\n(This activity covers VIDEOS ONLY — do not add a readings section.)'
         : '';
+    var readingsLine = (scoped && scoped.readings)
+      ? '\nREADINGS/CONTENT for this activity:\n' + scoped.readings
+      : '';
+    var actMediaBlock = actMedia.hasLinks
+      ? '\nAVAILABLE LINKS for this activity — reference each by its TOKEN, never by ' +
+        'retyping the URL:\n' + actMedia.promptLines.join('\n')
+      : '';
+
     actBlocks.push(
-      'ACTIVITY ' + (i + 1) + ': ' + safeTitle + assignNote + scopeNote + '\n' +
+      'ACTIVITY ' + (i + 1) + ': ' + safeTitle + assignNote + scopeNote +
+      readingsLine + actMediaBlock + '\n' +
       'MODEL DIRECTIONS (adapt these):\n' + safeModel
     );
   }
+
+  var linkRule = anyHasLinks
+    ? '- When an activity references a reading or video, embed the link in its TITLE ' +
+      'using markdown syntax with the TOKEN as the target, e.g. "[Read Chapter 3](READING1)". ' +
+      'When an activity\'s AVAILABLE LINKS supplies a title in quotes, use that exact title as ' +
+      'the link text. Use ONLY tokens from that activity\'s own AVAILABLE LINKS; never write the ' +
+      'raw URL or a "[Link here]" placeholder.\n'
+    : '- Do NOT invent link placeholders such as "[Link to video here]".\n';
 
   return (
     'You are an instructional designer adapting student-facing activity directions ' +
@@ -408,7 +425,6 @@ function buildModuleAdaptPrompt6_(params) {
     'that should genuinely differ between modules, such as module-specific ' +
     'activity numbers or references to specific readings listed in the context.\n\n' +
     contextBlock +
-    mediaBlock +
     'There are ' + activities.length + ' activities to adapt:\n\n' +
     actBlocks.join('\n\n---\n\n') + '\n\n' +
     'FORMATTING RULES — follow exactly:\n' +
