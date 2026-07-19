@@ -254,7 +254,7 @@
         <span class="spinner-label" id="progress-label">Deploying directions&hellip;</span>
       </div>
       <p class="elapsed" aria-hidden="true">Elapsed: <strong><span id="elapsed-time">0:00</span></strong>
-        &nbsp;&middot;&nbsp; Est. remaining: <strong><span id="eta-time">~&hellip;</span></strong></p>
+        &nbsp;&middot;&nbsp; Est. remaining (whole job): <strong><span id="eta-time">~&hellip;</span></strong></p>
     </div>
 
     <!-- ── Error ── -->
@@ -441,11 +441,11 @@
     }
 
     function updateEta() {
-      // Seed with a rough 30 s/module (measured: ~30.6 s/module on a 10-activity,
-      // 14-module run) until the first group reports a real per-module time.
+      // Seed with a rough 23 s/module (measured: ~22.6 s/module on a 10-activity,
+      // 14-module chunked run) until the first group reports a real per-module time.
       var perModuleMs = (doneModules > 0)
         ? (Date.now() - runStart) / doneModules
-        : 30000;
+        : 23000;
       var remainingMs = perModuleMs * (totalModules - doneModules);
       document.getElementById('eta-time').textContent =
         '~' + fmtClock(Math.max(0, Math.round(remainingMs / 1000)));
