@@ -253,8 +253,10 @@
         <div class="spinner" aria-hidden="true"></div>
         <span class="spinner-label" id="progress-label">Deploying directions&hellip;</span>
       </div>
-      <p class="elapsed" aria-hidden="true">Elapsed: <strong><span id="elapsed-time">0:00</span></strong>
-        &nbsp;&middot;&nbsp; Est. remaining (whole job): <strong><span id="eta-time">~&hellip;</span></strong></p>
+      <p class="elapsed" aria-hidden="true">
+        Elapsed: <strong><span id="elapsed-time">0:00</span></strong><br>
+        Time estimate (whole job): <strong><span id="eta-time">~&hellip;</span></strong><br>
+        Time estimate (<span id="group-eta-label">group</span>): <strong><span id="group-eta-time">~&hellip;</span></strong></p>
     </div>
 
     <!-- ── Error ── -->
@@ -417,6 +419,9 @@
     var runStart     = 0;
     var totalModules = 0;
     var doneModules  = 0;
+    var numGroups    = 0;
+    var curGroup     = 0;
+    var curGroupSize = 0;
     var acc          = { replaced: 0, noMatch: 0 };
     var deployModel  = '';
     var deployActs   = [];
@@ -441,14 +446,27 @@
     }
 
     function updateEta() {
-      // Seed with a rough 23 s/module (measured: ~22.6 s/module on a 10-activity,
+      // Seed with a rough 27 s/module (measured: ~27.2 s/module on a 10-activity,
       // 14-module chunked run) until the first group reports a real per-module time.
+      // Show the WHOLE-JOB total estimate (not time-remaining): it recalibrates
+      // between groups as real timing arrives, and the live "Elapsed" clock ticks
+      // up toward it — which reads more clearly than a "remaining" figure that sits
+      // frozen between groups instead of counting down each second.
       var perModuleMs = (doneModules > 0)
         ? (Date.now() - runStart) / doneModules
-        : 23000;
-      var remainingMs = perModuleMs * (totalModules - doneModules);
+        : 27000;
+      var totalMs = perModuleMs * totalModules;
       document.getElementById('eta-time').textContent =
-        '~' + fmtClock(Math.max(0, Math.round(remainingMs / 1000)));
+        '~' + fmtClock(Math.max(0, Math.round(totalMs / 1000)));
+
+      // Per-group estimate for the group currently deploying.
+      var groupEl = document.getElementById('group-eta-time');
+      if (groupEl && curGroupSize > 0) {
+        var groupMs = perModuleMs * curGroupSize;
+        groupEl.textContent = '~' + fmtClock(Math.max(0, Math.round(groupMs / 1000)));
+        document.getElementById('group-eta-label').textContent =
+          'group ' + curGroup + ' of ' + numGroups;
+      }
     }
 
     // Split the target modules into up to MAX_GROUPS roughly-equal groups.
@@ -501,19 +519,22 @@
       acc          = { replaced: 0, noMatch: 0 };
 
       var groups = makeGroups(targets);
+      numGroups  = groups.length;
       startClock();
-      updateEta();
       deployGroup(groups, 0);
     }
 
     function deployGroup(groups, gi) {
       if (gi >= groups.length) { finishDeploy(); return; }
 
-      var group = groups[gi];
+      var group    = groups[gi];
+      curGroup     = gi + 1;
+      curGroupSize = group.length;
       document.getElementById('progress-label').textContent =
         'Deploying group ' + (gi + 1) + ' of ' + groups.length +
         ' (modules ' + (doneModules + 1) + '–' + (doneModules + group.length) +
         ' of ' + totalModules + ')…';
+      updateEta();
 
       google.script.run
         .withSuccessHandler(function (res) {

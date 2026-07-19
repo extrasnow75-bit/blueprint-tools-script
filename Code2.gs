@@ -936,12 +936,14 @@ function replaceWithCopiedElements(body, placeholder, sourceElements) {
   placeholder.removeFromParent();
 
   // Insert in REVERSE order at insertIdx so final order is correct.
+  var insertedCount = 0;
   for (var k = sourceElements.length - 1; k >= 0; k--) {
     var el   = sourceElements[k];
     var type = el.getType();
 
     if (type === DocumentApp.ElementType.PARAGRAPH) {
       body.insertParagraph(insertIdx, el.asParagraph().copy());
+      insertedCount++;
     } else if (type === DocumentApp.ElementType.LIST_ITEM) {
       var srcItem = el.asListItem();
       var newItem = body.insertListItem(insertIdx, srcItem.copy());
@@ -950,12 +952,81 @@ function replaceWithCopiedElements(body, placeholder, sourceElements) {
       // exist in the destination document.
       newItem.setGlyphType(srcItem.getGlyphType());
       newItem.setNestingLevel(srcItem.getNestingLevel());
+      insertedCount++;
     } else if (type === DocumentApp.ElementType.TABLE) {
       body.insertTable(insertIdx, el.asTable().copy());
+      insertedCount++;
     } else {
       Logger.log('replaceWithCopiedElements: skipping unsupported element type: ' + type);
     }
   }
+
+  // Restart list numbering for this activity. Copied list items keep the SOURCE
+  // list's ID, and Google Docs numbers every item sharing an ID continuously —
+  // so an ordered list copied into many activities would count 1,2,3,…,N across
+  // the whole document instead of restarting at 1 in each activity. Give each
+  // contiguous run of inserted list items a fresh, unique list ID to fix this.
+  restartCopiedListNumbering_(body, insertIdx, insertedCount);
+}
+
+/**
+ * Walks the just-inserted element range and gives every contiguous run of list
+ * items its own fresh list ID, so numbering restarts per run (per activity).
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {number} startIdx  index of the first inserted element
+ * @param {number} count     number of elements inserted
+ */
+function restartCopiedListNumbering_(body, startIdx, count) {
+  // Collect inserted elements by reference (references survive the later
+  // seed insert/remove, so it's safe to gather them all up front).
+  var inserted = [];
+  for (var p = startIdx; p < startIdx + count && p < body.getNumChildren(); p++) {
+    inserted.push(body.getChild(p));
+  }
+
+  var run = [];
+  for (var i = 0; i <= inserted.length; i++) {
+    var isItem = (i < inserted.length) &&
+                 inserted[i].getType() === DocumentApp.ElementType.LIST_ITEM;
+    if (isItem) {
+      run.push(inserted[i].asListItem());
+    } else if (run.length > 0) {
+      freshListId_(body, run); // close the current run
+      run = [];
+    }
+  }
+}
+
+/**
+ * Assigns a brand-new, unique list ID to every item in one list run, so its
+ * numbering restarts at 1 instead of continuing another activity's list.
+ *
+ * A list ID can't be minted directly. The seed item must be created in
+ * ISOLATION: if it is inserted next to an existing list, Docs merges it into
+ * that list (reusing the shared source ID) and setListId becomes a no-op — which
+ * is why an adjacent seed silently failed. So we surround the seed with a plain
+ * paragraph on BOTH sides; Docs can't attach it to any existing list and gives it
+ * a fresh unique ID. We point the whole run at that ID, then delete the scratch
+ * elements; the run keeps the new, distinct ID.
+ *
+ * The scratch trio is built at the TOP of the body (index 0), not appended at the
+ * end. There is always real content after index 0, so none of the scratch elements
+ * is ever the section's last paragraph — appending at the end left the separator as
+ * the final paragraph, and removing it threw "Can't remove the last paragraph in a
+ * document section."
+ *
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {Array<GoogleAppsScript.Document.ListItem>} runItems
+ */
+function freshListId_(body, runItems) {
+  var guardBefore = body.insertParagraph(0, '');  // plain para before the seed
+  var seed        = body.insertListItem(1, '');    // isolated → fresh list ID
+  var guardAfter  = body.insertParagraph(2, '');   // plain para after the seed
+  for (var i = 0; i < runItems.length; i++) runItems[i].setListId(seed);
+  seed.removeFromParent();
+  guardAfter.removeFromParent();
+  guardBefore.removeFromParent();
 }
 
 

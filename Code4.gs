@@ -783,8 +783,18 @@ function generateAndInsertOneActivity4(params) {
     var devBody = getDevelopmentTabBody(doc);
     if (!devBody) throw new Error('Could not find the Development tab in this document.');
 
-    // Find the placeholder for this activity
-    var placeholder = findPlaceholderInTool4(devBody, params.moduleTitle, params.activityTitle);
+    // Revision run: the placeholder was already replaced by generated directions.
+    // Clear those directions; clearGeneratedDirections4_ returns the fresh
+    // placeholder it inserts, so the revision path avoids a second full-body scan.
+    var placeholder = null;
+    if (params.isRevision) {
+      placeholder = clearGeneratedDirections4_(devBody, params.moduleTitle, params.activityTitle);
+    }
+    // Normal runs — and revisions where nothing needed clearing (e.g. an activity
+    // that never generated the first time) — locate the existing placeholder.
+    if (!placeholder) {
+      placeholder = findPlaceholderInTool4(devBody, params.moduleTitle, params.activityTitle);
+    }
     if (!placeholder) {
       throw new Error(
         'Could not find “Directions go here…” placeholder for “' +
@@ -836,6 +846,23 @@ function generateAndInsertOneActivity4(params) {
  * @returns {GoogleAppsScript.Document.Paragraph|null}
  */
 function findPlaceholderInTool4(devBody, moduleTitle, activityTitle) {
+  var heading = findActivityHeading4_(devBody, moduleTitle, activityTitle);
+  return heading ? findDirectionsPlaceholder(devBody, heading) : null;
+}
+
+// ── REVISION SUPPORT ──────────────────────────────────────────────────
+
+/**
+ * Locates the H4 heading paragraph for a specific activity within a specific
+ * module in the Development tab. Mirrors the module/heading scan used by
+ * findPlaceholderInTool4, but returns the heading itself.
+ *
+ * @param {GoogleAppsScript.Document.Body} devBody
+ * @param {string} moduleTitle    e.g. "Module 1"
+ * @param {string} activityTitle  stripped title (no prefix/suffix)
+ * @returns {GoogleAppsScript.Document.Paragraph|null}
+ */
+function findActivityHeading4_(devBody, moduleTitle, activityTitle) {
   var H2       = DocumentApp.ParagraphHeading.HEADING2;
   var H4       = DocumentApp.ParagraphHeading.HEADING4;
   var escaped  = moduleTitle.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -853,18 +880,85 @@ function findPlaceholderInTool4(devBody, moduleTitle, activityTitle) {
 
     if (heading === H2) {
       if (moduleRe.test(text)) { inModule = true;  continue; }
-      if (inModule)             { break; }           // left the module
+      if (inModule)             { break; }
       continue;
     }
     if (!inModule) continue;
 
-    if (heading === H4) {
-      if (stripActivityHeading(text).toLowerCase() === activityTitle.toLowerCase()) {
-        return findDirectionsPlaceholder(devBody, para);
-      }
+    if (heading === H4 &&
+        stripActivityHeading(text).toLowerCase() === activityTitle.toLowerCase()) {
+      return para;
     }
   }
   return null;
+}
+
+/**
+ * Removes previously generated directions from an activity slot and inserts a
+ * fresh "Directions go here…" placeholder in their place, so a revision run can
+ * regenerate the activity through the normal find-and-replace flow.
+ *
+ * Structural lines are never touched: the "Estimated time:" line, the tool line
+ * (which always keeps its "; Link to settings tab" suffix — see setNearbyTool),
+ * and any "Due by … Mountain Time" header/annotation are preserved. Everything
+ * else in the slot (paragraphs, list items, horizontal rules, tables, blanks)
+ * up to the next heading is treated as generated content and removed.
+ *
+ * @param {GoogleAppsScript.Document.Body} devBody
+ * @param {string} moduleTitle
+ * @param {string} activityTitle
+ * @returns {GoogleAppsScript.Document.Paragraph|null}  the fresh placeholder
+ *   paragraph if directions were cleared, else null (nothing to clear / not found)
+ */
+function clearGeneratedDirections4_(devBody, moduleTitle, activityTitle) {
+  var heading = findActivityHeading4_(devBody, moduleTitle, activityTitle);
+  if (!heading) return null;
+
+  var H2 = DocumentApp.ParagraphHeading.HEADING2;
+  var H3 = DocumentApp.ParagraphHeading.HEADING3;
+  var H4 = DocumentApp.ParagraphHeading.HEADING4;
+
+  var startIdx = devBody.getChildIndex(heading);
+  var n        = devBody.getNumChildren();
+  var indent   = heading.getIndentStart() || INDENT_4;
+
+  var toRemove = [];
+  for (var i = startIdx + 1; i < n; i++) {
+    var child = devBody.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var para = child.asParagraph();
+      var h    = para.getHeading();
+      if (h === H2 || h === H3 || h === H4) break; // left this activity slot
+      var text = para.getText().trim();
+      // Preserve structural lines — never remove these. Patterns are anchored to
+      // the whole line so AI-generated body text that merely mentions a due date
+      // or "settings tab" in passing is treated as content, not preserved.
+      if (/^estimated time/i.test(text))                        continue;
+      if (/link to settings tab$/i.test(text))                  { indent = para.getIndentStart() || indent; continue; }
+      if (/^due by .+mountain time$/i.test(text))               continue;
+      if (/(text header in canvas|do not build in canvas)$/i.test(text)) continue;
+      toRemove.push(child);
+    } else {
+      // Tables / list items / horizontal rules are always generated content.
+      toRemove.push(child);
+    }
+  }
+
+  if (toRemove.length === 0) return null; // nothing generated yet — leave as is
+
+  // Insert the fresh placeholder BEFORE removing the old content so the section
+  // never becomes momentarily empty (which would throw "Can't remove the last
+  // paragraph in a document section" when the slot ends the document).
+  var insertAt    = devBody.getChildIndex(toRemove[0]);
+  var placeholder = devBody.insertParagraph(insertAt, 'Directions go here…');
+  placeholder.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+  placeholder.setIndentStart(indent);
+
+  // Remove by element reference so index shifts from the insert above don't matter.
+  for (var r = toRemove.length - 1; r >= 0; r--) {
+    toRemove[r].removeFromParent();
+  }
+  return placeholder;
 }
 
 // ── PROMPT BUILDER ────────────────────────────────────────────────────
@@ -883,6 +977,15 @@ function buildAiDirectionsPrompt4(params) {
     ? scopeModuleContextForActivity_(params.moduleContext, params.activityTitle)
     : null;
   var media = buildMediaTokens4_(moduleContext ? moduleContext.mediaLinks : null);
+
+  // Custom instructions block — course-designer guidelines typed in the sidebar
+  // (and, on a revision run, the requested changes). Placed first and given
+  // priority so it steers the whole generation.
+  var customBlock = (params.customInstructions && String(params.customInstructions).trim())
+    ? 'ADDITIONAL INSTRUCTIONS FROM THE COURSE DESIGNER — follow these closely; ' +
+      'where they conflict with the general guidance below, these take priority:\n' +
+      String(params.customInstructions).trim() + '\n\n'
+    : '';
 
   // Module context block
   var contextLines = [];
@@ -950,6 +1053,7 @@ function buildAiDirectionsPrompt4(params) {
   return (
     'You are an instructional designer writing student-facing activity instructions ' +
     'for a college online course.\n\n' +
+    customBlock +
     contextBlock +
     mediaBlock +
     'ACTIVITY:\n' +

@@ -60,6 +60,16 @@
       box-shadow: 0 0 0 2px rgba(0,51,160,0.25);
     }
 
+    .custom-instructions {
+      width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+      min-height: 56px;
+      line-height: 1.4;
+    }
+
+    .optional-tag { font-weight: normal; font-size: 12px; color: #555; }
+
     .validate-btn {
       padding: 0 12px;
       background: #e8edf7;
@@ -391,6 +401,19 @@
     </p>
     <p class="insertion-hint" id="insertion-hint" aria-live="polite"></p>
 
+    <hr class="divider">
+
+    <!-- ── Custom instructions ── -->
+    <h3>Custom Instructions <span class="optional-tag">(optional)</span></h3>
+    <p class="help-text">
+      Add any guidelines for Gemini to follow while adapting the directions &mdash;
+      e.g. &ldquo;keep each activity under 150 words,&rdquo; &ldquo;use a warmer tone,&rdquo;
+      or &ldquo;always address students as &lsquo;you.&rsquo;&rdquo;
+    </p>
+    <textarea id="custom-instructions" class="text-input custom-instructions"
+              rows="3" aria-label="Custom instructions for Gemini"
+              placeholder="Optional guidelines for the AI&hellip;"></textarea>
+
     <!-- ── Deploy button ── -->
     <div class="btn-row">
       <button class="run-btn" id="run-btn" onclick="startDeploy()">
@@ -422,7 +445,7 @@
       <p class="time-line hidden" id="time-line" aria-hidden="true">
         Elapsed: <strong><span id="clock">0:00</span></strong>
         &nbsp;&middot;&nbsp;
-        Est. remaining: <strong><span id="eta">~0:00</span></strong>
+        Total Estimated Time: <strong><span id="eta">~0:00</span></strong>
       </p>
       <div id="activity-results"></div>
       <div id="stop-controls" class="hidden">
@@ -458,6 +481,7 @@
     var successCount       = 0;
     var failCount          = 0;
     var currentApiKey      = '';
+    var currentCustomInstructions = ''; // sidebar guidelines passed to Gemini
 
     // Progress timing
     var deployTimer  = null;   // 1s interval driving the Elapsed/ETA display
@@ -765,7 +789,8 @@
         var v = parseFloat(localStorage.getItem(EST_KEY_6));
         if (v && v > 0) return v;
       } catch (e) {}
-      return 4000; // first-run guess: ~4s/activity amortized across a batched module call
+      return 6500; // first-run guess: ~6.5s/activity — includes Gemini latency, the
+                   // inter-module throttle, and occasional retries (observed ~7–8s/activity)
     }
     function saveMsPerActivity6(v) {
       try { localStorage.setItem(EST_KEY_6, String(v)); } catch (e) {}
@@ -781,16 +806,17 @@
         clockEl.textContent = fmtClock6(Math.floor((Date.now() - deployStart) / 1000));
         var total = totalActivities;
         if (total > 0) {
-          var remaining = total - completedCount;
           // Once activities have finished, base the estimate on the actual
           // observed pace (which naturally includes throttle + retry waits);
           // before that, fall back to the persisted per-activity seed.
           var avgMs = (completedCount > 0 && loopStart > 0)
             ? (Date.now() - loopStart) / completedCount
             : seedMs;
-          etaEl.textContent = remaining > 0
-            ? '~' + fmtClock6(Math.ceil((remaining * avgMs) / 1000))
-            : 'almost done…';
+          // Show the WHOLE-JOB total (not time-remaining): it recalibrates as
+          // modules finish, and the live Elapsed clock ticks up toward it — which
+          // reads more clearly than a "remaining" figure that sits frozen between
+          // module completions instead of counting down each second.
+          etaEl.textContent = '~' + fmtClock6(Math.ceil((total * avgMs) / 1000));
         }
       }, 1000);
     }
@@ -848,6 +874,8 @@
       sessionData        = null;
       targetModuleTitles = targets;
       currentApiKey      = apiKey;
+      currentCustomInstructions =
+        document.getElementById('custom-instructions').value.trim();
 
       document.getElementById('run-btn').disabled = true;
       document.getElementById('activity-results').innerHTML = '';
@@ -955,7 +983,8 @@
           modelModuleTitle:  mod.modelModuleTitle,
           targetModuleTitle: mod.targetModuleTitle,
           activities:        mod.activities,
-          moduleContext:     mod.moduleContext
+          moduleContext:     mod.moduleContext,
+          customInstructions: currentCustomInstructions
         });
     }
 
@@ -1049,6 +1078,10 @@
           (total > 0 ? ' of ' + (stopped ? completedCount : total) : '')
       ];
       if (failCount > 0) lines.push('Errors:              ' + failCount);
+      if (deployStart > 0) {
+        lines.push('Total time:          ' +
+          fmtClock6(Math.floor((Date.now() - deployStart) / 1000)));
+      }
       if (stopped) {
         lines.push('Stopped early — ' + (total - completedCount) + ' remaining.');
       }

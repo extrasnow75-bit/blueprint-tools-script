@@ -369,6 +369,14 @@ function buildModuleAdaptPrompt6_(params) {
     ? 'TARGET MODULE CONTEXT:\n' + contextLines.join('\n') + '\n\n'
     : '';
 
+  // Custom instructions block — course-designer guidelines typed in the sidebar.
+  // Placed first and given priority so it steers every activity's adaptation.
+  var customBlock = (params.customInstructions && String(params.customInstructions).trim())
+    ? 'ADDITIONAL INSTRUCTIONS FROM THE COURSE DESIGNER — follow these closely; ' +
+      'where they conflict with the general guidance below, these take priority:\n' +
+      String(params.customInstructions).trim() + '\n\n'
+    : '';
+
   var activities   = params.activities || [];
   var actBlocks    = [];
   var anyHasLinks  = false;   // gate the general link rule below
@@ -434,6 +442,7 @@ function buildModuleAdaptPrompt6_(params) {
     'Keep the structure, tone, and formatting identical — only update content ' +
     'that should genuinely differ between modules, such as module-specific ' +
     'activity numbers or references to specific readings listed in the context.\n\n' +
+    customBlock +
     contextBlock +
     'There are ' + activities.length + ' activities to adapt:\n\n' +
     actBlocks.join('\n\n---\n\n') + '\n\n' +

@@ -50,6 +50,13 @@
       color: #333;
       background: #fff;
     }
+    .custom-instructions {
+      box-sizing: border-box;
+      resize: vertical;
+      min-height: 56px;
+      line-height: 1.4;
+    }
+    .optional-tag { font-weight: normal; font-size: 12px; color: #555; }
     .sr-only {
       position: absolute;
       width: 1px; height: 1px;
@@ -377,7 +384,7 @@
     <h3>Target Module</h3>
     <p class="help-text">
       AI directions will be generated for each activity in the module you select.
-      You can revise the results before running the Propagate tool.
+      You can revise the results before running “Deploy Activity Directions (AI).”
     </p>
     <select id="module-select" class="module-select" aria-label="Target module">
       <!-- Populated by JS -->
@@ -418,6 +425,20 @@
              placeholder="Paste Google Doc URL&hellip;">
       <div id="template-doc-title" class="doc-name-header" aria-live="polite"></div>
     </div>
+
+    <hr class="divider">
+
+    <!-- ── Custom instructions ── -->
+    <h3>Custom Instructions <span class="optional-tag">(optional)</span></h3>
+    <p class="help-text">
+      Add any guidelines for Gemini to follow while writing the directions &mdash;
+      e.g. &ldquo;keep each activity under 150 words,&rdquo; &ldquo;use a warmer tone,&rdquo;
+      or &ldquo;always address students as &lsquo;you.&rsquo;&rdquo; You can also request
+      revisions after the run.
+    </p>
+    <textarea id="custom-instructions" class="text-input custom-instructions"
+              rows="3" aria-label="Custom instructions for Gemini"
+              placeholder="Optional guidelines for the AI&hellip;"></textarea>
 
     <!-- ── Generate button ── -->
     <div class="btn-row">
@@ -496,6 +517,26 @@
   <div id="result-view" class="hidden" role="status" aria-live="polite">
     <h3>Done</h3>
     <div class="summary-box" id="summary-box"></div>
+
+    <!-- ── Request revisions ── -->
+    <hr class="divider">
+    <h3>Request Revisions <span class="optional-tag">(optional)</span></h3>
+    <p class="help-text">
+      Not quite right? Describe the changes you want and Gemini will rewrite the
+      directions for every activity in this module &mdash; e.g. &ldquo;make them more
+      concise,&rdquo; &ldquo;add a submission checklist,&rdquo; or &ldquo;use a more
+      formal tone.&rdquo;
+    </p>
+    <textarea id="revision-input" class="text-input custom-instructions"
+              rows="3" aria-label="Request Revisions"
+              placeholder="Describe the revisions you want&hellip;"></textarea>
+    <div id="revision-error" class="error-msg hidden" role="alert"></div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="run-btn" id="revise-btn" onclick="reviseDirections()">
+        <span aria-hidden="true">&#8635;</span> Revise Directions
+      </button>
+    </div>
+
     <div class="btn-row" style="margin-top:14px;">
       <button class="again-btn" onclick="resetToForm()">Generate Again</button>
     </div>
@@ -509,6 +550,13 @@
     var successCount      = 0;
     var failCount         = 0;
     var failedActivities  = []; // [{title, error}] for detail in the final report
+
+    // Instructions + revision state
+    var currentCustomInstructions = ''; // pre-run guidelines from the sidebar box
+    var promptInstructions        = ''; // effective instructions for the active loop
+    var isRevisionRun             = false;
+    var currentApiKey             = '';  // retained so a revision can re-run
+    var currentModuleTitle        = '';  // retained so a revision can re-run
 
     // ── Timing state ──────────────────────────────────────────────────
     var genStartMs        = 0;    // wall-clock start of the activity loop
@@ -688,6 +736,12 @@
       failCount        = 0;
       failedActivities = [];
       sessionData      = null;
+      isRevisionRun    = false;
+      currentApiKey    = apiKey;
+      currentModuleTitle = moduleTitle;
+      currentCustomInstructions =
+        document.getElementById('custom-instructions').value.trim();
+      promptInstructions = currentCustomInstructions;
 
       document.getElementById('generate-btn').disabled = true;
       document.getElementById('activity-results').innerHTML = '';
@@ -876,15 +930,16 @@
       var line = document.getElementById('timing-line');
       if (!line) return;
       var elapsed = Date.now() - genStartMs;
-      var done    = successCount + failCount;
-      var remain  = currentActivities.length - done;
 
       var text = 'Elapsed: ' + fmtDuration(elapsed);
-      // Estimate only once we have at least one completed activity to average
-      if (activityDurations.length > 0 && remain > 0) {
+      // Estimate only once we have at least one completed activity to average.
+      // Show the WHOLE-JOB total (not time-remaining) so the live Elapsed clock
+      // ticks up toward a stable figure instead of a "remaining" value that sits
+      // frozen between activity completions.
+      if (activityDurations.length > 0) {
         var avg = activityDurations.reduce(function (a, b) { return a + b; }, 0) /
                   activityDurations.length;
-        text += '  ·  Est. remaining: ~' + fmtDuration(avg * remain);
+        text += '  ·  Total Estimated Time: ~' + fmtDuration(avg * currentActivities.length);
       }
       line.textContent = text;
     }
@@ -917,12 +972,14 @@
       }
 
       var params = {
-        apiKey:           apiKey,
-        moduleTitle:      moduleTitle,
-        activityTitle:    act.title,
-        toolType:         act.toolType || null,
-        moduleContext:    sessionData ? (sessionData.moduleContext    || null) : null,
-        templateText:     templateText
+        apiKey:             apiKey,
+        moduleTitle:        moduleTitle,
+        activityTitle:      act.title,
+        toolType:           act.toolType || null,
+        moduleContext:      sessionData ? (sessionData.moduleContext    || null) : null,
+        templateText:       templateText,
+        customInstructions: promptInstructions,
+        isRevision:         isRevisionRun
       };
 
       google.script.run
@@ -996,11 +1053,12 @@
 
       var total   = currentActivities.length;
       var stopped = stopRequested && (successCount + failCount < total);
+      var verb    = isRevisionRun ? 'revised' : 'generated';
       var lines   = [
-        '✅ Generation complete',
+        isRevisionRun ? '✅ Revision complete' : '✅ Generation complete',
         '',
         'Module: ' + moduleTitle,
-        'Directions generated: ' + successCount +
+        'Directions ' + verb + ': ' + successCount +
           (total > 0 ? ' of ' + (stopped ? (successCount + failCount) : total) : ''),
       ];
       if (failCount > 0) {
@@ -1015,7 +1073,7 @@
       lines.push('Total time: ' + fmtDuration(elapsedMs));
       lines.push('');
       lines.push('Review and revise the generated directions in the document,');
-      lines.push('then run “Propagate to All Modules” to apply them.');
+      lines.push('then run “Deploy Activity Directions (AI)” to apply them.');
       lines.push('');
       lines.push('⚠️ Treat Gemini’s output like a draft. Check that the results ' +
         'align with the notes in the course design map — especially reading/video ' +
@@ -1034,11 +1092,65 @@
     }
 
     function resetToForm() {
+      isRevisionRun = false;
+      document.getElementById('revision-input').value = '';
+      document.getElementById('revision-error').classList.add('hidden');
       document.getElementById('result-view').classList.add('hidden');
+      document.getElementById('progress-area').classList.add('hidden');
       document.getElementById('main-form').classList.remove('hidden');
       document.getElementById('generate-btn').disabled = false;
       hideError();
       document.getElementById('generate-btn').focus();
+    }
+
+    // Re-run generation over the same module, clearing and rewriting each
+    // activity's directions with the user's requested changes applied.
+    function reviseDirections() {
+      var revEl   = document.getElementById('revision-input');
+      var revText = revEl.value.trim();
+      var errEl   = document.getElementById('revision-error');
+
+      if (!revText) {
+        errEl.classList.remove('hidden');
+        errEl.textContent = 'Please describe the revisions you want.';
+        revEl.focus();
+        return;
+      }
+      if (!currentActivities.length || !currentModuleTitle) {
+        errEl.classList.remove('hidden');
+        errEl.textContent =
+          'No generated module to revise. Run “Generate Directions” first.';
+        return;
+      }
+      errEl.classList.add('hidden');
+
+      // Keep the original guidelines, then append the revision request so the AI
+      // rewrites in the same spirit plus the changes.
+      promptInstructions =
+        (currentCustomInstructions ? currentCustomInstructions + '\n\n' : '') +
+        'REVISION REQUEST — these directions were already generated once. Rewrite ' +
+        'them, applying the following changes:\n' + revText;
+
+      isRevisionRun    = true;
+      stopRequested    = false;
+      successCount     = 0;
+      failCount        = 0;
+      failedActivities = [];
+
+      revEl.value = '';
+      document.getElementById('result-view').classList.add('hidden');
+      document.getElementById('main-form').classList.remove('hidden');
+      document.getElementById('activity-results').innerHTML = '';
+      document.getElementById('preflight').classList.add('hidden');
+      document.getElementById('template-access-panel').classList.add('hidden');
+      document.getElementById('progress-area').classList.remove('hidden');
+      document.getElementById('generate-btn').disabled = true;
+
+      // Move focus to the progress region so keyboard users aren't dropped to
+      // <body> when the result view is hidden (matches the normal run flow).
+      document.getElementById('progress-label').focus();
+
+      beginActivityLoop(currentApiKey, currentModuleTitle);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
