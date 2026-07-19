@@ -1,5 +1,6 @@
 // ============================================================
 // Blueprint Tools — Code2.gs
+// Last updated on 2026-07-19 at 09:22 MDT
 // Adds activity directions to the Development tab of a blueprint doc.
 // ============================================================
 
