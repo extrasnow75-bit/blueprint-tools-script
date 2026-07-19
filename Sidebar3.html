@@ -23,7 +23,7 @@
       width: 100%;
       padding: 6px 8px;
       margin-top: 4px;
-      border: 1px solid #ccc;
+      border: 1px solid #767676;
       border-radius: 4px;
       font-size: 13px;
       font-family: Arial, sans-serif;
@@ -166,7 +166,7 @@
 
   <h3>What Does This Tool Do?</h3>
   <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 14px;">
-    Scans the Development tab and adds up the estimated student workload across the course. It reports time per module and overall, so you can spot weeks that are overloaded or too light. Read-only &mdash; it measures your course but doesn&rsquo;t change any content.
+    It scans the Development tab and adds up the estimated student workload across the course. It reports time per module and overall, so you can spot weeks that are overloaded or too light. Read-only &mdash; it measures your course but doesn&rsquo;t change any content.
   </p>
 
   <label for="credits">Number of credits</label>
@@ -187,7 +187,10 @@
   <div class="spinner" aria-hidden="true">⚙️</div>
   <span class="sr-only">Scanning, please wait…</span>
   <p class="prog-label">Scanning Development tab…</p>
-  <p class="elapsed">Elapsed: <strong><span id="clock">0:00</span></strong></p>
+  <!-- aria-hidden: the clock repaints every second; announcing it in this
+       aria-live region would flood the screen reader. The sr-only line above is
+       the single announced status. -->
+  <p class="elapsed" aria-hidden="true">Elapsed: <strong><span id="clock">0:00</span></strong></p>
 </div>
 
 <!-- RESULT -->
@@ -237,10 +240,12 @@
     if (r.error) {
       document.getElementById('summary').innerHTML =
         '<span class="error-msg" role="alert">❌ ' + esc(r.error) + '</span>';
+      focusSummary();
       return;
     }
 
     document.getElementById('summary').innerHTML = buildHTML(r);
+    focusSummary();
   }
 
   function onError(err) {
@@ -249,11 +254,23 @@
     document.getElementById('result').style.display   = 'block';
     document.getElementById('summary').innerHTML =
       '<span class="error-msg" role="alert">❌ Error: ' + esc(err.message) + '</span>';
+    focusSummary();
   }
 
   function reset() {
     document.getElementById('result').style.display = 'none';
     document.getElementById('form').style.display   = 'block';
+    // Return focus into the form — the Run button was inside the now-hidden
+    // result view, so otherwise keyboard/SR focus falls to <body>.
+    document.getElementById('credits').focus();
+  }
+
+  // Move focus to the result summary after a run; the Run button is hidden with
+  // the form, so without this keyboard/screen-reader focus is left on <body>.
+  function focusSummary() {
+    var s = document.getElementById('summary');
+    s.setAttribute('tabindex', '-1');
+    s.focus();
   }
 
   /* ── HTML builder ── */

@@ -40,7 +40,7 @@
       padding: 5px 7px;
       font-size: 12px;
       font-family: Arial, sans-serif;
-      border: 1px solid #bbb;
+      border: 1px solid #767676;
       border-radius: 3px;
       background: #fff;
       color: #333;
@@ -185,7 +185,7 @@
 
     <h3>What Does This Tool Do?</h3>
     <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 12px;">
-      Copies directions from your finished model module into the other modules you check off. You choose which activities to deploy and which modules receive them, and the tool pastes the model&rsquo;s wording as-is &mdash; no AI and no rewording. Use this when your activities are consistent enough that the same directions work across modules.
+      It copies directions from your finished model module into the other modules you check off. You choose which activities to deploy and which modules receive them, and the tool pastes the model&rsquo;s wording as-is &mdash; no AI and no rewording. Use this when your activities are consistent enough that the same directions work across modules.
     </p>
 
     <hr class="divider" />
@@ -407,10 +407,12 @@
     }
 
     // ── Clock + ETA ───────────────────────────────────────────
-    // The tool deploys module-by-module (one server call per target) so it can
-    // show live progress and a real "estimated remaining" based on the average
-    // time of the modules already finished. This also keeps each server run
-    // short, avoiding the per-execution time limit on large jobs.
+    // The tool deploys in up to THREE groups (one server call per group) rather
+    // than one call per module. Each server call re-reads the model module once,
+    // so grouping cuts that repeated read from N times to at most 3 — recovering
+    // most of the speed of a single batched call — while still showing progress
+    // between groups and keeping each execution short (well under the time limit).
+    var MAX_GROUPS   = 3;
     var elapsedTimer = null;
     var runStart     = 0;
     var totalModules = 0;
@@ -440,7 +442,7 @@
 
     function updateEta() {
       // Seed with a rough 30 s/module (measured: ~30.6 s/module on a 10-activity,
-      // 14-module run) until the first module reports a real time.
+      // 14-module run) until the first group reports a real per-module time.
       var perModuleMs = (doneModules > 0)
         ? (Date.now() - runStart) / doneModules
         : 30000;
@@ -449,10 +451,15 @@
         '~' + fmtClock(Math.max(0, Math.round(remainingMs / 1000)));
     }
 
-    function setProgress() {
-      var n = Math.min(doneModules + 1, totalModules);
-      document.getElementById('progress-label').textContent =
-        'Deploying to module ' + n + ' of ' + totalModules + '…';
+    // Split the target modules into up to MAX_GROUPS roughly-equal groups.
+    function makeGroups(targets) {
+      var count = Math.min(MAX_GROUPS, targets.length);
+      var per   = Math.ceil(targets.length / count);
+      var groups = [];
+      for (var i = 0; i < targets.length; i += per) {
+        groups.push(targets.slice(i, i + per));
+      }
+      return groups;
     }
 
     // ── Run ───────────────────────────────────────────────────
@@ -493,28 +500,33 @@
       doneModules  = 0;
       acc          = { replaced: 0, noMatch: 0 };
 
+      var groups = makeGroups(targets);
       startClock();
-      setProgress();
       updateEta();
-      deployNext(targets, 0);
+      deployGroup(groups, 0);
     }
 
-    function deployNext(targets, idx) {
-      if (idx >= targets.length) { finishDeploy(); return; }
+    function deployGroup(groups, gi) {
+      if (gi >= groups.length) { finishDeploy(); return; }
+
+      var group = groups[gi];
+      document.getElementById('progress-label').textContent =
+        'Deploying group ' + (gi + 1) + ' of ' + groups.length +
+        ' (modules ' + (doneModules + 1) + '–' + (doneModules + group.length) +
+        ' of ' + totalModules + ')…';
 
       google.script.run
         .withSuccessHandler(function (res) {
           acc.replaced += (res && res.replaced) || 0;
           acc.noMatch  += (res && res.noMatch)  || 0;
-          doneModules++;
-          setProgress();
+          doneModules  += group.length;
           updateEta();
-          deployNext(targets, idx + 1);
+          deployGroup(groups, gi + 1);
         })
         .withFailureHandler(onRunError)
         .applyDirectionsFromModel({
           modelModuleTitle:   deployModel,
-          targetModuleTitles: [targets[idx]],
+          targetModuleTitles: group,
           selectedActivities: deployActs
         });
     }

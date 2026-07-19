@@ -44,7 +44,7 @@
       padding: 6px 8px;
       font-size: 12px;
       font-family: Arial, sans-serif;
-      border: 1px solid #bbb;
+      border: 1px solid #767676;
       border-radius: 3px;
       background: #fff;
       color: #333;
@@ -88,7 +88,7 @@
       padding: 6px 8px;
       font-size: 12px;
       font-family: Arial, sans-serif;
-      border: 1px solid #bbb;
+      border: 1px solid #767676;
       border-radius: 3px;
       color: #333;
       background: #fff;
@@ -131,7 +131,7 @@
       padding: 5px 7px;
       font-size: 12px;
       font-family: Arial, sans-serif;
-      border: 1px solid #bbb;
+      border: 1px solid #767676;
       border-radius: 3px;
       background: #fff;
       color: #333;
@@ -243,7 +243,7 @@
     <!-- ── What does this tool do? ── -->
     <h3>What Does This Tool Do?</h3>
     <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 12px;">
-      Fills one module with ready-made direction text so you can shape it into a model for the rest of the course. For each activity you pick a direction type from a dropdown, and the tool inserts that template&rsquo;s wording. No AI is used &mdash; the text comes straight from the Template Activity Directions 2.0 doc (or a document you supply).
+      It fills one module with ready-made direction text so you can shape it into a model for the rest of the course. For each activity you pick a direction type from a dropdown, and the tool inserts that template&rsquo;s wording. No AI is used &mdash; the text comes straight from the Template Activity Directions 2.0 doc (or a document you supply).
     </p>
 
     <hr class="divider">
@@ -609,7 +609,9 @@
       return String(text)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
   </script>
 </body>

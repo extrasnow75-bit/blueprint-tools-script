@@ -27,27 +27,11 @@ function showTimeEstimatorSidebar() {
 
 // ── TAB UTILITIES ─────────────────────────────────────────────────
 
-/**
- * Recursively collects all tabs (and child tabs) of a document.
- * Returns an array of { title, body } objects.
- * Uses a unique name (collectTabs3) to avoid conflicts if this file
- * is ever split into a separate project from Code.gs.
- */
-function collectTabs3(doc) {
-  const result = [];
-  function walk(tab) {
-    result.push({ title: tab.getTitle(), body: tab.asDocumentTab().getBody() });
-    tab.getChildTabs().forEach(walk);
-  }
-  doc.getTabs().forEach(walk);
-  return result;
-}
-
-/** Returns the Body of the Development tab, or null if not found. */
-function getDevelopmentTabBody3(doc) {
-  const tab = collectTabs3(doc).find(t => /\bdevelopment\b/i.test(t.title));
-  return tab ? tab.body : null;
-}
+// Tab-walking helpers (collectTabs / getDevelopmentTabBody) are shared from
+// Code.gs / Code2.gs in this project's GAS namespace. The former standalone
+// copies (collectTabs3 / getDevelopmentTabBody3) were removed to keep a single
+// implementation. If this file is ever split into its own project, re-add a
+// local copy of getDevelopmentTabBody.
 
 
 // ── TIME PARSING ──────────────────────────────────────────────────
@@ -183,7 +167,7 @@ function runTimeEstimator(credits, weeks, modulesPerWeek) {
     }
 
     const doc  = DocumentApp.getActiveDocument();
-    const body = getDevelopmentTabBody3(doc);
+    const body = getDevelopmentTabBody(doc);
     if (!body) {
       return { error: 'Could not find a tab named "Development" in this document.' };
     }

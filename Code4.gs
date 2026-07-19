@@ -280,7 +280,11 @@ function buildMediaTokens4_(mediaLinks) {
       var safeTitle = String(lk.title).replace(/@{2,}/g, '@').replace(/[\r\n]+/g, ' ');
       ctx = '"' + safeTitle + '" (use this exact title as the link text)';
     } else {
-      ctx = (lk.text && lk.text !== lk.url) ? lk.text : lk.url;
+      // Fallback to the doc-supplied hyperlink display text (or the URL). Scrub
+      // "@@@" and newlines here too so a crafted link label can't spoof the
+      // "@@@ACTIVITY N@@@" delimiter or break the prompt across lines.
+      var raw = (lk.text && lk.text !== lk.url) ? lk.text : lk.url;
+      ctx = String(raw).replace(/@{2,}/g, '@').replace(/[\r\n]+/g, ' ');
     }
     lines.push(token + ' — ' + ctx);
   });
@@ -404,6 +408,44 @@ function scopeModuleContextForActivity_(moduleContext, activityTitle) {
  *
  * @param {Array<Object>} moduleContexts  parsed CDM module objects (with mediaLinks)
  */
+/**
+ * True only for URLs that are safe to fetch from Google's egress: an http(s)
+ * scheme and a public host. Blocks loopback/private/link-local IP literals and
+ * bare intranet names (no dot, or .local/.internal) so a link in a shared doc
+ * can't make the tool probe internal endpoints. Public article hosts still pass,
+ * so title-scraping keeps working for arbitrary journals/magazines.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isFetchableUrl_(url) {
+  var m = String(url || '').trim().match(/^https?:\/\/([^\/?#]+)/i);
+  if (!m) return false;                       // non-http(s): javascript:, data:, file:, ftp:, …
+  var host = m[1].toLowerCase();
+  var at = host.indexOf('@');
+  if (at !== -1) host = host.slice(at + 1);   // strip any user:pass@ credentials
+  host = host.replace(/:\d+$/, '');           // strip port
+  if (!host) return false;
+  if (host === 'localhost' || /\.(local|internal|localdomain)$/.test(host)) return false;
+
+  var v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    var a = +v4[1], b = +v4[2];
+    if (a === 0 || a === 10 || a === 127) return false;          // this-network, private, loopback
+    if (a === 169 && b === 254) return false;                    // link-local
+    if (a === 192 && b === 168) return false;                    // private
+    if (a === 172 && b >= 16 && b <= 31) return false;           // private
+    if (a >= 224) return false;                                  // multicast / reserved
+    return true;                                                 // public IPv4
+  }
+  if (host.indexOf(':') !== -1) {                                // IPv6 literal
+    if (/^\[?::1\]?$/.test(host)) return false;                  // loopback
+    if (/^\[?(fe80|fc|fd)/i.test(host)) return false;            // link-local / unique-local
+    return true;
+  }
+  return host.indexOf('.') !== -1;            // require a dotted public domain
+}
+
 function enrichMediaTitles_(moduleContexts) {
   if (!moduleContexts || !moduleContexts.length) return;
 
@@ -420,8 +462,14 @@ function enrichMediaTitles_(moduleContexts) {
     }
   }
 
-  var urls = Object.keys(byUrl);
+  // Only fetch public http(s) URLs. The links come from a document that may have
+  // been authored/shared by someone else, so guard against using UrlFetchApp as
+  // an SSRF vector: drop non-http(s) schemes and any host that is loopback,
+  // private, link-local, or a bare intranet name, and cap the batch size.
+  var urls = Object.keys(byUrl).filter(isFetchableUrl_);
   if (!urls.length) return;
+  var MAX_FETCH = 40;
+  if (urls.length > MAX_FETCH) urls = urls.slice(0, MAX_FETCH);
 
   var requests = [];
   var meta     = []; // parallel to requests: { url, mode }
@@ -1351,35 +1399,6 @@ function setParagraphText4(el, rawText, color, bold, linkMap) {
     }
     pos += len;
   }
-}
-
-/**
- * Splits a string with **...** bold markers into an array of segments:
- *   [{ text: string, bold: boolean }, ...]
- *
- * @param {string} raw
- * @returns {Array<{text: string, bold: boolean}>}
- */
-function parseBoldSegments4(raw) {
-  var segments = [];
-  var re       = /\*\*(.+?)\*\*/g;
-  var match;
-  var lastEnd  = 0;
-
-  while ((match = re.exec(raw)) !== null) {
-    if (match.index > lastEnd) {
-      segments.push({ text: raw.slice(lastEnd, match.index), bold: false });
-    }
-    segments.push({ text: match[1], bold: true });
-    lastEnd = match.index + match[0].length;
-  }
-  if (lastEnd < raw.length) {
-    segments.push({ text: raw.slice(lastEnd), bold: false });
-  }
-  if (segments.length === 0) {
-    segments.push({ text: raw, bold: false });
-  }
-  return segments;
 }
 
 /**

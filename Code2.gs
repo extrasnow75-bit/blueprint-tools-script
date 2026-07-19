@@ -131,7 +131,7 @@ function showDirectionsSidebar() {
 /**
  * Single-pass scan of the Development tab body that returns both the ordered
  * module list and each module's deduplicated activity pattern.
- * Avoids the double tab-walk that separate getModuleList / getActivityPattern calls produce.
+ * Avoids the double tab-walk that separate per-list / per-pattern calls produce.
  *
  * @param {GoogleAppsScript.Document.Body} body
  * @returns {{ moduleList: string[], activitiesByModule: Object }}
@@ -233,34 +233,6 @@ function getModelActivitiesNoAi(modelModuleTitle) {
   var content = readModuleContent_(devBody, modelModuleTitle);
   return { activities: Object.keys(content) };
 }
-
-/**
- * Returns an ordered list of numbered module titles found in the Development tab.
- * e.g. ['Module 1', 'Module 2', 'Module 3']
- *
- * @returns {Array<string>}
- */
-function getModuleList() {
-  var doc  = DocumentApp.getActiveDocument();
-  var body = getDevelopmentTabBody(doc);
-  if (!body) return ['Module 1'];
-
-  var modules     = [];
-  var H2          = DocumentApp.ParagraphHeading.HEADING2;
-  var numChildren = body.getNumChildren();
-
-  for (var i = 0; i < numChildren; i++) {
-    var child = body.getChild(i);
-    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-    var para = child.asParagraph();
-    if (para.getHeading() !== H2) continue;
-    var match = para.getText().trim().match(/^((?:module|week)\s+\d+)/i);
-    if (match) modules.push(match[1]);
-  }
-
-  return modules.length > 0 ? modules : ['Module 1'];
-}
-
 
 // -----------------------------------------------------------
 // DEPLOY FROM MODEL MODULE
@@ -446,7 +418,8 @@ function applyDirectionsFromModel(params) {
 
       var para    = child.asParagraph();
       var heading = para.getHeading();
-      var text    = para.getText().trim();
+      var rawText = para.getText();          // fetched once, reused below
+      var text    = rawText.trim();
 
       if (heading === H2) {
         if (moduleRe.test(text)) { inTarget = true; }
@@ -459,7 +432,7 @@ function applyDirectionsFromModel(params) {
       // Cheap in-memory checks first: skip unchosen activities before the
       // placeholder scan (findDirectionsPlaceholder crosses the document
       // service up to ~11 times per activity).
-      var actTitle = stripActivityHeading(para.getText());
+      var actTitle = stripActivityHeading(rawText);
 
       if (selectedSet && !selectedSet[actTitle.toLowerCase()]) continue; // not chosen
 
@@ -661,7 +634,7 @@ function getActivityPattern(moduleTitle) {
     // H4 = activity slot heading.
     if (heading === DocumentApp.ParagraphHeading.HEADING4) {
       var actTitle  = stripActivityHeading(text);
-      var toolType  = getToolTypeForSlot(body, para);
+      var toolType  = getToolTypeForSlot(body, para, i); // pass known index — avoids a linear getChildIndex
 
       if (!seenTitles[actTitle]) {
         seenTitles[actTitle] = true;
@@ -735,32 +708,9 @@ function getDevelopmentTabBody(doc) {
 }
 
 
-/**
- * Recursively walks all tabs (and child tabs) of a document.
- * Returns an array of { title, body } objects.
- *
- * @param {GoogleAppsScript.Document.Document} doc
- * @returns {Array<{title: string, body: GoogleAppsScript.Document.Body}>}
- */
-function collectTabs(doc) {
-  var result = [];
-
-  function walk(tabs) {
-    if (!tabs) return;
-    for (var i = 0; i < tabs.length; i++) {
-      var tab = tabs[i];
-      var docTab = tab.asDocumentTab();
-      result.push({
-        title: tab.getTitle(),
-        body:  docTab.getBody()
-      });
-      walk(tab.getChildTabs());
-    }
-  }
-
-  walk(doc.getTabs());
-  return result;
-}
+// collectTabs is defined once in Code.gs (shared GAS namespace) and used here;
+// the duplicate definition that used to live in this file was removed so there
+// is a single source of truth.
 
 
 // -----------------------------------------------------------

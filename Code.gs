@@ -21,6 +21,8 @@ function onOpen() {
     .addItem('Deploy Activity Directions (AI)',       'showDeployAiSidebar6')
     .addSeparator()
     .addItem('Time Estimator',                         'showTimeEstimatorSidebar')
+    .addSeparator()
+    .addItem('KB Article',                             'showKbArticle')
     .addToUi();
 }
 function showSidebar() {
@@ -28,6 +30,26 @@ function showSidebar() {
     .setTitle('Add Activity Titles, Tools, & Times')
     .setWidth(320);
   DocumentApp.getUi().showSidebar(html);
+}
+// ── KB ARTICLE ────────────────────────────────────────────────────
+// A menu can't open a URL directly, so show a small dialog that opens the
+// Knowledge Base article in a new tab (with a click-through link as a fallback
+// in case the browser blocks the automatic pop-up).
+const KB_ARTICLE_URL =
+  'https://docs.google.com/document/d/1fSKIamcfOZFthkEtScX_OGEDjx6g8uMLX5j7N5wmUTQ/edit?tab=t.dt1zwyxe9p6f#heading=h.wac296jbizmu';
+function showKbArticle() {
+  const url  = KB_ARTICLE_URL;
+  const html = HtmlService.createHtmlOutput(
+      '<div style="font-family:Arial,sans-serif;font-size:13px;color:#333;padding:4px 2px;">' +
+      '<p style="margin:0 0 12px;">Opening the Blueprint Tools Knowledge Base article in a new tab&hellip;</p>' +
+      '<p style="margin:0;">If it doesn’t open, ' +
+      '<a href="' + url + '" target="_blank" rel="noopener" style="color:#0033a0;font-weight:bold;">' +
+      'click here to open the KB Article &rarr;</a></p>' +
+      '<script>try{window.open(' + JSON.stringify(url) + ',"_blank","noopener");}catch(e){}</script>' +
+      '</div>')
+    .setWidth(340)
+    .setHeight(120);
+  DocumentApp.getUi().showModalDialog(html, 'KB Article');
 }
 // ── MAIN ──────────────────────────────────────────────────────────
 function processBlueprint(params) {
@@ -349,8 +371,10 @@ function getSlotsInModule(body, modNum) {
   const slots  = [];
   for (const para of body.getParagraphs()) {
     const h = para.getHeading();
-    const t = para.getText().trim();
+    // Only H2 rows need their text (the module-boundary test); deferring
+    // getText() past the heading check drops a round-trip on every other row.
     if (h === H2) {
+      const t = para.getText().trim();
       if (modRe.test(t)) { inModule = true; continue; }
       if (inModule) break;
     }

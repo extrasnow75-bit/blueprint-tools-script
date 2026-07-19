@@ -67,7 +67,8 @@ function applyDirectionsToModule5(params) {
 
     var para    = child.asParagraph();
     var heading = para.getHeading();
-    var text    = para.getText().trim();
+    var rawText = para.getText();          // fetched once, reused below
+    var text    = rawText.trim();
 
     // ── Track module boundaries ──────────────────────────
     if (heading === H2) {
@@ -85,7 +86,7 @@ function applyDirectionsToModule5(params) {
     var placeholder = findDirectionsPlaceholder(devBody, para, i);
     if (!placeholder) continue;
 
-    var actTitle      = stripActivityHeading(para.getText());
+    var actTitle      = stripActivityHeading(rawText);
     var directionName = selections[actTitle];
     if (!directionName) continue;
 

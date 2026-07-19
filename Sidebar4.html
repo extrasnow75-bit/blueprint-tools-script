@@ -351,7 +351,7 @@
     <!-- ── What does this tool do? ── -->
     <h3>What Does This Tool Do?</h3>
     <p class="help-text">
-      Uses AI to draft directions for every activity in one module, so you start from a written-out model instead of a blank one. It works from your Design tab and a directions template, then writes activity-specific instructions you can review and edit. Treat the output as a first draft to refine before deploying instructions to the other modules in the course.
+      It uses AI to draft directions for every activity in one module, so you start from a written-out model instead of a blank one. It works from your Design tab and a directions template, then writes activity-specific instructions you can review and edit. Treat the output as a first draft to refine before deploying instructions to the other modules in the course.
     </p>
 
     <hr class="divider">
@@ -366,8 +366,8 @@
     </div>
     <div id="key-status" class="key-status hidden" role="status" aria-live="polite"></div>
     <p class="help-link">
-      <a href="https://aistudio.google.com/app/apikey" target="_blank">
-        Get a free Gemini API key &rarr;
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">
+        Get a free Gemini API key &rarr;<span class="sr-only"> (opens in a new tab)</span>
       </a>
     </p>
 
@@ -747,8 +747,10 @@
 
       var openBtn2 = document.getElementById('dec-open-btn');
       openBtn2.addEventListener('click', function () {
-        if (session.failedTemplateUrl) {
-          window.open(session.failedTemplateUrl, '_blank');
+        // Only open real web links — guards against a pasted javascript:/data: URL
+        // running in the user's browser.
+        if (session.failedTemplateUrl && /^https?:\/\//i.test(session.failedTemplateUrl)) {
+          window.open(session.failedTemplateUrl, '_blank', 'noopener');
         }
       });
       openBtn2.focus(); // move focus into dialog for keyboard/screen reader users
@@ -1076,7 +1078,9 @@
       return String(text)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
   </script>
 </body>

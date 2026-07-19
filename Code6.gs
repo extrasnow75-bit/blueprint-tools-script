@@ -158,44 +158,52 @@ function initDeployAiSession6(params) {
   // can pass it back per-call without a second lookup.
   var H2 = DocumentApp.ParagraphHeading.HEADING2;
   var H4 = DocumentApp.ParagraphHeading.HEADING4;
-  var activitiesByTarget = {};
-
-  for (var t = 0; t < targetModuleTitles.length; t++) {
-    var tgt     = targetModuleTitles[t];
+  // Single pass over the Development tab (was one full re-scan per target
+  // module). Each H2 heading is matched against every requested target up front,
+  // and the expensive per-slot work (placeholder + tool lookup) runs only inside
+  // modules that are actually targets. Each paragraph's text is read once.
+  var targetMatchers = targetModuleTitles.map(function (tgt) {
     var escaped = tgt.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-    var modRe   = new RegExp('^' + escaped + '[:\\s]', 'i');
-    var inMod   = false;
-    var matches = [];
-    var n       = devBody.getNumChildren();
+    return { tgt: tgt, re: new RegExp('^' + escaped + '[:\\s]', 'i') };
+  });
 
-    for (var j = 0; j < n; j++) {
-      var child = devBody.getChild(j);
-      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-      var para    = child.asParagraph();
-      var heading = para.getHeading();
-      var txt     = para.getText().trim();
+  var activitiesByTarget = {};
+  targetMatchers.forEach(function (tm) { activitiesByTarget[tm.tgt] = []; });
 
-      if (heading === H2) {
-        if (modRe.test(txt)) { inMod = true; }
-        else if (inMod)      { break; }
-        continue;
+  var currentTargets = null; // target names the current module maps to, or null
+  var n = devBody.getNumChildren();
+
+  for (var j = 0; j < n; j++) {
+    var child = devBody.getChild(j);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var para    = child.asParagraph();
+    var heading = para.getHeading();
+
+    if (heading === H2) {
+      var htxt = para.getText().trim();
+      currentTargets = [];
+      for (var tmi = 0; tmi < targetMatchers.length; tmi++) {
+        if (targetMatchers[tmi].re.test(htxt)) currentTargets.push(targetMatchers[tmi].tgt);
       }
-      if (!inMod || heading !== H4) continue;
-
-      if (!findDirectionsPlaceholder(devBody, para, j)) continue;
-
-      var at        = stripActivityHeading(para.getText());
-      var modelText = findMatchingModelContent_(modelTextByActivity, at);
-      if (modelText) {
-        matches.push({
-          actTitle:  at,
-          modelText: modelText,
-          toolType:  getToolTypeForSlot(devBody, para, j)  // for the assignment help section
-        });
-      }
+      if (currentTargets.length === 0) currentTargets = null;
+      continue;
     }
+    if (!currentTargets || heading !== H4) continue;
 
-    activitiesByTarget[tgt] = matches;
+    if (!findDirectionsPlaceholder(devBody, para, j)) continue;
+
+    var at        = stripActivityHeading(para.getText());
+    var modelText = findMatchingModelContent_(modelTextByActivity, at);
+    if (!modelText) continue;
+
+    var slot = {
+      actTitle:  at,
+      modelText: modelText,
+      toolType:  getToolTypeForSlot(devBody, para, j)  // for the assignment help section
+    };
+    for (var ct = 0; ct < currentTargets.length; ct++) {
+      activitiesByTarget[currentTargets[ct]].push(slot);
+    }
   }
 
   return {
@@ -392,8 +400,10 @@ function buildModuleAdaptPrompt6_(params) {
       : (actKind === 'video')
         ? '\n(This activity covers VIDEOS ONLY — do not add a readings section.)'
         : '';
+    // Scrub "@@@" from doc-sourced readings text so it can't spoof the
+    // "@@@ACTIVITY N@@@" delimiter the reply is split on (same guard as titles).
     var readingsLine = (scoped && scoped.readings)
-      ? '\nREADINGS/CONTENT for this activity:\n' + scoped.readings
+      ? '\nREADINGS/CONTENT for this activity:\n' + String(scoped.readings).replace(/@{2,}/g, '@')
       : '';
     var actMediaBlock = actMedia.hasLinks
       ? '\nAVAILABLE LINKS for this activity — reference each by its TOKEN, never by ' +
