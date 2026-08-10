@@ -2,6 +2,9 @@
 // Blueprint Tools — Code6.gs
 // Deploy Activity Directions (AI): adapts model-module directions
 // for each target module using Gemini AI.
+// ------------------------------------------------------------
+// Last updated on 2026-07-19 at 01:09 MDT
+// ------------------------------------------------------------
 //
 // Reuses from the shared GAS namespace:
 //   Code4.gs — parseCourseDesignMap, extractTextFromElements4,

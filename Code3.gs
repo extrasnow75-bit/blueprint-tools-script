@@ -2,6 +2,8 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  Google Apps Script  |  Time Estimator
  * ================================================================
+ * Last updated on 2026-07-18 at 20:44 MDT
+ * ================================================================
  * Scans the Development tab of a Blueprint document, tallies the
  * time estimates for each numbered module (Module 1 / Week 1, etc.),
  * and compares totals to credit-hour guidelines.
