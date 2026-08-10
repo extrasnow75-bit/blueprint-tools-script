@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-07-19 at 01:09 MDT
+// Last updated on 2026-08-09 at 22:35 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -324,9 +324,20 @@ function readModuleContent_(body, moduleTitle) {
         continue;
       }
 
-      // Skip the "Tool; Link to settings tab" line and leading blank lines.
+      // Structural slot lines are NOT activity directions either. These are
+      // skipped ANYWHERE in the slot, matching how Code4's
+      // clearGeneratedDirections4_ preserves them.
+      //
+      // They used to be gated on !pastPreamble, but "Estimated time:" precedes
+      // the tool line in a slot and matched neither test — so it ended the
+      // preamble and was captured as content, and the now-ungated tool line was
+      // captured right after it. Deploy then pasted both into targets that
+      // already had their own pair, duplicating them.
+      if (/^estimated time/i.test(text))       continue;
+      if (/link to settings tab$/i.test(text)) continue;
+
+      // Skip leading blank lines only.
       if (!pastPreamble) {
-        if (/link to settings tab/i.test(text)) continue;
         if (text === '') continue;
         pastPreamble = true;
       }
