@@ -3,6 +3,8 @@
  * BLUEPRINT TOOLS  |  Code4.gs
  * Tool 4: Create Model Module — AI-generated activity directions
  * ================================================================
+ * Last updated on 2026-08-09 at 21:43 MDT
+ * ================================================================
  *
  * Shared namespace: relies on constants and helpers defined in
  * Code.gs (FONT, RED, BLACK, _fmt, collectTabs, parseCoursePattern,
@@ -935,7 +937,9 @@ function clearGeneratedDirections4_(devBody, moduleTitle, activityTitle) {
       // or "settings tab" in passing is treated as content, not preserved.
       if (/^estimated time/i.test(text))                        continue;
       if (/link to settings tab$/i.test(text))                  { indent = para.getIndentStart() || indent; continue; }
-      if (/^due by .+mountain time$/i.test(text))               continue;
+      // The Canvas annotation now shares the header's paragraph ("… Mountain
+      // Time Text Header in Canvas"), so allow a trailing run after the anchor.
+      if (/^due by .+mountain time( .*)?$/i.test(text))         continue;
       if (/(text header in canvas|do not build in canvas)$/i.test(text)) continue;
       toRemove.push(child);
     } else {

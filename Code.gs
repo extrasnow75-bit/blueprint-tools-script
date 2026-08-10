@@ -2,6 +2,8 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  Google Apps Script  v4.2 + removeSlot fix + formatting fixes
  * ================================================================
+ * Last updated on 2026-08-09 at 21:43 MDT
+ * ================================================================
  */
 const RED       = '#ff0000';
 const DEEP_BLUE = '#0033a0';
@@ -529,12 +531,21 @@ function placeDueHeaders(body, slotParas, activities, params) {
     const { day, targetPara } = targets[i];
     if (dueHeaderAlreadyExists(body, targetPara, day)) continue;
     const childIdx = body.getChildIndex(targetPara);
-    const annotPara = body.insertParagraph(childIdx, canvasText);
-    annotPara.setHeading(DocumentApp.ParagraphHeading.NORMAL);
-    _fmt(annotPara.editAsText(), { font: FONT, size: 11, italic: true, color: RED });
-    const headerPara = body.insertParagraph(childIdx, `Due by ${day} at 11:59 p.m. Mountain Time`);
+    // The Canvas annotation rides on the SAME paragraph as the due-by header,
+    // separated by one space. As its own paragraph it wrapped to the next line
+    // and fell outside the header's blue top/bottom borders.
+    const headerText = `Due by ${day} at 11:59 p.m. Mountain Time`;
+    const headerPara = body.insertParagraph(childIdx, `${headerText} ${canvasText}`);
     headerPara.setHeading(H3);
-    _fmt(headerPara.editAsText(), { font: FONT, size: 15, bold: true, color: DEEP_BLUE });
+    const headerTxt = headerPara.editAsText();
+    _fmt(headerTxt, { font: FONT, size: 15, bold: true, italic: false, color: DEEP_BLUE });
+    // Re-style just the annotation run (header + the separating space).
+    const annotStart = headerText.length + 1;
+    const annotEnd   = annotStart + canvasText.length - 1;
+    headerTxt.setFontSize(annotStart, annotEnd, 11);
+    headerTxt.setBold(annotStart, annotEnd, false);
+    headerTxt.setItalic(annotStart, annotEnd, true);
+    headerTxt.setForegroundColor(annotStart, annotEnd, RED);
   }
   return targets.length;
 }
