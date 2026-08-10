@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  Google Apps Script  v4.2 + removeSlot fix + formatting fixes
  * ================================================================
- * Last updated on 2026-08-09 at 21:43 MDT
+ * Last updated on 2026-08-09 at 22:35 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -10,6 +10,19 @@ const DEEP_BLUE = '#0033a0';
 const BLACK     = '#000000';
 const GREY_CHIP = '#e8eaed'; // background highlight that mimics the Canvas-tool dropdown chip
 const FONT      = 'Arial';
+// The complete set of Canvas tools a slot may be tagged with. These strings are
+// load-bearing downstream — they are the DIRECTION_OPTIONS keys in Code2.gs and
+// the normaliseToolKey values in Sidebar5 — so they must match exactly.
+const CANVAS_TOOL_OPTIONS = [
+  'Assignment',
+  'Assignment (Not Graded)',
+  'Discussion',
+  'Page',
+  'Quiz (Classic)',
+  'Quiz (New)'
+];
+// Sentinel the pre-flight panel sends when a tool cell should stay untagged.
+const TOOL_LEAVE_BLANK = '[Leave blank]';
 // ── MENU ──────────────────────────────────────────────────────────
 function onOpen() {
   DocumentApp.getUi()
@@ -61,7 +74,7 @@ function processBlueprint(params) {
   const devTab    = tabs.find(t => /\bdevelopment\b/i.test(t.title));
   if (!designTab || !devTab)
     throw new Error('Could not find "Design" and/or "Development" tabs.');
-  const activities = parseCoursePattern(designTab.body);
+  const activities = parseCoursePattern(designTab.body, params.toolOverrides);
   if (activities.length === 0)
     throw new Error('No activities found in the course pattern table.');
   const stats      = { created: 0, deleted: 0, filled: 0, tools: 0, slotsDeleted: 0, headers: 0 };
@@ -101,7 +114,20 @@ function collectTabs(doc) {
   return result;
 }
 // ── PARSE COURSE PATTERN TABLE ────────────────────────────────────
-function parseCoursePattern(body) {
+/**
+ * Reads the Course Pattern Table into activity records.
+ *
+ * @param {GoogleAppsScript.Document.Body} body  the Design tab body
+ * @param {Object} [toolOverrides]  user picks from the sidebar's pre-flight
+ *   panel, keyed by LOWERCASED raw cell text → canonical tool name (or
+ *   TOOL_LEAVE_BLANK). Keying by cell text rather than activity name means one
+ *   pick resolves every row that shares the same spelling.
+ * @returns {Array<{name, tool, rawTool, dueDay, time}>}  `tool` is null when the
+ *   cell was blank OR unrecognized and unresolved; `rawTool` keeps the original
+ *   cell text so callers can tell those two cases apart.
+ */
+function parseCoursePattern(body, toolOverrides) {
+  const overrides  = toolOverrides || {};
   const activities = [];
   for (const table of body.getTables()) {
     if (table.getNumRows() < 2) continue;
@@ -122,9 +148,19 @@ function parseCoursePattern(body) {
       const n    = row.getNumCells();
       const name = actCol < n ? row.getCell(actCol).getText().trim() : '';
       if (!name) continue;
+      const rawTool = toolCol < n ? row.getCell(toolCol).getText().trim() : '';
+      let   tool    = normalizeToolName(rawTool);
+      // A non-empty cell we couldn't interpret may have been resolved by the
+      // user in the pre-flight panel. Validate the pick against the canonical
+      // list so a stale or hand-edited value can't inject an unknown tool name.
+      if (!tool && rawTool) {
+        const picked = overrides[rawTool.toLowerCase()];
+        if (picked && CANVAS_TOOL_OPTIONS.indexOf(picked) !== -1) tool = picked;
+      }
       activities.push({
         name,
-        tool:   normalizeToolName(toolCol < n ? row.getCell(toolCol).getText().trim() : ''),
+        tool,
+        rawTool,
         dueDay: parseDueDay(dayCol  < n ? row.getCell(dayCol).getText().trim()  : ''),
         time:   timeCol < n ? row.getCell(timeCol).getText().trim() : ''
       });
@@ -132,11 +168,63 @@ function parseCoursePattern(body) {
   }
   return activities;
 }
+// ── PRE-FLIGHT: UNRECOGNIZED TOOL CELLS ───────────────────────────
+/**
+ * Sidebar-callable. Scans the Course Pattern Table for Canvas Tool cells that
+ * normalizeToolName cannot interpret, so the user can map them to a real tool
+ * BEFORE the run rather than discovering a missing tool line afterwards.
+ *
+ * An unrecognized cell is otherwise silent: the activity simply gets no tool
+ * line, and the summary still reports success. That is how "Assignment
+ * (Ungraded)" went unnoticed.
+ *
+ * Blank cells are NOT reported — a row with no Canvas tool is legitimate, and
+ * flagging it would nag on every run.
+ *
+ * Results are grouped by cell text, so a spelling used by six activities is one
+ * dropdown, not six.
+ *
+ * @returns {{unrecognized: Array<{rawTool: string, activities: string[]}>,
+ *            toolOptions: string[], leaveBlank: string, error?: string}}
+ */
+function scanCoursePatternTools() {
+  const base = { unrecognized: [], toolOptions: CANVAS_TOOL_OPTIONS, leaveBlank: TOOL_LEAVE_BLANK };
+  const doc  = DocumentApp.getActiveDocument();
+  const designTab = collectTabs(doc).find(t => /\bdesign\b/i.test(t.title));
+  if (!designTab) {
+    // Non-fatal: the sidebar still opens and Run reports the missing tab.
+    base.error = 'Could not find a "Design" tab in this document.';
+    return base;
+  }
+
+  const byCell = {};
+  const order  = [];
+  for (const act of parseCoursePattern(designTab.body)) {
+    if (act.tool || !act.rawTool) continue;   // recognized, or legitimately blank
+    const key = act.rawTool.toLowerCase();
+    if (!byCell[key]) {
+      byCell[key] = { rawTool: act.rawTool, activities: [] };
+      order.push(key);
+    }
+    byCell[key].activities.push(act.name);
+  }
+
+  base.unrecognized = order.map(k => byCell[k]);
+  Logger.log('scanCoursePatternTools: %s unrecognized tool cell(s).', base.unrecognized.length);
+  return base;
+}
 // ── NORMALIZE TOOL NAME ───────────────────────────────────────────
 function normalizeToolName(raw) {
   const t = raw.toLowerCase().trim();
   if (!t) return null;
-  if (t.includes('not graded') || t.includes('(not'))   return 'Assignment (Not Graded)';
+  // Designers write this cell several ways — "Assignment (Ungraded)",
+  // "Assignment (Not Graded)", "non-graded". All normalize to the official
+  // Canvas marker "Assignment (Not Graded)", which is a DISTINCT tool type
+  // downstream: it has its own direction menu in Code2.gs (DIRECTION_OPTIONS)
+  // and its own key in Sidebar5's normaliseToolKey. Falling through to plain
+  // 'Assignment' silently offers the graded-assignment directions instead.
+  // Anchored on \b so the Feedback column's "Auto graded" can never match.
+  if (/\b(un|non[- ]?|not )graded\b/.test(t))            return 'Assignment (Not Graded)';
   if (t.includes('assignment'))                          return 'Assignment';
   if (t.includes('discussion'))                          return 'Discussion';
   if (t.includes('page'))                                return 'Page';
@@ -661,6 +749,20 @@ function _fmt(textEl, opts) {
 }
 // ── BUILD SUMMARY ─────────────────────────────────────────────────
 function buildSummary(stats, params, activities, numModules) {
+  // Tool cells we still couldn't interpret — either the user chose "leave
+  // blank" in the pre-flight panel or skipped it. These activities get no tool
+  // line, so name the cell text here: the fix belongs in the Course Pattern
+  // Table, and this run's pick doesn't persist back to the Design tab.
+  const unknownTools = [];
+  for (const act of activities) {
+    if (act.tool || !act.rawTool) continue;
+    if (unknownTools.indexOf(act.rawTool) === -1) unknownTools.push(act.rawTool);
+  }
+  const unknownNote = unknownTools.length === 0 ? null :
+    '\n⚠ Unrecognized Canvas Tool, left untagged: ' +
+    unknownTools.map(t => `"${t}"`).join(', ') +
+    '\n   Correct these in the Course Pattern Table to fix them permanently.';
+
   return [
     '✅ Blueprint Development Tab Updated!',
     '',
@@ -674,6 +776,7 @@ function buildSummary(stats, params, activities, numModules) {
     '',
     `Numbered: ${params.numbered ? 'Yes' : 'No'}`,
     `Time estimates: ${params.timeEstimates ? 'Yes' : 'No'}`,
-    `Canvas option: ${params.canvasOption}`
+    `Canvas option: ${params.canvasOption}`,
+    unknownNote
   ].filter(l => l !== null).join('\n');
 }
