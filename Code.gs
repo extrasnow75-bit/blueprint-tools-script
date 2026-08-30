@@ -1,8 +1,8 @@
 /**
  * ================================================================
- * BLUEPRINT TOOLS  |  Google Apps Script  v4.2 + removeSlot fix + formatting fixes
+ * BLUEPRINT TOOLS  |  'Add Activity Titles, Canvas Tools, & Due Dates'
  * ================================================================
- * Last updated on 2026-08-29 at 22:10 MDT
+ * Last updated on 2026-08-30 at 11:59 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
