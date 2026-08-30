@@ -3,7 +3,7 @@
  * BLUEPRINT TOOLS  |  Code4.gs
  * Tool 4: Create Model Module — AI-generated activity directions
  * ================================================================
- * Last updated on 2026-08-09 at 21:43 MDT
+ * Last updated on 2026-08-29 at 22:23 MDT
  * ================================================================
  *
  * Shared namespace: relies on constants and helpers defined in
@@ -28,6 +28,13 @@ var GEMINI_BASE_URL_4  = 'https://generativelanguage.googleapis.com/v1beta/model
 var GEMINI_PRIMARY_4   = 'gemini-2.5-flash';
 var GEMINI_FAST_4      = 'gemini-2.5-flash-lite';
 var INDENT_4           = 36; // default activity-slot indent (points)
+var OIT_HELP_URL_4     = 'https://www.boisestate.edu/oit/assistance/';
+// URLs the SCRIPT itself writes into directions. Hardcoded here, never derived
+// from the document or from model output, so they are trusted link targets
+// alongside whatever the designer supplied in the Course Design Map. Anything
+// linked must appear in this list or in the activity's linkMap — see
+// isAllowedUrl4_.
+var TRUSTED_LINK_URLS_4 = [OIT_HELP_URL_4];
 
 // ── SIDEBAR ──────────────────────────────────────────────────────────
 
@@ -307,12 +314,61 @@ function buildMediaTokens4_(mediaLinks) {
 function resolveLinkTarget4_(target, linkMap) {
   if (!target) return null;
   var t = String(target).trim();
-  if (/^https?:\/\//i.test(t)) return t;
-  if (linkMap) {
+  // A raw URL is honoured ONLY if it was supplied by the designer's document or
+  // injected by this script. The model can emit any URL it likes — including one
+  // it was talked into by a crafted <title> on a scraped page (see
+  // enrichMediaTitles_) — and every one used to be linked verbatim into
+  // student-facing material. Unresolved targets return null so the caller leaves
+  // the visible text unlinked rather than linking somewhere nobody chose.
+  if (/^https?:\/\//i.test(t)) return isAllowedUrl4_(t, linkMap) ? t : null;
+  if (linkMap && Object.prototype.hasOwnProperty.call(linkMap, t.toUpperCase().replace(/[\s_\-]/g, ''))) {
     var key = t.toUpperCase().replace(/[\s_\-]/g, '');
     if (linkMap[key]) return linkMap[key];
   }
   return null;
+}
+
+/**
+ * Canonical form for comparing two URLs. Scheme and host are case-insensitive;
+ * the path is not, so only the origin is lowercased. Trailing punctuation (from
+ * a URL that ended a sentence) and trailing slashes are dropped so trivial
+ * differences don't reject a legitimate link.
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+function normalizeUrlForCompare4_(url) {
+  return String(url).trim()
+    .replace(/[.,;]+$/, '')
+    .replace(/\/+$/, '')
+    .replace(/^https?:\/\/[^\/?#]+/i, function (origin) { return origin.toLowerCase(); });
+}
+
+/**
+ * True when `url` is one the designer supplied for this activity (a linkMap
+ * value) or one this script injects itself (TRUSTED_LINK_URLS_4). This is the
+ * allowlist that stops model-invented URLs becoming live hyperlinks.
+ *
+ * linkMap holds at most a handful of entries per activity, so the linear scan
+ * costs nothing and avoids caching a set that would have to be invalidated.
+ *
+ * @param {string} url
+ * @param {Object|null} linkMap  TOKEN → URL
+ * @returns {boolean}
+ */
+function isAllowedUrl4_(url, linkMap) {
+  if (!url) return false;
+  var target = normalizeUrlForCompare4_(url);
+  if (!target) return false;
+  for (var i = 0; i < TRUSTED_LINK_URLS_4.length; i++) {
+    if (normalizeUrlForCompare4_(TRUSTED_LINK_URLS_4[i]) === target) return true;
+  }
+  if (!linkMap) return false;
+  for (var k in linkMap) {
+    if (!Object.prototype.hasOwnProperty.call(linkMap, k)) continue;
+    if (normalizeUrlForCompare4_(linkMap[k]) === target) return true;
+  }
+  return false;
 }
 
 // ── PER-ACTIVITY CONTEXT SCOPING ──────────────────────────────────────
@@ -636,7 +692,9 @@ function extractCourseCode_() {
  * @returns {string}
  */
 function assignmentHelpBlock4_(courseCode, activityTitle) {
-  var HELP_URL = 'https://www.boisestate.edu/oit/assistance/';
+  // Same constant the link allowlist trusts — see TRUSTED_LINK_URLS_4. Keeping
+  // one source means the injected URL can never drift out of the allowlist.
+  var HELP_URL = OIT_HELP_URL_4;
   return '\n\n---\n' +
     'Where to go for help (H2)\n' +
     '- If you have any technical questions, contact the ' +
@@ -1386,7 +1444,7 @@ function insertFormattedText4(body, insertIdx, aiText, indent, linkMap) {
  * @param {number} count      number of inserted elements to scan
  */
 function linkifyHelpDesk4_(body, startIdx, count) {
-  var URL    = 'https://www.boisestate.edu/oit/assistance/';
+  var URL    = OIT_HELP_URL_4;
   var PHRASE = 'Boise State Help Desk';
   var end    = Math.min(startIdx + count, body.getNumChildren());
 
@@ -1595,11 +1653,17 @@ function linkifyMediaFallback4_(body, startIdx, count, linkMap) {
         s  = el.getText();
       }
 
-      // 2) Auto-link any bare URL still sitting as plain text.
+      // 2) Auto-link any bare URL still sitting as plain text — but only one the
+      //    designer supplied or this script injected. Ungated, this turned any
+      //    URL the model emitted into a live link, which is the second half of
+      //    the injection path described in resolveLinkTarget4_. A URL that
+      //    fails the check stays visible as plain text: it is not deleted,
+      //    because removing model output could take legitimate content with it.
       var re = /https?:\/\/[^\s\]\)]+/g;
       var m;
       while ((m = re.exec(s)) !== null) {
         var url = m[0].replace(/[.,;]+$/, '');
+        if (!isAllowedUrl4_(url, linkMap)) continue;
         var st  = m.index;
         var en  = st + url.length - 1;
         if (!el.getLinkUrl(st)) el.setLinkUrl(st, en, url);
