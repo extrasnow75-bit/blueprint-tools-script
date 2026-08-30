@@ -228,9 +228,15 @@ function normalizeToolName(raw) {
   // downstream: it has its own direction menu in Code2.gs (DIRECTION_OPTIONS)
   // and its own key in Sidebar5's normaliseToolKey. Falling through to plain
   // 'Assignment' silently offers the graded-assignment directions instead.
+  //
+  // "Ungraded" is only ever a qualifier on an ASSIGNMENT. A cell that names a
+  // different tool — "Discussion (Ungraded)", "Page (Ungraded)" — keeps that
+  // tool, so the check is gated on no other tool being named. Without the gate
+  // it swallows every ungraded cell and rewrites discussions as assignments.
   // Anchored on \b so the Feedback column's "Auto graded" can never match.
-  if (/\b(un|non[- ]?|not )graded\b/.test(t))            return 'Assignment (Not Graded)';
-  if (t.includes('assignment'))                          return 'Assignment';
+  const ungraded = /\b(un|non[- ]?|not )graded\b/.test(t);
+  if (ungraded && !/discussion|page|quiz/.test(t))       return 'Assignment (Not Graded)';
+  if (t.includes('assignment'))                          return ungraded ? 'Assignment (Not Graded)' : 'Assignment';
   if (t.includes('discussion'))                          return 'Discussion';
   if (t.includes('page'))                                return 'Page';
   if (t.includes('quiz') && t.includes('new'))           return 'Quiz (New)';
