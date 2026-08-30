@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-08-29 at 22:10 MDT
+// Last updated on 2026-08-30 at 13:36 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -112,7 +112,7 @@ const KNOWN_TOOL_NAMES = [
  */
 function showDirectionsSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar2')
-    .setTitle('Deploy Activity Directions (No AI)')
+    .setTitle('Deploy Activity Directions')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }
@@ -325,8 +325,7 @@ function readModuleContent_(body, moduleTitle) {
       }
 
       // Structural slot lines are NOT activity directions either. These are
-      // skipped ANYWHERE in the slot, matching how Code4's
-      // clearGeneratedDirections4_ preserves them.
+      // skipped ANYWHERE in the slot.
       //
       // They used to be gated on !pastPreamble, but "Estimated time:" precedes
       // the tool line in a slot and matched neither test — so it ended the

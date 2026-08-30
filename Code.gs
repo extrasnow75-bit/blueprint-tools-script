@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Canvas Tools, & Due Dates'
  * ================================================================
- * Last updated on 2026-08-30 at 11:59 MDT
+ * Last updated on 2026-08-30 at 13:36 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -36,12 +36,11 @@ function onOpen() {
   DocumentApp.getUi()
     .createMenu('🎓 Blueprint Tools')
     .addItem('Add Activity Titles, Tools, & Times',   'showSidebar')
+    .addItem('Add Module Titles & Dates',              'showModuleTitlesSidebar7')
     .addSeparator()
-    .addItem('Create Model Module (No AI)',            'showModelModuleNoAiSidebar')
-    .addItem('Create Model Module (AI)',               'showAiDirectionsSidebar4')
+    .addItem('Create Model Module',                    'showModelModuleNoAiSidebar')
     .addSeparator()
-    .addItem('Deploy Activity Directions (No AI)',     'showDirectionsSidebar')
-    .addItem('Deploy Activity Directions (AI)',       'showDeployAiSidebar6')
+    .addItem('Deploy Activity Directions',             'showDirectionsSidebar')
     .addSeparator()
     .addItem('Time Estimator',                         'showTimeEstimatorSidebar')
     .addSeparator()

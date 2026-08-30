@@ -1,9 +1,9 @@
 // ============================================================
 // Blueprint Tools — Code5.gs
-// Create Model Module (No AI): inserts templated activity
+// Create Model Module: inserts templated activity
 // directions into one user-selected module only.
 // ------------------------------------------------------------
-// Last updated on 2026-07-19 at 09:22 MDT
+// Last updated on 2026-08-30 at 13:36 MDT
 // ------------------------------------------------------------
 //
 // Relies on shared helpers in Code2.gs (same GAS namespace):
@@ -17,7 +17,7 @@
 
 function showModelModuleNoAiSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar5')
-    .setTitle('Create Model Module (No AI)')
+    .setTitle('Create Model Module')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }
