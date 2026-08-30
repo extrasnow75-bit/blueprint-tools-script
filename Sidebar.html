@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-08-29 at 21:26 MDT -->
+<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-08-29 at 22:10 MDT -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -137,7 +137,13 @@
     <option value="unpublished">Build Unpublished Due Day Text Header in Canvas</option>
   </select>
   <!-- Pre-flight: Canvas Tool cells the script couldn't interpret. Populated on
-       load by scanCoursePatternTools(); stays hidden when everything parses. -->
+       load by scanCoursePatternTools(); stays hidden when everything parses.
+       The panel is injected by an async callback AFTER the form has rendered,
+       so its arrival is announced through #tool-fix-status. That live region
+       sits OUTSIDE #tool-fix: a region inside the panel is built in a loop and
+       would announce in fragments, and one inside a display:none container may
+       not register with the screen reader at all. -->
+  <p id="tool-fix-status" class="sr-only" role="status" aria-live="polite"></p>
   <div id="tool-fix" role="group" aria-labelledby="tool-fix-title">
     <div class="tool-fix-box">
       <p class="tool-fix-title" id="tool-fix-title">Unrecognized Canvas Tools</p>
@@ -204,7 +210,15 @@
       .scanCoursePatternTools();
   });
   function buildToolFix(data) {
-    if (!data || !data.unrecognized || data.unrecognized.length === 0) return;
+    if (!data) return;
+    // The scan reports its own failures (e.g. no Design tab) in data.error.
+    // Surface it — returning early here is why it used to vanish silently,
+    // and withFailureHandler only reaches the console, which a sidebar hides.
+    if (data.error) {
+      setStatus(data.error);
+      return;
+    }
+    if (!data.unrecognized || data.unrecognized.length === 0) return;
     var rows = document.getElementById('tool-fix-rows');
     rows.innerHTML = '';
     data.unrecognized.forEach(function(item, i) {
@@ -221,6 +235,10 @@
 
       var used = document.createElement('p');
       used.className   = 'tool-fix-used';
+      // Named + referenced by the select below: this list of affected
+      // activities is what the choice is actually based on, so it has to reach
+      // a screen reader on focus, not just sit next to the control visually.
+      used.id          = id + '-desc';
       used.textContent = item.activities.length === 1
         ? item.activities[0]
         : item.activities.length + ' activities: ' + item.activities.join(', ');
@@ -229,6 +247,13 @@
       var sel = document.createElement('select');
       sel.id = id;
       sel.setAttribute('data-raw-tool', item.rawTool);
+      sel.setAttribute('aria-describedby', id + '-desc');
+      // The visible label is only the raw cell text ("Assmnt"), which alone
+      // announces as meaningless. Give the control a fuller name that still
+      // CONTAINS the visible string, so voice control ("click Assmnt") keeps
+      // working — an aria-label omitting it would fail WCAG 2.5.3 Label in Name.
+      sel.setAttribute('aria-label',
+        'Canvas tool for Course Pattern Table entry “' + item.rawTool + '”');
       data.toolOptions.forEach(function(opt) {
         var o = document.createElement('option');
         o.value = o.textContent = opt;
@@ -247,6 +272,21 @@
       rows.appendChild(row);
     });
     document.getElementById('tool-fix').style.display = 'block';
+    // Announce only after the panel is built and visible, so the screen reader
+    // reads a complete panel rather than a half-populated one.
+    var n = data.unrecognized.length;
+    setStatus(n + (n === 1
+      ? ' Canvas Tool entry in your Course Pattern Table was not recognized.'
+      : ' Canvas Tool entries in your Course Pattern Table were not recognized.') +
+      ' Review them above the Run Script button before running.');
+  }
+  // Writes to the pre-flight live region. Reassigning identical text does not
+  // re-announce in some screen readers, so clear first.
+  function setStatus(msg) {
+    var el = document.getElementById('tool-fix-status');
+    if (!el) return;
+    el.textContent = '';
+    el.textContent = msg;
   }
   // Keyed by lowercased cell text to match parseCoursePattern's lookup.
   function collectToolOverrides() {

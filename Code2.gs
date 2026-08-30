@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-08-09 at 22:35 MDT
+// Last updated on 2026-08-29 at 22:10 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -691,7 +691,13 @@ function getToolTypeForSlot(body, headingPara, knownIndex) {
     // The "Tool; Link to settings tab" line contains a semicolon.
     if (text.indexOf(';') !== -1) {
       var toolType = text.split(';')[0].trim();
-      return toolType || null;
+      if (!toolType) return null;
+      // Normalize the same way the Course Pattern Table is read, so a line
+      // hand-typed in the Development tab as "Assignment (Ungraded)" resolves
+      // to the canonical "Assignment (Not Graded)" and finds its DIRECTION_OPTIONS
+      // entry. Fall back to the raw text when nothing matches (e.g. the
+      // "Select Tool" placeholder), which is what callers expect.
+      return normalizeToolName(toolType) || toolType;
     }
   }
 

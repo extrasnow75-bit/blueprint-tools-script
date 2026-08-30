@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  Google Apps Script  v4.2 + removeSlot fix + formatting fixes
  * ================================================================
- * Last updated on 2026-08-29 at 21:26 MDT
+ * Last updated on 2026-08-29 at 22:10 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -28,6 +28,9 @@ const TOOL_LEAVE_UNCHANGED = '[Leave unchanged]';
 // The un-set tool name. setNearbyTool swaps this for a real tool when one is
 // known; until then it stays put, grey-chipped like any tagged tool.
 const TOOL_PLACEHOLDER = 'Select Tool';
+// Upper bound on modules, enforced server-side in processBlueprint. Matches the
+// max="52" on the sidebar's numModules input (one module per week, a full year).
+const MAX_MODULES = 52;
 // ── MENU ──────────────────────────────────────────────────────────
 function onOpen() {
   DocumentApp.getUi()
@@ -73,6 +76,13 @@ function showKbArticle() {
 }
 // ── MAIN ──────────────────────────────────────────────────────────
 function processBlueprint(params) {
+  // The sidebar's max="52" and parseInt are client-side only — google.script.run
+  // is callable directly, so the bound has to hold here too. An unbounded value
+  // drives the createModule/deleteModule loops below past the 6-minute limit and
+  // leaves a half-built Development tab behind.
+  const requested = Number(params.numModules);
+  if (!Number.isInteger(requested) || requested < 1 || requested > MAX_MODULES)
+    throw new Error(`Number of modules must be a whole number from 1 to ${MAX_MODULES}.`);
   const doc  = DocumentApp.getActiveDocument();
   const tabs = collectTabs(doc);
   const designTab = tabs.find(t => /\bdesign\b/i.test(t.title));
@@ -83,7 +93,7 @@ function processBlueprint(params) {
   if (activities.length === 0)
     throw new Error('No activities found in the course pattern table.');
   const stats      = { created: 0, deleted: 0, filled: 0, tools: 0, slotsDeleted: 0, headers: 0 };
-  const numModules = params.numModules;
+  const numModules = requested;
   const existing   = countExistingModules(devTab.body);
   const indent     = getTemplateIndent(devTab.body);
   for (let m = existing; m > numModules; m--) {
