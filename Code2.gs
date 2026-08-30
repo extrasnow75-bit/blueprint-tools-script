@@ -1,7 +1,8 @@
 // ============================================================
 // Blueprint Tools — Code2.gs
-// Last updated on 2026-07-19 at 09:22 MDT
 // Adds activity directions to the Development tab of a blueprint doc.
+// ------------------------------------------------------------
+// Last updated on 2026-08-29 at 22:10 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -323,9 +324,20 @@ function readModuleContent_(body, moduleTitle) {
         continue;
       }
 
-      // Skip the "Tool; Link to settings tab" line and leading blank lines.
+      // Structural slot lines are NOT activity directions either. These are
+      // skipped ANYWHERE in the slot, matching how Code4's
+      // clearGeneratedDirections4_ preserves them.
+      //
+      // They used to be gated on !pastPreamble, but "Estimated time:" precedes
+      // the tool line in a slot and matched neither test — so it ended the
+      // preamble and was captured as content, and the now-ungated tool line was
+      // captured right after it. Deploy then pasted both into targets that
+      // already had their own pair, duplicating them.
+      if (/^estimated time/i.test(text))       continue;
+      if (/link to settings tab$/i.test(text)) continue;
+
+      // Skip leading blank lines only.
       if (!pastPreamble) {
-        if (/link to settings tab/i.test(text)) continue;
         if (text === '') continue;
         pastPreamble = true;
       }
@@ -679,7 +691,13 @@ function getToolTypeForSlot(body, headingPara, knownIndex) {
     // The "Tool; Link to settings tab" line contains a semicolon.
     if (text.indexOf(';') !== -1) {
       var toolType = text.split(';')[0].trim();
-      return toolType || null;
+      if (!toolType) return null;
+      // Normalize the same way the Course Pattern Table is read, so a line
+      // hand-typed in the Development tab as "Assignment (Ungraded)" resolves
+      // to the canonical "Assignment (Not Graded)" and finds its DIRECTION_OPTIONS
+      // entry. Fall back to the raw text when nothing matches (e.g. the
+      // "Select Tool" placeholder), which is what callers expect.
+      return normalizeToolName(toolType) || toolType;
     }
   }
 

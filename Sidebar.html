@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Last updated on 2026-07-19 at 09:22 MDT -->
+<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-08-29 at 22:10 MDT -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -84,6 +84,21 @@
       line-height: 1.6;
     }
     .error-msg { color: #cc0000; font-size: 12px; }
+    /* Pre-flight: unrecognized Canvas Tool cells */
+    #tool-fix { display: none; margin-top: 16px; }
+    .tool-fix-box {
+      background: #fdf6e3;
+      border: 1px solid #e0c98a;
+      border-left: 3px solid #8a6100;
+      border-radius: 4px;
+      padding: 10px 12px;
+    }
+    .tool-fix-title { font-weight: bold; color: #8a6100; font-size: 13px; margin: 0 0 6px; }
+    .tool-fix-intro { font-size: 12px; color: #4a4a4a; margin: 0 0 4px; line-height: 1.45; }
+    .tool-fix-row   { margin-top: 10px; }
+    .tool-fix-cell  { font-weight: bold; font-size: 12px; color: #333; }
+    .tool-fix-used  { font-size: 11px; color: #555; margin: 2px 0 0; line-height: 1.4; }
+    .tool-fix-row select { margin-top: 4px; }
     .sr-only {
       position: absolute;
       width: 1px; height: 1px;
@@ -121,6 +136,26 @@
     <option value="doNotBuild">Do not build Due Date Text Header in Canvas</option>
     <option value="unpublished">Build Unpublished Due Day Text Header in Canvas</option>
   </select>
+  <!-- Pre-flight: Canvas Tool cells the script couldn't interpret. Populated on
+       load by scanCoursePatternTools(); stays hidden when everything parses.
+       The panel is injected by an async callback AFTER the form has rendered,
+       so its arrival is announced through #tool-fix-status. That live region
+       sits OUTSIDE #tool-fix: a region inside the panel is built in a loop and
+       would announce in fragments, and one inside a display:none container may
+       not register with the screen reader at all. -->
+  <p id="tool-fix-status" class="sr-only" role="status" aria-live="polite"></p>
+  <div id="tool-fix" role="group" aria-labelledby="tool-fix-title">
+    <div class="tool-fix-box">
+      <p class="tool-fix-title" id="tool-fix-title">Unrecognized Canvas Tools</p>
+      <p class="tool-fix-intro">
+        These entries in your Course Pattern Table don&rsquo;t match a Canvas tool,
+        so those activities keep the &ldquo;Select Tool&rdquo; placeholder instead of a
+        real tool name. Pick the right tool for each.
+      </p>
+      <div id="tool-fix-rows"></div>
+    </div>
+  </div>
+
   <button class="run-btn" onclick="runScript()"><span aria-hidden="true">▶</span> Run Script</button>
   <div id="form-error" class="error-msg" style="display:none; margin-top:8px;" role="alert"></div>
 </div>
@@ -163,6 +198,106 @@
     return Math.floor(totalSeconds / 60) + ':' +
            String(totalSeconds % 60).padStart(2, '0');
   }
+  // ── Pre-flight: unrecognized Canvas Tool cells ──────────────────────────
+  // Scan on load so the user resolves bad tool cells BEFORE running, rather
+  // than finding untagged activities in the Development tab afterwards.
+  window.addEventListener('load', function() {
+    google.script.run
+      .withSuccessHandler(buildToolFix)
+      // Non-fatal: this panel is an assist, not a gate. If the scan fails the
+      // form stays fully usable and Run reports any real problem itself.
+      .withFailureHandler(function(e) { console.log('tool scan failed: ' + e); })
+      .scanCoursePatternTools();
+  });
+  function buildToolFix(data) {
+    if (!data) return;
+    // The scan reports its own failures (e.g. no Design tab) in data.error.
+    // Surface it — returning early here is why it used to vanish silently,
+    // and withFailureHandler only reaches the console, which a sidebar hides.
+    if (data.error) {
+      setStatus(data.error);
+      return;
+    }
+    if (!data.unrecognized || data.unrecognized.length === 0) return;
+    var rows = document.getElementById('tool-fix-rows');
+    rows.innerHTML = '';
+    data.unrecognized.forEach(function(item, i) {
+      var row = document.createElement('div');
+      row.className = 'tool-fix-row';
+
+      var id  = 'tool-fix-' + i;
+      var lab = document.createElement('label');
+      lab.className = 'tool-fix-cell';
+      lab.htmlFor   = id;
+      // textContent, not innerHTML — this string comes from the document.
+      lab.textContent = '“' + item.rawTool + '”';
+      row.appendChild(lab);
+
+      var used = document.createElement('p');
+      used.className   = 'tool-fix-used';
+      // Named + referenced by the select below: this list of affected
+      // activities is what the choice is actually based on, so it has to reach
+      // a screen reader on focus, not just sit next to the control visually.
+      used.id          = id + '-desc';
+      used.textContent = item.activities.length === 1
+        ? item.activities[0]
+        : item.activities.length + ' activities: ' + item.activities.join(', ');
+      row.appendChild(used);
+
+      var sel = document.createElement('select');
+      sel.id = id;
+      sel.setAttribute('data-raw-tool', item.rawTool);
+      sel.setAttribute('aria-describedby', id + '-desc');
+      // The visible label is only the raw cell text ("Assmnt"), which alone
+      // announces as meaningless. Give the control a fuller name that still
+      // CONTAINS the visible string, so voice control ("click Assmnt") keeps
+      // working — an aria-label omitting it would fail WCAG 2.5.3 Label in Name.
+      sel.setAttribute('aria-label',
+        'Canvas tool for Course Pattern Table entry “' + item.rawTool + '”');
+      data.toolOptions.forEach(function(opt) {
+        var o = document.createElement('option');
+        o.value = o.textContent = opt;
+        sel.appendChild(o);
+      });
+      // Default to leaving it untagged, so an unattended run can never invent a
+      // tool the designer didn't ask for. The line is not removed — it keeps the
+      // "Select Tool" placeholder — so the label says "unchanged", not "blank".
+      var blank = document.createElement('option');
+      blank.value = data.leaveUnchanged;
+      blank.textContent = 'Leave unchanged (stays “Select Tool”)';
+      blank.selected = true;
+      sel.appendChild(blank);
+      row.appendChild(sel);
+
+      rows.appendChild(row);
+    });
+    document.getElementById('tool-fix').style.display = 'block';
+    // Announce only after the panel is built and visible, so the screen reader
+    // reads a complete panel rather than a half-populated one.
+    var n = data.unrecognized.length;
+    setStatus(n + (n === 1
+      ? ' Canvas Tool entry in your Course Pattern Table was not recognized.'
+      : ' Canvas Tool entries in your Course Pattern Table were not recognized.') +
+      ' Review them above the Run Script button before running.');
+  }
+  // Writes to the pre-flight live region. Reassigning identical text does not
+  // re-announce in some screen readers, so clear first.
+  function setStatus(msg) {
+    var el = document.getElementById('tool-fix-status');
+    if (!el) return;
+    el.textContent = '';
+    el.textContent = msg;
+  }
+  // Keyed by lowercased cell text to match parseCoursePattern's lookup.
+  function collectToolOverrides() {
+    var out = {};
+    var sels = document.querySelectorAll('#tool-fix-rows select');
+    for (var i = 0; i < sels.length; i++) {
+      var raw = sels[i].getAttribute('data-raw-tool');
+      if (raw) out[raw.toLowerCase()] = sels[i].value;
+    }
+    return out;
+  }
   function runScript() {
     const n = parseInt(document.getElementById('numModules').value);
     if (!n || n < 1) {
@@ -177,7 +312,8 @@
       numModules:    n,
       numbered:      document.getElementById('numbered').value === 'yes',
       timeEstimates: document.getElementById('timeEstimates').value === 'yes',
-      canvasOption:  document.getElementById('canvasOption').value
+      canvasOption:  document.getElementById('canvasOption').value,
+      toolOverrides: collectToolOverrides()
     };
     document.getElementById('form').style.display     = 'none';
     document.getElementById('progress').style.display = 'block';

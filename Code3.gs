@@ -1,6 +1,7 @@
 /**
  * ================================================================
  * BLUEPRINT TOOLS  |  Google Apps Script  |  Time Estimator
+ * ================================================================
  * Last updated on 2026-07-19 at 09:22 MDT
  * ================================================================
  * Scans the Development tab of a Blueprint document, tallies the

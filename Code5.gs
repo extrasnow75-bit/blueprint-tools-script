@@ -1,8 +1,10 @@
 // ============================================================
 // Blueprint Tools — Code5.gs
-// Last updated on 2026-07-19 at 09:22 MDT
 // Create Model Module (No AI): inserts templated activity
 // directions into one user-selected module only.
+// ------------------------------------------------------------
+// Last updated on 2026-07-19 at 09:22 MDT
+// ------------------------------------------------------------
 //
 // Relies on shared helpers in Code2.gs (same GAS namespace):
 //   extractDocId, collectTabs, getDevelopmentTabBody,
