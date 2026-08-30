@@ -3,7 +3,7 @@
 // Deploy Activity Directions (AI): adapts model-module directions
 // for each target module using Gemini AI.
 // ------------------------------------------------------------
-// Last updated on 2026-08-09 at 23:08 MDT
+// Last updated on 2026-08-30 at 12:14 MDT
 // ------------------------------------------------------------
 //
 // Reuses from the shared GAS namespace:
@@ -462,6 +462,15 @@ function buildModuleAdaptPrompt6_(params) {
     '- Do not add a title heading for an activity — after its delimiter, begin ' +
     'directly with the directions content.\n' +
     linkRule +
+    // No word target here, unlike the model-module tool: length is set by the
+    // model module the designer chose. The failure mode is expansion — the
+    // model "improving" each activity by bolting on extra sections and
+    // encouragement, so module 2 reads twice as long as the module 1 it was
+    // adapted from. Anchor the length to the model rather than to a number.
+    '- BE CONCISE. Adapting is not expanding. Each adapted activity should be ' +
+    'about the same length as its MODEL DIRECTIONS, and never longer. Do not add ' +
+    'sections, examples, rationale, or encouragement the model directions do not ' +
+    'already have.\n' +
     '- If you refer to the campus help desk, call it exactly "Boise State Help Desk".\n' +
     // Guards against the model INVENTING these structural lines. (Echoing them
     // from the model module is prevented upstream — readModuleContent_ strips

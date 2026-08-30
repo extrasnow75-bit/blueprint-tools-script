@@ -3,7 +3,7 @@
  * BLUEPRINT TOOLS  |  Code4.gs
  * Tool 4: Create Model Module — AI-generated activity directions
  * ================================================================
- * Last updated on 2026-08-29 at 22:23 MDT
+ * Last updated on 2026-08-30 at 12:14 MDT
  * ================================================================
  *
  * Shared namespace: relies on constants and helpers defined in
@@ -1137,7 +1137,19 @@ function buildAiDirectionsPrompt4(params) {
     scopeRule +
     linkRule +
     helpDeskRule +
-    '- Aim for 150–400 words. Keep instructions focused and actionable for students.\n\n' +
+    // Concision rules. The 400-word ceiling alone was not holding the output
+    // down — the model filled it with throat-clearing ("In this activity you
+    // will…"), restated outcomes, and closing encouragement, all of which are
+    // words a student has to read past to find the actual task. Naming the
+    // specific filler patterns works better than the word count by itself.
+    '- BE CONCISE. Aim for 150–250 words. Every sentence must tell the student ' +
+    'something they need in order to do the work.\n' +
+    '- No preamble and no closing pep talk. Do not restate the activity title or ' +
+    'the learning outcomes back to the student, and do not explain why the ' +
+    'activity matters unless the course designer asked for it. Start with what ' +
+    'to do.\n' +
+    '- Prefer short sentences and bullets over paragraphs. Never pad a section to ' +
+    'make it look complete — one clear sentence beats three.\n\n' +
     'Write student-facing directions for this activity now.'
   );
 }
