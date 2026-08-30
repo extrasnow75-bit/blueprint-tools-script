@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  Google Apps Script  v4.2 + removeSlot fix + formatting fixes
  * ================================================================
- * Last updated on 2026-08-09 at 22:35 MDT
+ * Last updated on 2026-08-29 at 21:26 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -22,7 +22,12 @@ const CANVAS_TOOL_OPTIONS = [
   'Quiz (New)'
 ];
 // Sentinel the pre-flight panel sends when a tool cell should stay untagged.
-const TOOL_LEAVE_BLANK = '[Leave blank]';
+// The slot is not left blank — it keeps the TOOL_PLACEHOLDER line, so the
+// designer still sees a prompt to pick a tool by hand.
+const TOOL_LEAVE_UNCHANGED = '[Leave unchanged]';
+// The un-set tool name. setNearbyTool swaps this for a real tool when one is
+// known; until then it stays put, grey-chipped like any tagged tool.
+const TOOL_PLACEHOLDER = 'Select Tool';
 // ── MENU ──────────────────────────────────────────────────────────
 function onOpen() {
   DocumentApp.getUi()
@@ -120,7 +125,7 @@ function collectTabs(doc) {
  * @param {GoogleAppsScript.Document.Body} body  the Design tab body
  * @param {Object} [toolOverrides]  user picks from the sidebar's pre-flight
  *   panel, keyed by LOWERCASED raw cell text → canonical tool name (or
- *   TOOL_LEAVE_BLANK). Keying by cell text rather than activity name means one
+ *   TOOL_LEAVE_UNCHANGED). Keying by cell text rather than activity name means one
  *   pick resolves every row that shares the same spelling.
  * @returns {Array<{name, tool, rawTool, dueDay, time}>}  `tool` is null when the
  *   cell was blank OR unrecognized and unresolved; `rawTool` keeps the original
@@ -185,10 +190,10 @@ function parseCoursePattern(body, toolOverrides) {
  * dropdown, not six.
  *
  * @returns {{unrecognized: Array<{rawTool: string, activities: string[]}>,
- *            toolOptions: string[], leaveBlank: string, error?: string}}
+ *            toolOptions: string[], leaveUnchanged: string, error?: string}}
  */
 function scanCoursePatternTools() {
-  const base = { unrecognized: [], toolOptions: CANVAS_TOOL_OPTIONS, leaveBlank: TOOL_LEAVE_BLANK };
+  const base = { unrecognized: [], toolOptions: CANVAS_TOOL_OPTIONS, leaveUnchanged: TOOL_LEAVE_UNCHANGED };
   const doc  = DocumentApp.getActiveDocument();
   const designTab = collectTabs(doc).find(t => /\bdesign\b/i.test(t.title));
   if (!designTab) {
@@ -328,10 +333,11 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
     ePara.setIndentStart(indent);
     _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
     // Select Tool; Link to settings tab
-    const tPara = add('Select Tool; Link to settings tab');
+    const tPara = add(TOOL_PLACEHOLDER + '; Link to settings tab');
     tPara.setHeading(NORMAL);
     tPara.setIndentStart(indent);
     _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
+    _chipTool(tPara, TOOL_PLACEHOLDER);
     // Directions
     const dPara = add('Directions go here\u2026');
     dPara.setHeading(NORMAL);
@@ -441,10 +447,11 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   ePara.setHeading(NORMAL);
   ePara.setIndentStart(indent);
   _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
-  const tPara = ins('Select Tool; Link to settings tab');
+  const tPara = ins(TOOL_PLACEHOLDER + '; Link to settings tab');
   tPara.setHeading(NORMAL);
   tPara.setIndentStart(indent);
   _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
+  _chipTool(tPara, TOOL_PLACEHOLDER);
   const dPara = ins('Directions go here…');
   dPara.setHeading(NORMAL);
   dPara.setIndentStart(indent);
@@ -502,12 +509,12 @@ function setNearbyTool(body, headingPara, toolValue) {
     const h    = para.getHeading();
     if (h === H2 || h === H3 || h === H4) break;
     const text          = para.getText();
-    const hasSelectTool = text.includes('Select Tool');
+    const hasSelectTool = text.includes(TOOL_PLACEHOLDER);
     const hasSuffix     = text.includes(suffix);
     if (!hasSelectTool && !hasSuffix) continue;
     try {
       if (hasSelectTool) {
-        para.replaceText('Select Tool', toolValue);
+        para.replaceText(TOOL_PLACEHOLDER, toolValue);
         const updated = para.getText();
         const toolEnd = updated.includes(';') ? updated.indexOf(';') - 1 : updated.length - 1;
         if (toolEnd >= 0) {
@@ -747,19 +754,27 @@ function _fmt(textEl, opts) {
   if (opts.color  !== undefined) textEl.setForegroundColor(opts.color);
   return textEl;
 }
+// Grey chip on the tool name only, never the "; Link to settings tab" suffix.
+// Applied to the placeholder and to real tool names alike, so an untagged slot
+// looks like every tagged one.
+function _chipTool(para, toolName) {
+  if (!toolName || toolName.length === 0) return;
+  para.editAsText().setBackgroundColor(0, toolName.length - 1, GREY_CHIP);
+}
 // ── BUILD SUMMARY ─────────────────────────────────────────────────
 function buildSummary(stats, params, activities, numModules) {
   // Tool cells we still couldn't interpret — either the user chose "leave
-  // blank" in the pre-flight panel or skipped it. These activities get no tool
-  // line, so name the cell text here: the fix belongs in the Course Pattern
-  // Table, and this run's pick doesn't persist back to the Design tab.
+  // unchanged" in the pre-flight panel or skipped it. These activities keep the
+  // "Select Tool" placeholder, so name the cell text here: the fix belongs in
+  // the Course Pattern Table, and this run's pick doesn't persist back to the
+  // Design tab.
   const unknownTools = [];
   for (const act of activities) {
     if (act.tool || !act.rawTool) continue;
     if (unknownTools.indexOf(act.rawTool) === -1) unknownTools.push(act.rawTool);
   }
   const unknownNote = unknownTools.length === 0 ? null :
-    '\n⚠ Unrecognized Canvas Tool, left untagged: ' +
+    '\n⚠ Unrecognized Canvas Tool, still "Select Tool": ' +
     unknownTools.map(t => `"${t}"`).join(', ') +
     '\n   Correct these in the Course Pattern Table to fix them permanently.';
 
