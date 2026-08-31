@@ -658,6 +658,13 @@
     if (cal.error) {
       html += notice('warn', esc(cal.error));
       $('calendar-status').innerHTML = html;
+      // Summer has no session table to choose from, but the 5-year calendar
+      // still knows when the summer block runs, so start the pickers there
+      // rather than empty.
+      if (cal.suggestedStart && cal.suggestedEnd) {
+        $('manual-start').value = toInputDate(cal.suggestedStart);
+        $('manual-end').value   = toInputDate(cal.suggestedEnd);
+      }
       show('manual-wrap');
       return;
     }

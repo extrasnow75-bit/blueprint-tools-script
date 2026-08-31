@@ -656,15 +656,19 @@ function parseFiveYearRow7_(html, sem, yr) {
     var rows = tables[t].match(/<tr[\s\S]*?<\/tr>/gi) || [];
     if (rows.length < 2) continue;
 
-    var header = (rows[0].match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || []).map(stripHtml7_);
+    // Fall and Spring head their columns "<Semester> Semester"; summer is
+    // "Summer Sessions", plural, because it holds several overlapping ones.
+    var heading = (sem === 'summer') ? 'summer sessions' : sem + ' semester';
+    var header  = (rows[0].match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || []).map(stripHtml7_);
     var col = -1;
     for (var c = 0; c < header.length; c++) {
-      if (header[c].toLowerCase().indexOf(sem + ' semester') !== -1) { col = c; break; }
+      if (header[c].toLowerCase().indexOf(heading) !== -1) { col = c; break; }
     }
     if (col < 0) continue;
 
-    // Spring 2028 lives in the 2027-2028 row; Fall 2027 lives there too.
-    var first = (sem === 'spring') ? yr - 1 : yr;
+    // A row spans two calendar years: only Fall falls in the first of them.
+    // Spring 2028 and Summer 2028 both live in the 2027-2028 row.
+    var first = (sem === 'fall') ? yr : yr - 1;
     var label = new RegExp('^\\s*' + first + '\\s*[-\u2013\u2014]\\s*(?:' + (first + 1) +
                            '|' + String(first + 1).slice(2) + ')\\s*$');
 
@@ -678,9 +682,11 @@ function parseFiveYearRow7_(html, sem, yr) {
       if (!start || !end) return null;
 
       // Fall lists Thanksgiving; Spring lists Spring Break, which the registrar
-      // marks TBD for every year after the current one.
-      var breakName = (sem === 'fall') ? 'Thanksgiving' : 'Spring Break';
-      var breakText = fiveYearField7_(cell, breakName);
+      // marks TBD for every year after the current one. Summer lists no break
+      // at all, so it must not be reported as a missing one.
+      var breakName = (sem === 'fall') ? 'Thanksgiving'
+                    : (sem === 'spring') ? 'Spring Break' : '';
+      var breakText = breakName ? fiveYearField7_(cell, breakName) : '';
       var holiday   = breakText && !/tbd/i.test(breakText)
                         ? fiveYearBreak7_(breakName, breakText, yr)
                         : null;
@@ -689,7 +695,7 @@ function parseFiveYearRow7_(html, sem, yr) {
         start:    start,
         end:      end,
         holiday:  holiday,
-        tbdBreak: holiday ? '' : breakName
+        tbdBreak: (breakName && !holiday) ? breakName : ''
       };
     }
   }
@@ -705,12 +711,20 @@ function parseFiveYearRow7_(html, sem, yr) {
  * Blueprints are routinely built further out than that:
  *   1. the per-semester page — full session table, every no-class day
  *   2. the 5-year calendar   — regular semester only, plus its one big break
- *   3. nothing               — caller falls back to manual date pickers
+ *   3. nothing               — caller falls back to manual date pickers,
+ *                              pre-filled from suggestedStart/End when summer's
+ *                              block was readable
  *
- * @returns {Object} {tier, sessions[], holidays[], warnings[], error}
+ * @returns {Object} {tier, sessions[], holidays[], warnings[], error,
+ *                    suggestedStart, suggestedEnd}
  */
 function fetchAcademicCalendar7(semester, year) {
-  var out = { tier: 0, sessions: [], holidays: [], warnings: [], error: '', url: '' };
+  var out = {
+    tier: 0, sessions: [], holidays: [], warnings: [], error: '', url: '',
+    // Tier 3 only: dates to pre-fill the manual pickers with, when something
+    // usable was found even though no session table could be built.
+    suggestedStart: 0, suggestedEnd: 0
+  };
 
   var sem = String(semester || '').toLowerCase();
   if (['spring', 'summer', 'fall'].indexOf(sem) === -1) {
@@ -759,16 +773,33 @@ function fetchAcademicCalendar7(semester, year) {
 
   // Tier 2 — the 5-year calendar. Regular semesters only, and it carries no
   // usable break dates for years past the current one.
+  var fiveYear = fetchPage7_(FIVE_YEAR_URL_7);
+
+  // Summer never reaches tier 2: the 5-year table holds one undifferentiated
+  // block, so there is nothing to put in a session dropdown. It does carry the
+  // block's own first and last day, though, which is worth pre-filling into the
+  // manual pickers rather than leaving the user to look it up.
   if (sem === 'summer') {
+    var summer = fiveYear ? parseFiveYearRow7_(fiveYear, 'summer', yr) : null;
+
     out.tier  = 3;
     out.error = 'No Summer ' + yr + ' calendar has been published yet, and the 5-year ' +
                 'calendar lists summer as a single block with no 3-, 5-, 7-, or 10-week ' +
-                'session dates. Enter the first and last day of the course below.';
+                'session dates. ' +
+                (summer
+                  ? 'The dates below are that whole block, from the 5-year calendar — ' +
+                    'shorten them to your session before generating.'
+                  : 'Enter the first and last day of the course below.');
+
+    if (summer) {
+      out.suggestedStart = summer.start.getTime();
+      out.suggestedEnd   = summer.end.getTime();
+      out.url            = FIVE_YEAR_URL_7;
+    }
     return out;
   }
 
-  var fiveYear = fetchPage7_(FIVE_YEAR_URL_7);
-  var row      = fiveYear ? parseFiveYearRow7_(fiveYear, sem, yr) : null;
+  var row = fiveYear ? parseFiveYearRow7_(fiveYear, sem, yr) : null;
   if (row) {
     out.tier     = 2;
     out.url      = FIVE_YEAR_URL_7;
