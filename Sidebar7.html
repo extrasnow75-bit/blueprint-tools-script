@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 21:55 MDT -->
+<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-31 at 10:12 MDT -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -100,6 +100,21 @@
     }
 
     .state-badge.locked { color: #8a1c12; }
+
+    /* Visually hidden but read aloud. Several controls here are labelled only
+       by position — the custom-title box, the semester and year pair — and a
+       visible label for each would crowd a 320px sidebar. */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
 
     .radio-option {
       display: block;
@@ -219,7 +234,10 @@
     }
 
     .run-btn:hover    { background: #002080; }
-    .run-btn:disabled { background: #8899cc; cursor: default; }
+    /* Disabled buttons are exempt from contrast rules, but this one signals a
+       real terminal state — a fatal load error disables Run — so it has to be
+       readable. #8899cc gave 2.81:1 against white; this gives 5.01:1. */
+    .run-btn:disabled { background: #5a6da8; cursor: default; }
 
     .again-btn {
       display: inline-block;
@@ -266,6 +284,10 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; }
+    }
+
     .spinner-text { font-size: 12px; color: #333; }
 
     /* ── Summary ─────────────────────────────────────────────── */
@@ -288,9 +310,13 @@
   <h3>Add Module Titles &amp; Module Dates</h3>
 
   <!-- ── LOADING ─────────────────────────────────────────── -->
-  <div id="loading" class="spinner-wrap">
-    <div class="spinner"></div>
-    <div class="spinner-text" id="loading-text">Reading the Course Design Map&hellip;</div>
+  <!-- The ticking node is aria-hidden and a static line is announced instead.
+       startTimer rewrites its text every second; inside a live region that
+       would re-read the whole string once per second, indefinitely. -->
+  <div id="loading" class="spinner-wrap" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <span class="sr-only">Reading the Course Design Map, please wait&hellip;</span>
+    <div class="spinner-text" id="loading-text" aria-hidden="true">Reading the Course Design Map&hellip;</div>
   </div>
 
   <!-- ── MAIN FORM ───────────────────────────────────────── -->
@@ -302,18 +328,18 @@
       Headers, &amp; Times&rdquo;.
     </p>
 
-    <div id="alerts"></div>
+    <div id="alerts" role="status" aria-live="polite"></div>
 
-    <h4>Module Titles</h4>
+    <h4 id="main-heading" tabindex="-1">Module Titles</h4>
     <p class="section-hint">Choose one of the module titles below or create a new one.</p>
     <div id="modules"></div>
 
     <hr class="divider">
 
     <!-- ── DATES ─────────────────────────────────────────── -->
-    <h4>Module Dates</h4>
+    <h4 id="dates-heading">Module Dates</h4>
 
-    <div class="yesno">
+    <div class="yesno" role="radiogroup" aria-labelledby="dates-heading">
       <label class="radio-option">
         <input type="radio" name="wantDates" value="no" checked> No &mdash; titles only
       </label>
@@ -325,32 +351,36 @@
     <div id="dates-panel" class="hidden">
       <p class="section-hint">Select semester and year.</p>
       <div class="year-row">
+        <label class="sr-only" for="semester">Semester</label>
         <select id="semester" class="select-input">
           <option value="fall">Fall</option>
           <option value="spring">Spring</option>
           <option value="summer">Summer</option>
         </select>
-        <input type="text" id="year" class="text-input" placeholder="2027" maxlength="4"
+        <!-- Labelled, not placeholder'd: initTerm sets a real value, so a
+             placeholder would never render and the field would have no name. -->
+        <label class="sr-only" for="year">Year</label>
+        <input type="text" id="year" class="text-input" maxlength="4"
                inputmode="numeric" style="margin-top:0;">
       </div>
 
       <button id="lookup-btn" class="again-btn" type="button">Look up Academic Calendar</button>
 
-      <div id="calendar-status"></div>
+      <div id="calendar-status" role="status" aria-live="polite"></div>
 
       <div id="session-wrap" class="hidden">
         <label class="field-label" for="session">Session</label>
         <select id="session" class="select-input"></select>
       </div>
 
-      <div id="manual-wrap" class="hidden">
-        <label class="field-label">First and last day of the course</label>
+      <div id="manual-wrap" class="hidden" role="group" aria-labelledby="manual-legend">
+        <p class="field-label" id="manual-legend">First and last day of the course</p>
         <div class="date-row">
-          <span class="date-label">First day</span>
+          <label class="date-label" for="manual-start">First day</label>
           <input type="date" id="manual-start" class="date-input">
         </div>
         <div class="date-row">
-          <span class="date-label">Last day</span>
+          <label class="date-label" for="manual-end">Last day</label>
           <input type="date" id="manual-end" class="date-input">
         </div>
         <button id="manual-btn" class="again-btn" type="button" style="margin-top:6px;">
@@ -360,8 +390,11 @@
 
       <div id="date-list-wrap" class="hidden">
         <hr class="divider">
-        <div id="date-alerts"></div>
-        <div id="date-list"></div>
+        <div id="date-alerts" role="status" aria-live="polite"></div>
+        <!-- Deliberately not a live region: injecting a dozen modules' worth of
+             date inputs would flood the buffer. #date-alerts carries the
+             summary and focus moves here instead. -->
+        <div id="date-list" tabindex="-1"></div>
       </div>
     </div>
 
@@ -371,13 +404,15 @@
   </div>
 
   <!-- ── RUNNING ─────────────────────────────────────────── -->
-  <div id="running" class="hidden spinner-wrap">
-    <div class="spinner"></div>
-    <div class="spinner-text" id="running-text">Updating the Development tab&hellip;</div>
+  <div id="running" class="hidden spinner-wrap" role="status" aria-live="polite" tabindex="-1">
+    <div class="spinner" aria-hidden="true"></div>
+    <span class="sr-only">Updating the Development tab, please wait&hellip;</span>
+    <div class="spinner-text" id="running-text" aria-hidden="true">Updating the Development tab&hellip;</div>
   </div>
 
   <!-- ── DONE ────────────────────────────────────────────── -->
-  <div id="done" class="hidden">
+  <div id="done" class="hidden" role="status" aria-live="polite">
+    <h4 id="done-heading" tabindex="-1">Finished</h4>
     <div id="summary" class="summary"></div>
     <button id="again-btn" class="again-btn" type="button">Run again</button>
   </div>
@@ -397,10 +432,22 @@
   function show(id) { $(id).classList.remove('hidden'); }
   function hide(id) { $(id).classList.add('hidden'); }
 
+  // Escapes the apostrophe too. Every attribute built below is double-quoted,
+  // so it is not required today — but it costs nothing and stops a future
+  // single-quoted attribute from silently becoming an injection point.
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Moves focus without scrolling the sidebar out from under the user. Hiding
+  // a container that contains the focused element drops focus to <body>, which
+  // loses a keyboard user's place entirely.
+  function focusEl(id) {
+    var el = $(id);
+    if (el) el.focus();
   }
 
   function notice(kind, html) {
@@ -492,24 +539,36 @@
     $('year').value = String(term.year);
   })();
 
-  startTimer('loading-text', 'Reading the Course Design Map…');
+  // Used for the first load and for "Run again" — the second pass has to re-read
+  // the document, since the run just changed which headings are already titled.
+  function loadModules() {
+    startTimer('loading-text', 'Reading the Course Design Map…');
 
-  google.script.run
-    .withSuccessHandler(onData)
-    .withFailureHandler(function (err) {
-      stopTimer();
-      hide('loading');
-      show('main');
-      $('alerts').innerHTML = notice('error', esc(err.message || err));
-    })
-    .getModuleTitlesSidebarData7();
+    google.script.run
+      .withSuccessHandler(onData)
+      .withFailureHandler(function (err) {
+        stopTimer();
+        hide('loading');
+        show('main');
+        // A hard load failure leaves the tool unusable, so it interrupts rather
+        // than waiting politely for a pause.
+        $('alerts').setAttribute('role', 'alert');
+        $('alerts').innerHTML = notice('error', esc(err.message || err));
+        focusEl('main-heading');
+      })
+      .getModuleTitlesSidebarData7();
+  }
+
+  loadModules();
 
   function onData(data) {
     stopTimer();
     hide('loading');
     show('main');
+    focusEl('main-heading');
 
     if (data.error) {
+      $('alerts').setAttribute('role', 'alert');
       $('alerts').innerHTML = notice('error', esc(data.error));
       $('run-btn').disabled = true;
       return;
@@ -552,10 +611,15 @@
 
   function renderModules() {
     var html = STATE.modules.map(function (m, i) {
-      var rows = '<div class="module-row">';
+      // Each module is its own radio group, named by its label. Without this a
+      // screen reader announces the options with no indication of which module
+      // they belong to, which is unusable across a dozen of them. The badge sits
+      // inside the label span, so "already titled" becomes part of the group
+      // name — that is also what makes the disabled state announce itself.
+      var rows = '<div class="module-row" role="radiogroup" aria-labelledby="modlabel-' + i + '">';
       // The space before the badge is load-bearing: without it a screen reader
       // runs the two together as "Week 05already titled".
-      rows += '<span class="module-label">' + esc(m.displayLabel) + ' ';
+      rows += '<span class="module-label" id="modlabel-' + i + '">' + esc(m.displayLabel) + ' ';
 
       if (!m.canWriteTitle) {
         rows += '<span class="state-badge locked">already titled &mdash; will not be changed</span>';
@@ -589,7 +653,9 @@
       rows += '<div class="custom-row">' +
               '<input type="radio" name="opt-' + i + '" value="custom"' +
               ' id="custom-' + i + '" data-row="' + i + '"' + customChecked + dis +
-              ' aria-label="Use the title typed below">' +
+              ' aria-label="Use the title typed below for ' + esc(m.displayLabel) + '">' +
+              '<label class="sr-only" for="title-' + i + '">Custom title for ' +
+              esc(m.displayLabel) + '</label>' +
               '<input type="text" class="title-input" id="title-' + i + '" ' +
               'value="' + esc(starter) + '"' + dis + '>' +
               '</div>';
@@ -646,6 +712,12 @@
         show('manual-wrap');
       })
       .fetchAcademicCalendar7(sem, year);
+  });
+
+  // Enter in the year box fires the lookup. There is no <form>, so without this
+  // the key does nothing beside a button that obviously expects it.
+  $('year').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('lookup-btn').click(); }
   });
 
   function onCalendar(cal) {
@@ -705,6 +777,8 @@
       }).join('');
 
     show('session-wrap');
+    // A new required control just appeared below the button that was clicked.
+    focusEl('session');
   }
 
   $('session').addEventListener('change', function () {
@@ -764,25 +838,35 @@
       var m = STATE.modules[i];
       if (!m) return '';
 
-      var block = '<div class="module-row">';
-      block += '<span class="module-label">' + esc(m.displayLabel) + ' ';
+      // Distinct id prefix from the title list's "modlabel-" so the two sets of
+      // per-module labels cannot collide.
+      var block = '<div class="module-row" role="group" aria-labelledby="datelabel-' + i + '">';
+      block += '<span class="module-label" id="datelabel-' + i + '">' + esc(m.displayLabel) + ' ';
       if (!m.canWriteDates) {
         block += '<span class="state-badge locked">already dated &mdash; will not be changed</span>';
       }
       block += '</span>';
 
-      var dis = m.canWriteDates ? '' : ' disabled';
+      var dis  = m.canWriteDates ? '' : ' disabled';
+      var note = noteByModule[i + 1];
+      // These inputs are not disabled when a note is present, so
+      // aria-describedby is reliable here.
+      var desc = note ? ' aria-describedby="note-' + i + '"' : '';
 
-      block += '<div class="date-row"><span class="date-label">Start</span>' +
-               '<input type="date" class="date-input" id="start-' + i + '" value="' +
+      block += '<div class="date-row">' +
+               '<label class="date-label" for="start-' + i + '">Start</label>' +
+               '<input type="date" class="date-input" id="start-' + i + '"' +
+               ' aria-label="' + esc(m.displayLabel) + ' start date"' + desc + ' value="' +
                (md.start ? toInputDate(md.start) : '') + '"' + dis + '></div>';
 
-      block += '<div class="date-row"><span class="date-label">End</span>' +
-               '<input type="date" class="date-input" id="end-' + i + '" value="' +
+      block += '<div class="date-row">' +
+               '<label class="date-label" for="end-' + i + '">End</label>' +
+               '<input type="date" class="date-input" id="end-' + i + '"' +
+               ' aria-label="' + esc(m.displayLabel) + ' end date"' + desc + ' value="' +
                (md.end ? toInputDate(md.end) : '') + '"' + dis + '></div>';
 
-      if (noteByModule[i + 1]) {
-        block += '<div class="module-note">' + esc(noteByModule[i + 1]) + '</div>';
+      if (note) {
+        block += '<div class="module-note" id="note-' + i + '">' + esc(note) + '</div>';
       }
 
       block += '</div>';
@@ -791,6 +875,7 @@
 
     STATE.dates = true;
     show('date-list-wrap');
+    focusEl('date-list');
   }
 
   // ── Run ────────────────────────────────────────────────────
@@ -825,6 +910,9 @@
 
     hide('main');
     show('running');
+    // Focus lived on #run-btn, which is inside #main — hiding it would drop
+    // focus to <body> and lose the user's place.
+    focusEl('running');
 
     // Writes cost more than reads in Apps Script, and this is the step that
     // modifies the document — so a stall here is the most alarming. If it does
@@ -838,18 +926,50 @@
         hide('running');
         $('summary').textContent = summary;
         show('done');
+        focusEl('done-heading');
       })
       .withFailureHandler(function (err) {
         stopTimer();
         hide('running');
         $('summary').textContent = '⚠️ ' + (err.message || err);
         show('done');
+        focusEl('done-heading');
       })
       .applyModuleTitlesAndDates7({ titles: titles, dates: dates });
   });
 
+  // "Run again" re-runs. It used to close the sidebar, which contradicted its
+  // own label. A second pass is genuinely useful: because writes skip anything
+  // already filled in, the normal way to add dates to a Blueprint you titled
+  // earlier is to run the tool twice.
   $('again-btn').addEventListener('click', function () {
-    google.script.host.close();
+    hide('done');
+
+    // Clear everything derived from the previous run. The document has changed,
+    // so any of it would now be stale.
+    $('alerts').innerHTML          = '';
+    $('alerts').removeAttribute('role');
+    $('calendar-status').innerHTML = '';
+    $('date-alerts').innerHTML     = '';
+    $('date-list').innerHTML       = '';
+    $('modules').innerHTML         = '';
+    $('session').innerHTML         = '';
+    $('summary').textContent       = '';
+
+    hide('date-list-wrap');
+    hide('session-wrap');
+    hide('manual-wrap');
+    hide('dates-panel');
+    document.querySelector('input[name="wantDates"][value="no"]').checked = true;
+
+    STATE.modules  = [];
+    STATE.dates    = null;
+    STATE.holidays = [];
+    STATE.sessions = [];
+    $('run-btn').disabled = false;
+
+    show('loading');
+    loadModules();
   });
 </script>
 </body>

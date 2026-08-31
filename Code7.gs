@@ -5,7 +5,7 @@
 // headings, and optionally fills in module start/end dates from
 // the Boise State registrar's academic calendar.
 // ------------------------------------------------------------
-// Last updated on 2026-08-30 at 20:53 MDT
+// Last updated on 2026-08-31 at 10:12 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is what
@@ -359,7 +359,13 @@ function stripHtml7_(html) {
     // ordinals ("1<sup>st</sup> 5-week") which are part of the name — stripping
     // those turned six of the eight Fall 2026 sessions into "1 5-week",
     // "2 5-week" and so on. Numeric content is a marker; alphabetic is an ordinal.
-    .replace(/<sup[^>]*>\s*[\d\s.,*†‡]+\s*<\/sup>/gi, '')
+    // Bounded, and without the surrounding \s* the class already covers. The
+    // old /\s*[\d\s…]+\s*/ had three overlapping whitespace quantifiers, so an
+    // unterminated <sup> followed by a long run of spaces backtracked cubically
+    // — 3,200 spaces took 7.7s, and a page of them would never finish. Only
+    // parseHolidays7_ passes the whole fetched page through here, so it is
+    // reachable by anything that can control those bytes.
+    .replace(/<sup[^>]*>[\d\s.,*†‡]{1,20}<\/sup>/gi, '')
     .replace(/<sup[^>]*>([\s\S]*?)<\/sup>/gi, '$1')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
