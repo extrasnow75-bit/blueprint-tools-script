@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 20:53 MDT -->
+<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 21:15 MDT -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -116,6 +116,15 @@
       color: #555;
       font-size: 11px;
     }
+
+    .custom-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+    }
+
+    .custom-row .title-input { flex: 1; margin-top: 0; }
 
     .title-input,
     .text-input {
@@ -483,20 +492,35 @@
       }
       rows += '</span>';
 
-      // Radio shortcuts. The textbox below is the value that is actually
-      // submitted; the radios just fill it in.
+      // One radio group per module: the source titles, plus a final option
+      // beside the textbox. Whichever radio is selected is the title that gets
+      // written — the textbox no longer wins implicitly, which was invisible to
+      // the user when they typed over a selected option.
+      var dis = m.canWriteTitle ? '' : ' disabled';
+
       m.options.forEach(function (opt, j) {
         rows += '<label class="radio-option">' +
-                '<input type="radio" name="opt-' + i + '" value="' + esc(opt.text) + '"' +
-                (j === 0 ? ' checked' : '') + ' data-row="' + i + '">' +
+                '<input type="radio" name="opt-' + i + '" value="source"' +
+                ' data-row="' + i + '" data-text="' + esc(opt.text) + '"' +
+                (j === 0 ? ' checked' : '') + dis + '>' +
                 esc(opt.text) +
                 ' <span class="radio-origin">(' + esc(opt.origin) + ')</span></label>';
       });
 
+      // Pre-filled starter text so editing is a tweak rather than retyping.
       var starter = m.options.length > 0 ? m.options[0].text : (m.currentTitle || '');
-      rows += '<input type="text" class="title-input" id="title-' + i + '" ' +
-              'value="' + esc(starter) + '"' +
-              (m.canWriteTitle ? '' : ' disabled') + '>';
+
+      // With no source options there is nothing else to pick, so the custom
+      // row starts selected — otherwise the module would have no title at all.
+      var customChecked = m.options.length === 0 ? ' checked' : '';
+
+      rows += '<div class="custom-row">' +
+              '<input type="radio" name="opt-' + i + '" value="custom"' +
+              ' id="custom-' + i + '" data-row="' + i + '"' + customChecked + dis +
+              ' aria-label="Use the title typed below">' +
+              '<input type="text" class="title-input" id="title-' + i + '" ' +
+              'value="' + esc(starter) + '"' + dis + '>' +
+              '</div>';
 
       rows += '</div>';
       return rows;
@@ -504,12 +528,15 @@
 
     $('modules').innerHTML = html;
 
-    // Selecting a radio copies its text into that module's textbox.
+    // Typing selects the custom radio, so the UI always states which value
+    // will actually be written.
     Array.prototype.forEach.call(
-      document.querySelectorAll('.module-row input[type="radio"]'),
-      function (r) {
-        r.addEventListener('change', function () {
-          $('title-' + r.getAttribute('data-row')).value = r.value;
+      document.querySelectorAll('.title-input'),
+      function (box) {
+        var row = box.id.replace('title-', '');
+        box.addEventListener('input', function () {
+          var custom = $('custom-' + row);
+          if (custom && !custom.disabled) custom.checked = true;
         });
       }
     );
@@ -684,9 +711,17 @@
   $('run-btn').addEventListener('click', function () {
     var titles = {};
     STATE.modules.forEach(function (m, i) {
-      var el = $('title-' + i);
-      if (!el || !m.canWriteTitle) return;
-      var v = el.value.trim();
+      if (!m.canWriteTitle) return;
+      var picked = document.querySelector('input[name="opt-' + i + '"]:checked');
+      if (!picked) return;
+
+      // The selected radio decides the value: a source option carries its own
+      // text, the custom option defers to the textbox.
+      var v = picked.value === 'custom'
+        ? ($('title-' + i) || {}).value
+        : picked.getAttribute('data-text');
+
+      v = String(v || '').trim();
       if (v) titles[m.num] = v;
     });
 
