@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 21:21 MDT -->
+<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 21:55 MDT -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -290,7 +290,7 @@
   <!-- ── LOADING ─────────────────────────────────────────── -->
   <div id="loading" class="spinner-wrap">
     <div class="spinner"></div>
-    <div class="spinner-text">Reading the Course Design Map&hellip;</div>
+    <div class="spinner-text" id="loading-text">Reading the Course Design Map&hellip;</div>
   </div>
 
   <!-- ── MAIN FORM ───────────────────────────────────────── -->
@@ -372,7 +372,7 @@
   <!-- ── RUNNING ─────────────────────────────────────────── -->
   <div id="running" class="hidden spinner-wrap">
     <div class="spinner"></div>
-    <div class="spinner-text">Updating the Development tab&hellip;</div>
+    <div class="spinner-text" id="running-text">Updating the Development tab&hellip;</div>
   </div>
 
   <!-- ── DONE ────────────────────────────────────────────── -->
@@ -423,10 +423,80 @@
     return new Date(+parts[0], +parts[1] - 1, +parts[2]).getTime();
   }
 
+  // ── Elapsed timer ──────────────────────────────────────────
+  // Runs entirely in the sidebar's iframe, so it cannot affect the server-side
+  // script — the two share no thread or process. Its real job is not the count
+  // but the escalation: an Apps Script call can die without withFailureHandler
+  // ever firing (execution ceiling, dropped connection), which would otherwise
+  // leave the spinner turning forever with no explanation.
+  var TIMER = { id: null, start: 0 };
+
+  function startTimer(elId, base) {
+    stopTimer();
+    TIMER.start = Date.now();
+
+    var tick = function () {
+      var s  = Math.floor((Date.now() - TIMER.start) / 1000);
+      var el = $(elId);
+      if (!el) return;
+
+      var tail;
+      if (s < 20) {
+        tail = 'Usually a few seconds.';
+      } else if (s < 60) {
+        tail = 'This is taking longer than expected.';
+      } else {
+        tail = 'Something may have gone wrong. Check the Apps Script execution ' +
+               'log, then close and reopen the sidebar to try again.';
+      }
+      // Keep counting past 20s rather than freezing — the overrun is the
+      // informative case.
+      el.textContent = base + ' (' + s + 's) — ' + tail;
+    };
+
+    tick();
+    TIMER.id = setInterval(tick, 1000);
+  }
+
+  function stopTimer() {
+    if (TIMER.id) { clearInterval(TIMER.id); TIMER.id = null; }
+  }
+
+  // ── Default term ───────────────────────────────────────────
+  // Jan 1 – Aug 15  → Fall of the current year
+  // Aug 16 – Dec 31 → Spring of the next year
+  // Matches when designers are actually building: in the autumn you are working
+  // on the coming spring, the rest of the year on the coming fall.
+  function defaultTerm7() {
+    var now   = new Date();
+    var month = now.getMonth();          // 0 = January, 7 = August
+    var day   = now.getDate();
+    var early = (month < 7) || (month === 7 && day <= 15);
+
+    return early
+      ? { semester: 'fall',   year: now.getFullYear() }
+      : { semester: 'spring', year: now.getFullYear() + 1 };
+  }
+
+  function semesterLabel7(value) {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
   // ── Load ───────────────────────────────────────────────────
+  (function initTerm() {
+    var term = defaultTerm7();
+    $('semester').value = term.semester;
+    // A real value rather than a placeholder — a guessed year is only a
+    // convenience if the user can go straight to the lookup without typing it.
+    $('year').value = String(term.year);
+  })();
+
+  startTimer('loading-text', 'Reading the Course Design Map…');
+
   google.script.run
     .withSuccessHandler(onData)
     .withFailureHandler(function (err) {
+      stopTimer();
       hide('loading');
       show('main');
       $('alerts').innerHTML = notice('error', esc(err.message || err));
@@ -434,6 +504,7 @@
     .getModuleTitlesSidebarData7();
 
   function onData(data) {
+    stopTimer();
     hide('loading');
     show('main');
 
@@ -558,6 +629,10 @@
     var sem  = $('semester').value;
     var year = $('year').value.trim();
 
+    // Remembered so the result can name the term it actually found, rather
+    // than leaving the user to assume the guessed year was the one used.
+    STATE.requestedTerm = semesterLabel7(sem) + ' ' + year;
+
     $('calendar-status').innerHTML = notice('info', 'Looking up the academic calendar&hellip;');
     hide('session-wrap');
     hide('manual-wrap');
@@ -610,6 +685,9 @@
       }
       html += notice('info', parts.join('<br>'));
     }
+
+    html = notice('info', 'Found <strong>' + esc(STATE.requestedTerm) + '</strong> session deadlines &mdash; ' +
+                          STATE.sessions.length + ' session(s).') + html;
 
     $('calendar-status').innerHTML = html;
 
@@ -740,13 +818,21 @@
     hide('main');
     show('running');
 
+    // Writes cost more than reads in Apps Script, and this is the step that
+    // modifies the document — so a stall here is the most alarming. If it does
+    // die partway, the headings already written have lost their placeholders,
+    // so a re-run skips them and finishes the rest.
+    startTimer('running-text', 'Updating the Development tab…');
+
     google.script.run
       .withSuccessHandler(function (summary) {
+        stopTimer();
         hide('running');
         $('summary').textContent = summary;
         show('done');
       })
       .withFailureHandler(function (err) {
+        stopTimer();
         hide('running');
         $('summary').textContent = '⚠️ ' + (err.message || err);
         show('done');
