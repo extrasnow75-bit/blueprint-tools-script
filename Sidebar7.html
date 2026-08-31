@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 13:36 MDT -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    /* ── Base ──────────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #333;
+      padding: 14px 16px 24px;
+      line-height: 1.5;
+    }
+
+    /* ── Headings ───────────────────────────────────────────── */
+    h3 {
+      color: #0033a0;
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .intro {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 12px;
+    }
+
+    /* ── Field labels ───────────────────────────────────────── */
+    .field-label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    /* ── Divider ─────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid #dde1ea;
+      margin: 14px 0;
+    }
+
+    /* ── Notices ─────────────────────────────────────────────── */
+    .notice {
+      font-size: 12px;
+      border-radius: 3px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+    }
+
+    .notice.warn  { background: #fff4e5; border: 1px solid #e0b070; color: #6b4400; }
+    .notice.error { background: #fdecea; border: 1px solid #e0a0a0; color: #8a1c12; }
+    .notice.info  { background: #eef2fb; border: 1px solid #b8c6e8; color: #1c3566; }
+
+    .notice ul { margin: 4px 0 0 16px; }
+    .notice li { margin-bottom: 2px; }
+
+    /* ── Module rows ─────────────────────────────────────────── */
+    .module-row {
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eef0f4;
+    }
+
+    .module-row:last-child { border-bottom: none; }
+
+    .module-label {
+      display: block;
+      font-weight: bold;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .state-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: normal;
+      color: #555;
+      margin-left: 5px;
+    }
+
+    .state-badge.locked { color: #8a1c12; }
+
+    .radio-option {
+      display: block;
+      font-weight: normal;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 4px;
+      cursor: pointer;
+    }
+
+    .radio-option input[type="radio"] { margin-right: 6px; }
+
+    .radio-origin {
+      color: #555;
+      font-size: 11px;
+    }
+
+    .title-input,
+    .text-input {
+      width: 100%;
+      padding: 5px 7px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #767676;
+      border-radius: 3px;
+      background: #fff;
+      /* Dark grey starter text: the title is a real, editable value rather than
+         a placeholder attribute, so the user can tweak it in place. */
+      color: #444;
+      margin-top: 3px;
+    }
+
+    .title-input:focus,
+    .text-input:focus,
+    .select-input:focus,
+    .date-input:focus {
+      outline: none;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0,51,160,.35);
+      color: #333;
+    }
+
+    .select-input {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #767676;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    /* ── Dates ───────────────────────────────────────────────── */
+    .yesno { margin-bottom: 10px; }
+
+    .year-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .year-row .select-input { margin-bottom: 0; }
+    .year-row input { width: 90px; }
+
+    .date-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .date-row .date-label {
+      width: 76px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .date-input {
+      flex: 1;
+      padding: 4px 6px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #767676;
+      border-radius: 3px;
+      color: #333;
+      background: #fff;
+    }
+
+    .module-note {
+      font-size: 11px;
+      color: #6b4400;
+      margin: 2px 0 6px 82px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn-row { margin-top: 16px; }
+
+    .run-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #0033a0;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .run-btn:hover    { background: #002080; }
+    .run-btn:disabled { background: #8899cc; cursor: default; }
+
+    .again-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #555;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .again-btn:hover { background: #333; }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: #0033a0;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    /* ── Spinner ─────────────────────────────────────────────── */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid #ccc;
+      border-top-color: #0033a0;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner-text { font-size: 12px; color: #333; }
+
+    /* ── Summary ─────────────────────────────────────────────── */
+    .summary {
+      white-space: pre-wrap;
+      font-size: 12px;
+      color: #333;
+      background: #f5f7fb;
+      border: 1px solid #dde1ea;
+      border-radius: 3px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <h3>Add Module Titles &amp; Dates</h3>
+
+  <!-- ── LOADING ─────────────────────────────────────────── -->
+  <div id="loading" class="spinner-wrap">
+    <div class="spinner"></div>
+    <div class="spinner-text">Reading the Course Design Map&hellip;</div>
+  </div>
+
+  <!-- ── MAIN FORM ───────────────────────────────────────── -->
+  <div id="main" class="hidden">
+
+    <p class="intro">
+      Copies module titles from the Design tab&rsquo;s Course Design Map into the
+      Development tab. Run this after &ldquo;Add Activity Titles, Tools, &amp; Times&rdquo;.
+    </p>
+
+    <div id="alerts"></div>
+
+    <h4>Module titles</h4>
+    <div id="modules"></div>
+
+    <hr class="divider">
+
+    <!-- ── DATES ─────────────────────────────────────────── -->
+    <h4>Module dates</h4>
+
+    <div class="yesno">
+      <label class="radio-option">
+        <input type="radio" name="wantDates" value="no" checked> No &mdash; titles only
+      </label>
+      <label class="radio-option">
+        <input type="radio" name="wantDates" value="yes"> Yes &mdash; add start and end dates
+      </label>
+    </div>
+
+    <div id="dates-panel" class="hidden">
+      <div class="year-row">
+        <select id="semester" class="select-input">
+          <option value="fall">Fall</option>
+          <option value="spring">Spring</option>
+          <option value="summer">Summer</option>
+        </select>
+        <input type="text" id="year" class="text-input" placeholder="2027" maxlength="4"
+               inputmode="numeric" style="margin-top:0;">
+      </div>
+
+      <button id="lookup-btn" class="again-btn" type="button">Look up calendar</button>
+
+      <div id="calendar-status"></div>
+
+      <div id="session-wrap" class="hidden">
+        <label class="field-label" for="session">Session</label>
+        <select id="session" class="select-input"></select>
+      </div>
+
+      <div id="manual-wrap" class="hidden">
+        <label class="field-label">First and last day of the course</label>
+        <div class="date-row">
+          <span class="date-label">First day</span>
+          <input type="date" id="manual-start" class="date-input">
+        </div>
+        <div class="date-row">
+          <span class="date-label">Last day</span>
+          <input type="date" id="manual-end" class="date-input">
+        </div>
+        <button id="manual-btn" class="again-btn" type="button" style="margin-top:6px;">
+          Generate module dates
+        </button>
+      </div>
+
+      <div id="date-list-wrap" class="hidden">
+        <hr class="divider">
+        <div id="date-alerts"></div>
+        <div id="date-list"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="run-btn" class="run-btn" type="button">Run Script</button>
+    </div>
+  </div>
+
+  <!-- ── RUNNING ─────────────────────────────────────────── -->
+  <div id="running" class="hidden spinner-wrap">
+    <div class="spinner"></div>
+    <div class="spinner-text">Updating the Development tab&hellip;</div>
+  </div>
+
+  <!-- ── DONE ────────────────────────────────────────────── -->
+  <div id="done" class="hidden">
+    <div id="summary" class="summary"></div>
+    <button id="again-btn" class="again-btn" type="button">Run again</button>
+  </div>
+
+
+<script>
+  var STATE = {
+    modules:  [],
+    dates:    null,   // { moduleNum: {start, end} } once generated
+    holidays: [],
+    sessions: []
+  };
+
+  // ── Helpers ────────────────────────────────────────────────
+  function $(id) { return document.getElementById(id); }
+
+  function show(id) { $(id).classList.remove('hidden'); }
+  function hide(id) { $(id).classList.add('hidden'); }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function notice(kind, html) {
+    return '<div class="notice ' + kind + '">' + html + '</div>';
+  }
+
+  // Local yyyy-mm-dd. Deliberately not toISOString(), which converts to UTC and
+  // can land the input on the previous day west of Greenwich.
+  function toInputDate(ms) {
+    var d = new Date(ms);
+    var mm = String(d.getMonth() + 1);
+    var dd = String(d.getDate());
+    if (mm.length < 2) mm = '0' + mm;
+    if (dd.length < 2) dd = '0' + dd;
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  function fromInputDate(value) {
+    var parts = String(value || '').split('-');
+    if (parts.length !== 3) return null;
+    return new Date(+parts[0], +parts[1] - 1, +parts[2]).getTime();
+  }
+
+  // ── Load ───────────────────────────────────────────────────
+  google.script.run
+    .withSuccessHandler(onData)
+    .withFailureHandler(function (err) {
+      hide('loading');
+      show('main');
+      $('alerts').innerHTML = notice('error', esc(err.message || err));
+    })
+    .getModuleTitlesSidebarData7();
+
+  function onData(data) {
+    hide('loading');
+    show('main');
+
+    if (data.error) {
+      $('alerts').innerHTML = notice('error', esc(data.error));
+      $('run-btn').disabled = true;
+      return;
+    }
+
+    STATE.modules = data.modules;
+
+    var alerts = '';
+
+    if (data.conflicts.length > 0) {
+      var items = data.conflicts.map(function (c) {
+        return '<li><strong>' + esc(c.module) + '</strong>: header says &ldquo;' +
+               esc(c.header) + '&rdquo;, Title row says &ldquo;' + esc(c.row) + '&rdquo;</li>';
+      }).join('');
+      alerts += notice('warn',
+        '<strong>Conflicting titles found.</strong> Pick one below, or type your own. ' +
+        'The Design tab is never changed by this tool.<ul>' + items + '</ul>');
+    }
+
+    if (data.unmatchedDesign.length > 0) {
+      var un = data.unmatchedDesign.map(function (u) {
+        return '<li>' + esc(u.module) + ' &mdash; ' + esc(u.title) + '</li>';
+      }).join('');
+      alerts += notice('warn',
+        '<strong>In the Course Design Map but not the Development tab.</strong> ' +
+        'These have no matching module heading, so they will be skipped:<ul>' + un + '</ul>');
+    }
+
+    var locked = data.modules.filter(function (m) { return !m.canWriteTitle; });
+    if (locked.length > 0) {
+      alerts += notice('info',
+        '<strong>' + locked.length + ' heading(s) already have a title.</strong> ' +
+        'They are shown below but will not be overwritten &mdash; edit them in the ' +
+        'document directly if they need to change.');
+    }
+
+    $('alerts').innerHTML = alerts;
+    renderModules();
+  }
+
+  function renderModules() {
+    var html = STATE.modules.map(function (m, i) {
+      var rows = '<div class="module-row">';
+      // The space before the badge is load-bearing: without it a screen reader
+      // runs the two together as "Week 05already titled".
+      rows += '<span class="module-label">' + esc(m.displayLabel) + ' ';
+
+      if (!m.canWriteTitle) {
+        rows += '<span class="state-badge locked">already titled &mdash; will not be changed</span>';
+      } else if (m.options.length === 0) {
+        rows += '<span class="state-badge">no title found in the Course Design Map</span>';
+      }
+      rows += '</span>';
+
+      // Radio shortcuts. The textbox below is the value that is actually
+      // submitted; the radios just fill it in.
+      m.options.forEach(function (opt, j) {
+        rows += '<label class="radio-option">' +
+                '<input type="radio" name="opt-' + i + '" value="' + esc(opt.text) + '"' +
+                (j === 0 ? ' checked' : '') + ' data-row="' + i + '">' +
+                esc(opt.text) +
+                ' <span class="radio-origin">(' + esc(opt.origin) + ')</span></label>';
+      });
+
+      var starter = m.options.length > 0 ? m.options[0].text : (m.currentTitle || '');
+      rows += '<input type="text" class="title-input" id="title-' + i + '" ' +
+              'value="' + esc(starter) + '"' +
+              (m.canWriteTitle ? '' : ' disabled') + '>';
+
+      rows += '</div>';
+      return rows;
+    }).join('');
+
+    $('modules').innerHTML = html;
+
+    // Selecting a radio copies its text into that module's textbox.
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.module-row input[type="radio"]'),
+      function (r) {
+        r.addEventListener('change', function () {
+          $('title-' + r.getAttribute('data-row')).value = r.value;
+        });
+      }
+    );
+  }
+
+  // ── Dates: show/hide ───────────────────────────────────────
+  Array.prototype.forEach.call(
+    document.querySelectorAll('input[name="wantDates"]'),
+    function (r) {
+      r.addEventListener('change', function () {
+        if (r.value === 'yes' && r.checked) show('dates-panel');
+        if (r.value === 'no'  && r.checked) { hide('dates-panel'); STATE.dates = null; }
+      });
+    }
+  );
+
+  // ── Calendar lookup ────────────────────────────────────────
+  $('lookup-btn').addEventListener('click', function () {
+    var sem  = $('semester').value;
+    var year = $('year').value.trim();
+
+    $('calendar-status').innerHTML = notice('info', 'Looking up the academic calendar&hellip;');
+    hide('session-wrap');
+    hide('manual-wrap');
+    hide('date-list-wrap');
+
+    google.script.run
+      .withSuccessHandler(onCalendar)
+      .withFailureHandler(function (err) {
+        $('calendar-status').innerHTML = notice('error', esc(err.message || err));
+        show('manual-wrap');
+      })
+      .fetchAcademicCalendar7(sem, year);
+  });
+
+  function onCalendar(cal) {
+    var html = '';
+
+    if (cal.warnings && cal.warnings.length > 0) {
+      html += notice('warn', cal.warnings.map(esc).join('<br>'));
+    }
+
+    if (cal.error) {
+      html += notice('warn', esc(cal.error));
+      $('calendar-status').innerHTML = html;
+      show('manual-wrap');
+      return;
+    }
+
+    STATE.holidays = cal.holidays || [];
+    STATE.sessions = cal.sessions || [];
+
+    if (STATE.sessions.length === 0) {
+      html += notice('warn', 'The calendar page was found but no session table could be read from it.');
+      $('calendar-status').innerHTML = html;
+      show('manual-wrap');
+      return;
+    }
+
+    if (STATE.holidays.length > 0) {
+      var full = STATE.holidays.filter(function (h) { return h.fullWeek; });
+      var days = STATE.holidays.filter(function (h) { return !h.fullWeek; });
+      var parts = [];
+      if (full.length > 0) {
+        parts.push('<strong>Full weeks off (skipped, later modules shift):</strong> ' +
+                   full.map(function (h) { return esc(h.name); }).join(', '));
+      }
+      if (days.length > 0) {
+        parts.push('<strong>Single days off (reported, dates unchanged):</strong> ' +
+                   days.map(function (h) { return esc(h.name); }).join(', '));
+      }
+      html += notice('info', parts.join('<br>'));
+    }
+
+    $('calendar-status').innerHTML = html;
+
+    $('session').innerHTML = '<option value="">Choose a session&hellip;</option>' +
+      STATE.sessions.map(function (s, i) {
+        return '<option value="' + i + '">' + esc(s.session) + '</option>';
+      }).join('');
+
+    show('session-wrap');
+  }
+
+  $('session').addEventListener('change', function () {
+    var idx = $('session').value;
+    if (idx === '') { hide('date-list-wrap'); return; }
+    var s = STATE.sessions[+idx];
+    generateDates(s.start, s.end);
+  });
+
+  $('manual-btn').addEventListener('click', function () {
+    var start = fromInputDate($('manual-start').value);
+    var end   = fromInputDate($('manual-end').value);
+    if (!start || !end) {
+      $('date-alerts').innerHTML = notice('error', 'Enter both a first and last day.');
+      show('date-list-wrap');
+      return;
+    }
+    STATE.holidays = [];
+    generateDates(start, end);
+  });
+
+  function generateDates(startMs, endMs) {
+    google.script.run
+      .withSuccessHandler(onDates)
+      .withFailureHandler(function (err) {
+        $('date-alerts').innerHTML = notice('error', esc(err.message || err));
+        show('date-list-wrap');
+      })
+      .buildModuleDates7(startMs, endMs, STATE.modules.length, STATE.holidays);
+  }
+
+  function onDates(res) {
+    var html = '';
+
+    if (res.error) {
+      $('date-alerts').innerHTML = notice('error', esc(res.error));
+      show('date-list-wrap');
+      return;
+    }
+
+    if (res.skippedWeeks && res.skippedWeeks.length > 0) {
+      html += notice('info', '<strong>Weeks skipped:</strong> ' +
+        res.skippedWeeks.map(function (w) { return esc(w.name); }).join(', ') +
+        '. Later modules shift accordingly.');
+    }
+
+    if (res.warnings && res.warnings.length > 0) {
+      html += notice('warn', res.warnings.map(esc).join('<br>'));
+    }
+
+    $('date-alerts').innerHTML = html;
+
+    var noteByModule = {};
+    (res.notes || []).forEach(function (n) { noteByModule[n.module] = n.text; });
+
+    $('date-list').innerHTML = res.modules.map(function (md, i) {
+      var m = STATE.modules[i];
+      if (!m) return '';
+
+      var block = '<div class="module-row">';
+      block += '<span class="module-label">' + esc(m.displayLabel) + ' ';
+      if (!m.canWriteDates) {
+        block += '<span class="state-badge locked">already dated &mdash; will not be changed</span>';
+      }
+      block += '</span>';
+
+      var dis = m.canWriteDates ? '' : ' disabled';
+
+      block += '<div class="date-row"><span class="date-label">Start</span>' +
+               '<input type="date" class="date-input" id="start-' + i + '" value="' +
+               (md.start ? toInputDate(md.start) : '') + '"' + dis + '></div>';
+
+      block += '<div class="date-row"><span class="date-label">End</span>' +
+               '<input type="date" class="date-input" id="end-' + i + '" value="' +
+               (md.end ? toInputDate(md.end) : '') + '"' + dis + '></div>';
+
+      if (noteByModule[i + 1]) {
+        block += '<div class="module-note">' + esc(noteByModule[i + 1]) + '</div>';
+      }
+
+      block += '</div>';
+      return block;
+    }).join('');
+
+    STATE.dates = true;
+    show('date-list-wrap');
+  }
+
+  // ── Run ────────────────────────────────────────────────────
+  $('run-btn').addEventListener('click', function () {
+    var titles = {};
+    STATE.modules.forEach(function (m, i) {
+      var el = $('title-' + i);
+      if (!el || !m.canWriteTitle) return;
+      var v = el.value.trim();
+      if (v) titles[m.num] = v;
+    });
+
+    var dates = {};
+    var wantDates = document.querySelector('input[name="wantDates"]:checked').value === 'yes';
+    if (wantDates && STATE.dates) {
+      STATE.modules.forEach(function (m, i) {
+        if (!m.canWriteDates) return;
+        var s = $('start-' + i), e = $('end-' + i);
+        if (!s || !e) return;
+        var sm = fromInputDate(s.value), em = fromInputDate(e.value);
+        if (sm && em) dates[m.num] = { start: sm, end: em };
+      });
+    }
+
+    hide('main');
+    show('running');
+
+    google.script.run
+      .withSuccessHandler(function (summary) {
+        hide('running');
+        $('summary').textContent = summary;
+        show('done');
+      })
+      .withFailureHandler(function (err) {
+        hide('running');
+        $('summary').textContent = '⚠️ ' + (err.message || err);
+        show('done');
+      })
+      .applyModuleTitlesAndDates7({ titles: titles, dates: dates });
+  });
+
+  $('again-btn').addEventListener('click', function () {
+    google.script.host.close();
+  });
+</script>
+</body>
+</html>
