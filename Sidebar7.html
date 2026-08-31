@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 13:36 MDT -->
+<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-30 at 20:53 MDT -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -35,6 +35,13 @@
       font-size: 12px;
       color: #555;
       margin-bottom: 12px;
+    }
+
+    .section-hint {
+      font-style: italic;
+      font-size: 12px;
+      color: #555;
+      margin: -4px 0 10px;
     }
 
     /* ── Field labels ───────────────────────────────────────── */
@@ -287,13 +294,14 @@
 
     <div id="alerts"></div>
 
-    <h4>Module titles</h4>
+    <h4>Module Titles</h4>
+    <p class="section-hint">Choose one of the module titles below or create a new one.</p>
     <div id="modules"></div>
 
     <hr class="divider">
 
     <!-- ── DATES ─────────────────────────────────────────── -->
-    <h4>Module dates</h4>
+    <h4>Module Dates</h4>
 
     <div class="yesno">
       <label class="radio-option">
@@ -305,6 +313,7 @@
     </div>
 
     <div id="dates-panel" class="hidden">
+      <p class="section-hint">Select semester and year.</p>
       <div class="year-row">
         <select id="semester" class="select-input">
           <option value="fall">Fall</option>

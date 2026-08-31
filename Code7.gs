@@ -5,7 +5,7 @@
 // headings, and optionally fills in module start/end dates from
 // the Boise State registrar's academic calendar.
 // ------------------------------------------------------------
-// Last updated on 2026-08-30 at 13:36 MDT
+// Last updated on 2026-08-30 at 20:53 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, & Times", which is what
@@ -352,7 +352,14 @@ function getModuleTitlesSidebarData7() {
 /** Strips tags and decodes the handful of entities the registrar pages use. */
 function stripHtml7_(html) {
   return String(html)
-    .replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '')   // footnote markers in headers
+    // Superscripts serve two different jobs on these pages and must be treated
+    // differently. Header cells carry footnote markers ("Start Date<sup>2</sup>")
+    // which have to go, or they pollute the column matching. Session names carry
+    // ordinals ("1<sup>st</sup> 5-week") which are part of the name — stripping
+    // those turned six of the eight Fall 2026 sessions into "1 5-week",
+    // "2 5-week" and so on. Numeric content is a marker; alphabetic is an ordinal.
+    .replace(/<sup[^>]*>\s*[\d\s.,*†‡]+\s*<\/sup>/gi, '')
+    .replace(/<sup[^>]*>([\s\S]*?)<\/sup>/gi, '$1')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
