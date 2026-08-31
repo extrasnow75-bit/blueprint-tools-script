@@ -1,6 +1,6 @@
 // ============================================================
 // Blueprint Tools — Code7.gs
-// Add Module Titles & Dates: copies module titles from the
+// Add Module Titles & Module Dates: copies module titles from the
 // Design tab's Course Design Map into the Development tab's H2
 // headings, and optionally fills in module start/end dates from
 // the Boise State registrar's academic calendar.
@@ -8,7 +8,7 @@
 // Last updated on 2026-08-30 at 20:53 MDT
 // ------------------------------------------------------------
 //
-// Runs AFTER "Add Activity Titles, Tools, & Times", which is what
+// Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is what
 // creates the H2 headings this tool writes into.
 //
 // Relies on shared helpers in Code.gs / Code2.gs (same GAS namespace):
@@ -63,7 +63,7 @@ var FIVE_YEAR_URL_7 = CALENDAR_BASE_7 + 'boise-state-academic-calendars/5-year-a
 
 function showModuleTitlesSidebar7() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar7')
-    .setTitle('Add Module Titles & Dates')
+    .setTitle('Add Module Titles & Module Dates')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }
@@ -274,7 +274,8 @@ function getModuleTitlesSidebarData7() {
     var headings = scanDevelopmentHeadings7_(devBody);
     if (headings.length === 0) {
       result.error = 'No numbered module headings (Module 1, Week 1, …) were found ' +
-                     'in the Development tab. Run "Add Activity Titles, Tools, & Times" first.';
+                     'in the Development tab. Run "Add Activity Titles, Tools, Due Date ' +
+                     'Headers, & Times" first.';
       return result;
     }
 
@@ -586,12 +587,124 @@ function mondayOf7_(d) {
 
 
 /**
+ * Reads one labelled field out of a 5-year calendar cell.
+ *
+ * A cell is a run of "<label>: <value>" pairs separated by <br>, which tag
+ * stripping flattens onto one line, so a value runs until the next known label.
+ *
+ * Commas are dropped unless a four-digit year follows. The day-of-week prefix
+ * ("Mon, Aug 23") and one typo in the 2029-2030 row ("Mon, Aug, 20") both put a
+ * comma where parseCalendarDate7_ expects whitespace between month and day;
+ * "November 23, 2026" keeps its comma so the explicit-year path still fires.
+ */
+function fiveYearField7_(cellText, label) {
+  var lab = label.replace(/\s+/g, '\\s+');
+  var re  = new RegExp('\\b' + lab + '\\s*:\\s*([\\s\\S]*?)(?=\\b(?:start|end|' +
+                       'thanksgiving|spring\\s+break|commencement)\\s*:|$)', 'i');
+  var m = cellText.match(re);
+  if (!m) return '';
+  return m[1].replace(/,(?!\s*\d{4}\b)/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+
+/**
+ * Turns a 5-year break field ("Nov 22-26", "March 16-20") into a holiday record
+ * shaped exactly like the ones parseHolidays7_ builds, so buildModuleDates7 can
+ * treat both sources alike. A bare end day inherits the start's month, as on
+ * the per-semester pages.
+ */
+function fiveYearBreak7_(name, text, yr) {
+  var range = String(text).match(/^(.+?)\s*[-\u2013\u2014]\s*(.+)$/);
+  if (!range) return null;
+
+  var start = parseCalendarDate7_(range[1], yr);
+  if (!start) return null;
+
+  var endRaw = range[2].trim();
+  if (/^\d{1,2}\b/.test(endRaw)) endRaw = MONTHS_7[start.getMonth()] + ' ' + endRaw;
+
+  var end = parseCalendarDate7_(endRaw, yr);
+  if (!end || end.getTime() < start.getTime()) return null;
+
+  return {
+    name:     name,
+    start:    start.getTime(),
+    end:      end.getTime(),
+    fullWeek: coversFullWeek7_(start, end)
+  };
+}
+
+
+/**
+ * Pulls one semester's dates out of the 5-year calendar.
+ *
+ * That table is organised by ACADEMIC year ("2027-2028") with a column per
+ * semester, so neither "Fall 2027" nor "Spring 2028" appears anywhere on the
+ * page. Tier 2 used to gate on finding exactly those strings, which meant it
+ * could never fire: every unpublished term fell through to the manual pickers
+ * while reporting that no calendar existed.
+ *
+ * Fall of "Y-(Y+1)" is calendar year Y and Spring of "(Y-1)-Y" is calendar
+ * year Y, so the requested year is correct for every date in the chosen column.
+ *
+ * @returns {?{start: Date, end: Date, holiday: ?Object, tbdBreak: string}}
+ */
+function parseFiveYearRow7_(html, sem, yr) {
+  var tables = html.match(/<table[\s\S]*?<\/table>/gi) || [];
+
+  for (var t = 0; t < tables.length; t++) {
+    var rows = tables[t].match(/<tr[\s\S]*?<\/tr>/gi) || [];
+    if (rows.length < 2) continue;
+
+    var header = (rows[0].match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || []).map(stripHtml7_);
+    var col = -1;
+    for (var c = 0; c < header.length; c++) {
+      if (header[c].toLowerCase().indexOf(sem + ' semester') !== -1) { col = c; break; }
+    }
+    if (col < 0) continue;
+
+    // Spring 2028 lives in the 2027-2028 row; Fall 2027 lives there too.
+    var first = (sem === 'spring') ? yr - 1 : yr;
+    var label = new RegExp('^\\s*' + first + '\\s*[-\u2013\u2014]\\s*(?:' + (first + 1) +
+                           '|' + String(first + 1).slice(2) + ')\\s*$');
+
+    for (var r = 1; r < rows.length; r++) {
+      var cells = (rows[r].match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || []).map(stripHtml7_);
+      if (cells.length <= col || !label.test(cells[0])) continue;
+
+      var cell  = cells[col];
+      var start = parseCalendarDate7_(fiveYearField7_(cell, 'start'), yr);
+      var end   = parseCalendarDate7_(fiveYearField7_(cell, 'end'),   yr);
+      if (!start || !end) return null;
+
+      // Fall lists Thanksgiving; Spring lists Spring Break, which the registrar
+      // marks TBD for every year after the current one.
+      var breakName = (sem === 'fall') ? 'Thanksgiving' : 'Spring Break';
+      var breakText = fiveYearField7_(cell, breakName);
+      var holiday   = breakText && !/tbd/i.test(breakText)
+                        ? fiveYearBreak7_(breakName, breakText, yr)
+                        : null;
+
+      return {
+        start:    start,
+        end:      end,
+        holiday:  holiday,
+        tbdBreak: holiday ? '' : breakName
+      };
+    }
+  }
+
+  return null;
+}
+
+
+/**
  * Sidebar-callable. Fetches the academic calendar for a semester and year.
  *
  * Three tiers, because the registrar publishes only about a year ahead and
  * Blueprints are routinely built further out than that:
- *   1. the per-semester page — full session table plus break dates
- *   2. the 5-year calendar   — regular semesters only, no breaks
+ *   1. the per-semester page — full session table, every no-class day
+ *   2. the 5-year calendar   — regular semester only, plus its one big break
  *   3. nothing               — caller falls back to manual date pickers
  *
  * @returns {Object} {tier, sessions[], holidays[], warnings[], error}
@@ -649,21 +762,38 @@ function fetchAcademicCalendar7(semester, year) {
   if (sem === 'summer') {
     out.tier  = 3;
     out.error = 'No Summer ' + yr + ' calendar has been published yet, and the 5-year ' +
-                'calendar lists summer only as a single block with no session dates. ' +
-                'Enter the first and last day of the course below.';
+                'calendar lists summer as a single block with no 3-, 5-, 7-, or 10-week ' +
+                'session dates. Enter the first and last day of the course below.';
     return out;
   }
 
   var fiveYear = fetchPage7_(FIVE_YEAR_URL_7);
-  if (fiveYear && new RegExp(sem + '\\s+' + yr, 'i').test(stripHtml7_(fiveYear))) {
-    out.tier = 2;
-    out.url  = FIVE_YEAR_URL_7;
+  var row      = fiveYear ? parseFiveYearRow7_(fiveYear, sem, yr) : null;
+  if (row) {
+    out.tier     = 2;
+    out.url      = FIVE_YEAR_URL_7;
+    out.sessions = [{
+      session: 'Regular semester',
+      start:   row.start.getTime(),
+      end:     row.end.getTime()
+    }];
+    if (row.holiday) out.holidays = [row.holiday];
+
     out.warnings.push('No ' + sem + ' ' + yr + ' calendar page has been published yet. ' +
                       'Using the 5-year calendar, which lists the regular semester only — ' +
                       'no 5-, 7-, or 10-week sessions.');
-    out.warnings.push('The 5-year calendar does not list break dates, so Thanksgiving ' +
-                      'and Spring Break will NOT be skipped automatically. Adjust the ' +
-                      'dates by hand below.');
+    // Tier 1 reports every "(no classes)" day; the 5-year table lists only the
+    // one long break, so silence here is not evidence there are no others.
+    out.warnings.push('The 5-year calendar does not list single days off, so Labor Day, ' +
+                      'MLK Day and similar are NOT reported below. Check them by hand.');
+    if (row.tbdBreak) {
+      out.warnings.push('The 5-year calendar shows ' + row.tbdBreak + ' as TBD for this ' +
+                        'year, so that week will NOT be skipped automatically. Adjust the ' +
+                        'dates by hand once the registrar publishes it.');
+    }
+
+    Logger.log('fetchAcademicCalendar7: tier 2, %s - %s, break: %s',
+               row.start, row.end, row.holiday ? row.holiday.name : (row.tbdBreak || 'none'));
     return out;
   }
 
