@@ -1,6 +1,6 @@
 /**
  * ================================================================
- * BLUEPRINT TOOLS  |  'Add Activity Titles, Canvas Tools, & Due Dates'
+ * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
  * Last updated on 2026-08-30 at 21:23 MDT
  * ================================================================
@@ -35,11 +35,11 @@ const MAX_MODULES = 52;
 function onOpen() {
   DocumentApp.getUi()
     .createMenu('🎓 Blueprint Tools')
-    .addItem('Add Activity Titles, Tools, & Times',   'showSidebar')
+    .addItem('Add Activity Titles, Tools, Due Date Headers, & Times', 'showSidebar')
     // Marked Beta until it has been exercised against real Blueprints — it is
     // the only tool that writes to module headings and the only one that
     // depends on an external site's markup.
-    .addItem('Add Module Titles & Dates (Beta)',       'showModuleTitlesSidebar7')
+    .addItem('Add Module Titles & Module Dates (Beta)', 'showModuleTitlesSidebar7')
     .addSeparator()
     .addItem('Create Model Module',                    'showModelModuleNoAiSidebar')
     .addSeparator()
@@ -52,7 +52,7 @@ function onOpen() {
 }
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle('Add Activity Titles, Tools, & Times')
+    .setTitle('Add Activity Titles, Tools, Due Date Headers, & Times')
     .setWidth(320);
   DocumentApp.getUi().showSidebar(html);
 }
