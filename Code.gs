@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Canvas Tools, & Due Dates'
  * ================================================================
- * Last updated on 2026-08-30 at 13:36 MDT
+ * Last updated on 2026-08-30 at 21:23 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -36,7 +36,10 @@ function onOpen() {
   DocumentApp.getUi()
     .createMenu('🎓 Blueprint Tools')
     .addItem('Add Activity Titles, Tools, & Times',   'showSidebar')
-    .addItem('Add Module Titles & Dates',              'showModuleTitlesSidebar7')
+    // Marked Beta until it has been exercised against real Blueprints — it is
+    // the only tool that writes to module headings and the only one that
+    // depends on an external site's markup.
+    .addItem('Add Module Titles & Dates (Beta)',       'showModuleTitlesSidebar7')
     .addSeparator()
     .addItem('Create Model Module',                    'showModelModuleNoAiSidebar')
     .addSeparator()
