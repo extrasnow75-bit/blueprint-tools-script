@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-08-30 at 13:36 MDT
+// Last updated on 2026-09-04 at 09:44 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -661,9 +661,10 @@ function getActivityPattern(moduleTitle) {
 
 /**
  * Given the body and an H4 paragraph (activity heading), returns the tool type
- * found in the "Tool; Link to settings tab" line immediately following the heading.
+ * found in the "Tool ⏺ Link to settings tab" line immediately following the
+ * heading (or "Tool; Link to settings tab" on pre-marker Blueprints).
  *
- * The tool type is the text before the first semicolon, trimmed.
+ * The tool type is the text before the separator, trimmed.
  *
  * @param {GoogleAppsScript.Document.Body} body
  * @param {GoogleAppsScript.Document.Paragraph} headingPara
@@ -687,9 +688,25 @@ function getToolTypeForSlot(body, headingPara, knownIndex) {
 
     var text = para.getText();
 
-    // The "Tool; Link to settings tab" line contains a semicolon.
-    if (text.indexOf(';') !== -1) {
-      var toolType = text.split(';')[0].trim();
+    // Confirm this is actually the tool line BEFORE looking for a separator.
+    // Without this the loop returns on the first paragraph carrying one, and
+    // "Estimated time: 1 hour; reading" sits above the tool line — it has no
+    // marker, falls through to the semicolon, and yields "Estimated time: 1
+    // hour" as the tool type. The wrong directions then get deployed. This is
+    // the same predicate setNearbyTool keys on in Code.gs.
+    if (!/link to settings tab/i.test(text)) continue;
+
+    // "<Tool> ⏺ Link to settings tab" on Blueprints built since the marker
+    // replaced the grey highlight, "<Tool>; Link to settings tab" on older ones.
+    // Split on whichever separator is present — dropping the semicolon path
+    // would break every Blueprint made before the change. TOOL_MARKER and
+    // TOOL_SUFFIX_LEGACY come from Code.gs: Apps Script gives every .gs file one
+    // shared global namespace, so this is the same constant, not a copy of it.
+    var markerIdx = text.indexOf(TOOL_MARKER);
+    var sepIdx    = (markerIdx !== -1) ? markerIdx : text.indexOf(';');
+
+    if (sepIdx !== -1) {
+      var toolType = text.substring(0, sepIdx).trim();
       if (!toolType) return null;
       // Normalize the same way the Course Pattern Table is read, so a line
       // hand-typed in the Development tab as "Assignment (Ungraded)" resolves
@@ -821,7 +838,7 @@ function findContentStartByIndex(body, h2Index) {
   // begins its real content with such a marker (e.g. "Overview (H2)", "[Reading
   // Icon] Required Readings (H2)", "Activity Directions (H2)"), and NONE of the
   // boilerplate lines above it — the demo title ("X.XX …"), "Estimated time:", or
-  // the "<Tool>; Link to settings tab" line — ever contain one. Anchoring here is
+  // the "<Tool> ⏺ Link to settings tab" line — ever contain one. Anchoring here is
   // far more robust than enumerating every boilerplate line to skip: it doesn't
   // depend on the demo header's heading style, on the tool being a dropdown chip
   // (whose getText() is unreliable), or on how long the block's intro is — the
@@ -885,7 +902,8 @@ function findContentStartByIndex(body, h2Index) {
       // Skip "Note to add…" instructor notes.
       if (/^note to add/i.test(text))                                 { i++; continue; }
 
-      // Skip the "[Tool chip]; Link to settings tab" line (and any variant).
+      // Skip the "[Tool chip] ⏺ Link to settings tab" line (and any variant,
+      // including the older semicolon form) — the wording is what is matched.
       if (/link to settings tab/i.test(text))                         { i++; continue; }
 
       // This line is real content — stop skipping.
@@ -999,7 +1017,11 @@ function restartCopiedListNumbering_(body, startIdx, count) {
   // Collect inserted elements by reference (references survive the later
   // seed insert/remove, so it's safe to gather them all up front).
   var inserted = [];
-  for (var p = startIdx; p < startIdx + count && p < body.getNumChildren(); p++) {
+  // Hoisted: this runs once per copied direction block, and `count` is 10-40
+  // elements, so re-reading the child count each iteration cost thousands of
+  // round trips across a full course. Nothing here inserts, so it cannot change.
+  var numChildren = body.getNumChildren();
+  for (var p = startIdx; p < startIdx + count && p < numChildren; p++) {
     inserted.push(body.getChild(p));
   }
 

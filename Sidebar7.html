@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-08-31 at 10:12 MDT -->
+<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-09-04 at 09:44 MDT -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -160,7 +160,10 @@
     .text-input:focus,
     .select-input:focus,
     .date-input:focus {
-      outline: none;
+      /* Transparent, not none — Windows High Contrast drops box-shadow and
+         overrides border-color, so `none` left no focus indicator at all. */
+      outline: 2px solid transparent;
+      outline-offset: 2px;
       border-color: #0033a0;
       box-shadow: 0 0 0 2px rgba(0,51,160,.35);
       color: #333;

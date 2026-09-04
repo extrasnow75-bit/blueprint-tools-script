@@ -2,14 +2,53 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-08-31 at 10:12 MDT
+ * Last updated on 2026-09-04 at 09:44 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
 const DEEP_BLUE = '#0033a0';
 const BLACK     = '#000000';
-const GREY_CHIP = '#e8eaed'; // background highlight that mimics the Canvas-tool dropdown chip
+const GREY_CHIP = '#e8eaed'; // the OLD Canvas-tool highlight. No longer applied —
+                             // kept only so _clearGreyChip can recognise and
+                             // remove it from Blueprints built before the marker.
 const FONT      = 'Arial';
+// A due-by marker line, in either of the two shapes a Blueprint can hold: the
+// template's placeholder, whose day sits in a dropdown chip and so reads as
+// empty ("Due by  at 11:59 p.m. Mountain Time"), and a header this tool inserted,
+// which carries a real day. Keying on the fixed wording catches both.
+const DUE_HEADER_RE = /due by\b.*mountain time/i;
+// The pattern that authorises DELETION, and it is deliberately much stricter
+// than the one above. DUE_HEADER_RE only decides what gets a blue border, so
+// being permissive there costs nothing. Here a false positive destroys the
+// user's writing, so the line must START with "Due by" and carry no more than a
+// short tail — enough for "Unpublished text header in Canvas" or a trailing
+// "Display header as:" chip, nowhere near enough for a sentence.
+//
+// The case this exists to refuse: a Directions paragraph reading "Submit your
+// draft to the dropbox. This is due by Sunday at 11:59 p.m. Mountain Time."
+// It matches DUE_HEADER_RE and must never be deleted.
+const DUE_MARKER_RE = /^\s*due by\b[^.]{0,20}?\bat 11:59 p\.m\. mountain time\b.{0,60}$/i;
+// The placeholder's companion chip, for the case where it is its own paragraph
+// rather than a right-tabbed run on the due-by line.
+const DISPLAY_AS_RE = /display header as/i;
+// The Canvas-tool line reads "<Tool> ⏺ Link to settings tab".
+//
+// The circle replaced a grey background highlight on the tool name. QA marks
+// text light green once it is ready to go into Canvas, and a background colour
+// is a single attribute per character — the green overwrote the grey outright,
+// so the one cue that identified a Canvas tool vanished at exactly the moment
+// the line mattered most. A real character cannot be overwritten by a highlight.
+const TOOL_MARKER = '⏺';   // ⏺ BLACK CIRCLE FOR RECORD
+// The marker is black, not red: it is a structural mark that says "this line
+// tags a Canvas tool", not part of the tool's name. Keeping it out of the red
+// also stops it reading as punctuation belonging to the words on either side.
+const TOOL_MARKER_COLOR = BLACK;
+const TOOL_SUFFIX = ' ' + TOOL_MARKER + ' Link to settings tab';
+// Blueprints built before the marker landed still read "<Tool>; Link to settings
+// tab". Both forms must be recognised: on a re-run over an old document here,
+// and by getToolTypeForSlot in Code2.gs, which reads this line to decide which
+// directions to deploy.
+const TOOL_SUFFIX_LEGACY = '; Link to settings tab';
 // The complete set of Canvas tools a slot may be tagged with. These strings are
 // load-bearing downstream — they are the DIRECTION_OPTIONS keys in Code2.gs and
 // the normaliseToolKey values in Sidebar5 — so they must match exactly.
@@ -26,7 +65,7 @@ const CANVAS_TOOL_OPTIONS = [
 // designer still sees a prompt to pick a tool by hand.
 const TOOL_LEAVE_UNCHANGED = '[Leave unchanged]';
 // The un-set tool name. setNearbyTool swaps this for a real tool when one is
-// known; until then it stays put, grey-chipped like any tagged tool.
+// known; until then it stays put, marked like any tagged tool.
 const TOOL_PLACEHOLDER = 'Select Tool';
 // Upper bound on modules, enforced server-side in processBlueprint. Matches the
 // max="52" on the sidebar's numModules input (one module per week, a full year).
@@ -94,7 +133,8 @@ function processBlueprint(params) {
   const activities = parseCoursePattern(designTab.body, params.toolOverrides);
   if (activities.length === 0)
     throw new Error('No activities found in the course pattern table.');
-  const stats      = { created: 0, deleted: 0, filled: 0, tools: 0, slotsDeleted: 0, headers: 0 };
+  const stats      = { created: 0, deleted: 0, filled: 0, tools: 0, slotsDeleted: 0,
+                       headers: 0, headersRemoved: 0 };
   const numModules = requested;
   const existing   = countExistingModules(devTab.body);
   const indent     = getTemplateIndent(devTab.body);
@@ -350,12 +390,11 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
     ePara.setHeading(NORMAL);
     ePara.setIndentStart(indent);
     _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
-    // Select Tool; Link to settings tab
-    const tPara = add(TOOL_PLACEHOLDER + '; Link to settings tab');
+    // Select Tool ⏺ Link to settings tab
+    const tPara = add(TOOL_PLACEHOLDER + TOOL_SUFFIX);
     tPara.setHeading(NORMAL);
     tPara.setIndentStart(indent);
-    _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
-    _chipTool(tPara, TOOL_PLACEHOLDER);
+    _fmtToolLine(tPara);
     // Directions
     const dPara = add('Directions go here\u2026');
     dPara.setHeading(NORMAL);
@@ -405,7 +444,7 @@ function processModule(body, modNum, activities, params, indent, stats) {
       slotParas.push(result.h4Para);
     }
   }
-  stats.headers += placeDueHeaders(body, slotParas, activities, params);
+  stats.headers += placeDueHeaders(body, slotParas, activities, params, stats);
 }
 // ── GET INDEX AFTER LAST SLOT ─────────────────────────────────────
 function getIndexAfterSlots(body, modNum, slots) {
@@ -416,7 +455,10 @@ function getIndexAfterSlots(body, modNum, slots) {
     const lastH4 = slots[slots.length - 1].para;
     const start  = body.getChildIndex(lastH4);
     let lastIdx  = start;
-    for (let i = start + 1; i < body.getNumChildren(); i++) {
+    // Hoisted: this loop only walks forward and never inserts, so re-reading the
+    // child count every iteration is a round trip that returns the same number.
+    const n = body.getNumChildren();
+    for (let i = start + 1; i < n; i++) {
       const child = body.getChild(i);
       if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
       const para = child.asParagraph();
@@ -465,11 +507,10 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   ePara.setHeading(NORMAL);
   ePara.setIndentStart(indent);
   _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
-  const tPara = ins(TOOL_PLACEHOLDER + '; Link to settings tab');
+  const tPara = ins(TOOL_PLACEHOLDER + TOOL_SUFFIX);
   tPara.setHeading(NORMAL);
   tPara.setIndentStart(indent);
-  _fmt(tPara.editAsText(), { font: FONT, size: 11, bold: true, italic: false, color: RED });
-  _chipTool(tPara, TOOL_PLACEHOLDER);
+  _fmtToolLine(tPara);
   const dPara = ins('Directions go here…');
   dPara.setHeading(NORMAL);
   dPara.setIndentStart(indent);
@@ -518,7 +559,6 @@ function setNearbyTool(body, headingPara, toolValue) {
   const H4 = DocumentApp.ParagraphHeading.HEADING4;
   const startIdx   = body.getChildIndex(headingPara);
   if (startIdx < 0) return false;
-  const suffix      = '; Link to settings tab';
   const numChildren = body.getNumChildren();
   for (let i = startIdx + 1; i < Math.min(startIdx + 8, numChildren); i++) {
     const child = body.getChild(i);
@@ -528,30 +568,29 @@ function setNearbyTool(body, headingPara, toolValue) {
     if (h === H2 || h === H3 || h === H4) break;
     const text          = para.getText();
     const hasSelectTool = text.includes(TOOL_PLACEHOLDER);
-    const hasSuffix     = text.includes(suffix);
+    // Match on the wording, not the separator. A Blueprint built before the
+    // marker landed reads "<Tool>; Link to settings tab"; one this tool has
+    // already touched reads "<Tool> ⏺ Link to settings tab". Keying on the
+    // semicolon alone would silently stop finding the line on a second run.
+    const hasSuffix     = text.includes('Link to settings tab');
     if (!hasSelectTool && !hasSuffix) continue;
     try {
       if (hasSelectTool) {
         para.replaceText(TOOL_PLACEHOLDER, toolValue);
-        const updated = para.getText();
-        const toolEnd = updated.includes(';') ? updated.indexOf(';') - 1 : updated.length - 1;
-        if (toolEnd >= 0) {
-          const pt = para.editAsText();
-          pt.setFontFamily(0, toolEnd, FONT);
-          pt.setFontSize(0, toolEnd, 11);
-          pt.setBold(0, toolEnd, true);
-          pt.setItalic(0, toolEnd, false);
-          pt.setForegroundColor(0, toolEnd, RED);
-          // Grey chip highlight on the tool name only (not the "; Link…" suffix),
-          // mimicking the Canvas dropdown chip QA uses as a visual cue.
-          pt.setBackgroundColor(0, toolEnd, GREY_CHIP);
-        }
+        // Bring a legacy line onto the marker, so an old Blueprint ends up
+        // looking exactly like a newly built one.
+        para.replaceText(TOOL_SUFFIX_LEGACY, TOOL_SUFFIX);
+        _fmtToolLine(para);
       } else if (hasSuffix) {
-        para.setText(toolValue + suffix);
-        const pt = para.editAsText();
-        _fmt(pt, { font: FONT, size: 11, bold: true, italic: false, color: RED });
-        // Grey chip highlight on the tool name only (not the "; Link…" suffix).
-        if (toolValue.length > 0) pt.setBackgroundColor(0, toolValue.length - 1, GREY_CHIP);
+        // Only rewrite the text when it is actually wrong. setText() replaces
+        // the whole run and resets every character attribute with it —
+        // background colour included — so an unconditional rewrite would strip
+        // QA's light-green "ready for Canvas" highlight off every tool line on
+        // each re-run. That highlight is the very thing the marker change exists
+        // to protect. _fmtToolLine still runs: it only sets foreground colour,
+        // font and weight, so it repairs formatting without touching the green.
+        if (text !== toolValue + TOOL_SUFFIX) para.setText(toolValue + TOOL_SUFFIX);
+        _fmtToolLine(para);
       }
       Logger.log(`  Tool → ${toolValue}`);
       return true;
@@ -607,32 +646,166 @@ function removeSlot(body, headingPara) {
     try { toRemove[i].removeFromParent(); } catch(e) {}
   }
 }
-// ── CHECK FOR EXISTING DUE-DAY HEADER ────────────────────────────
-function dueHeaderAlreadyExists(body, targetPara, day) {
-  const H3  = DocumentApp.ParagraphHeading.HEADING3;
-  const re  = new RegExp(`Due by ${day}`, 'i');
-  const idx = body.getChildIndex(targetPara);
-  // Check up to 4 paragraphs before the target slot for a matching H3
-  for (let i = Math.max(0, idx - 4); i < idx; i++) {
+// ── MODULE SPAN ───────────────────────────────────────────────────
+// Child-index range [start, end) covering one module's content, derived from the
+// module's own activity slots: walk back from the first slot to its H2 heading,
+// forward from the last slot to the next one.
+//
+// Deriving the span from the slots beats rescanning the body for "Module N:".
+// A full-body scan per module is O(modules x body), and at the 52-module ceiling
+// that is real time against the 6-minute limit. This costs a handful of round
+// trips instead. Callers must pass a non-empty slotParas.
+//
+// Returns null — meaning "do not clear anything" — when the module's own H2
+// cannot be found above the first slot. FAILING CLOSED IS THE WHOLE POINT: an
+// earlier version defaulted start to 0, so a module heading that had been hand
+// restyled, or that lived inside a table (getSlotsInModule walks getParagraphs,
+// which descends into cells; this walks top-level children, which does not),
+// silently produced a span covering the ENTIRE tab. clearDueHeaders would then
+// sweep every module in the document, chips and all, unrecoverably.
+//
+// The end bound stops at the last slot's own content block rather than running
+// on to the next H2 or to the end of the body. Markers only ever sit ABOVE a
+// slot, so nothing that needs clearing lives past the last one — and for the
+// final module in the tab, running to the end would put trailing course-wrap
+// content inside the deletion span for no benefit at all.
+function getModuleSpan(body, slotParas) {
+  const H2 = DocumentApp.ParagraphHeading.HEADING2;
+  const H3 = DocumentApp.ParagraphHeading.HEADING3;
+  const H4 = DocumentApp.ParagraphHeading.HEADING4;
+  const n  = body.getNumChildren();
+  const firstIdx = body.getChildIndex(slotParas[0]);
+  const lastIdx  = body.getChildIndex(slotParas[slotParas.length - 1]);
+  if (firstIdx < 0 || lastIdx < 0) {
+    Logger.log('getModuleSpan: slot is not a top-level child; skipping clear.');
+    return null;
+  }
+  let start = -1;
+  for (let i = firstIdx - 1; i >= 0; i--) {
     const child = body.getChild(i);
     if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-    const para = child.asParagraph();
-    if (para.getHeading() === H3 && re.test(para.getText())) return true;
+    if (child.asParagraph().getHeading() === H2) { start = i + 1; break; }
   }
-  return false;
+  if (start < 0) {
+    Logger.log('getModuleSpan: no module heading above the first slot; skipping clear.');
+    return null;
+  }
+  let end = n;
+  for (let i = lastIdx + 1; i < n; i++) {
+    const child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) { end = i; break; }
+    const para = child.asParagraph();
+    const h    = para.getHeading();
+    if (h === H2 || h === H3 || h === H4) { end = i; break; }
+    if (!para.getText()) { end = i; break; }   // the spacer between modules
+  }
+  return { start, end };
+}
+// ── COLLECT EXISTING DUE-BY MARKERS ───────────────────────────────
+// Find every due-by marker in a module span — the template's chip placeholders
+// and any header a previous run inserted alike — and return the ELEMENTS rather
+// than their indices, so the caller can insert replacements before removing
+// them without the indices going stale underneath it.
+//
+// Two shapes are handled: the due-by line itself, and a "Display header as:"
+// paragraph immediately beside it, for the case where that chip is its own
+// paragraph rather than a right-tabbed run on the same line.
+//
+// Tables are NOT touched. An earlier version removed any table containing the
+// due-by wording, which would have destroyed an entire rubric or schedule table
+// over a single matching row. That branch was speculative — written before we
+// knew how the band is laid out — and speculation is not worth an unrecoverable
+// deletion. If a band ever does turn out to be a table, the Logger line below
+// reports it and we can handle that shape once we have a real example.
+//
+// A dropdown chip reads as empty string through Apps Script, so a paragraph made
+// up ENTIRELY of chips cannot be told from a blank spacer and is deliberately
+// left alone rather than guessed at.
+function collectDueMarkers(body, span) {
+  const marks = [];
+  let tablesSeen = 0;
+  for (let i = span.start; i < span.end; i++) {
+    const child = body.getChild(i);
+    const type  = child.getType();
+    if (type === DocumentApp.ElementType.TABLE) {
+      if (DUE_HEADER_RE.test(child.asTable().getText())) tablesSeen++;
+      continue;
+    }
+    if (type !== DocumentApp.ElementType.PARAGRAPH) continue;
+    if (DUE_MARKER_RE.test(child.asParagraph().getText())) marks.push(i);
+  }
+  if (tablesSeen > 0) {
+    Logger.log('collectDueMarkers: %s table(s) in this module contain due-by ' +
+               'wording and were LEFT IN PLACE. If the placeholder band is a ' +
+               'table, that is why it survived.', tablesSeen);
+  }
+  // Pick up a "Display header as:" paragraph adjacent to a marked line. Keying
+  // on adjacency keeps the blast radius tight: the phrase belongs to this band
+  // and nothing else, but there is no reason to hunt for it across the module.
+  const idxs = marks.slice();
+  for (const i of marks) {
+    for (const j of [i - 1, i + 1]) {
+      if (j < span.start || j >= span.end || idxs.indexOf(j) !== -1) continue;
+      const sib = body.getChild(j);
+      if (sib.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+      if (DISPLAY_AS_RE.test(sib.asParagraph().getText())) idxs.push(j);
+    }
+  }
+  return idxs.map(i => body.getChild(i));
+}
+// Detach previously collected marker elements. Element references stay valid
+// across insertions elsewhere in the body, which is why collectDueMarkers hands
+// back elements: no index arithmetic survives an insert, but these do.
+function removeDueMarkers(elements) {
+  let removed = 0;
+  for (const el of elements) {
+    try { el.removeFromParent(); removed++; }
+    catch (e) {
+      Logger.log('removeDueMarkers: could not remove element: %s', (e && e.message) || e);
+    }
+  }
+  Logger.log('removeDueMarkers: removed %s old due-by marker(s).', removed);
+  return removed;
 }
 // ── PLACE DUE-DAY HEADERS ─────────────────────────────────────────
-function placeDueHeaders(body, slotParas, activities, params) {
+// Insert fresh due-by headers from the Course Pattern Table, and retire the
+// module's existing markers.
+//
+// The template ships every module with placeholder markers — "Due by
+// [Select Day] at 11:59 p.m. Mountain Time" plus a "Display header as:" chip.
+// Leaving those in place stacked them directly above the headers this tool
+// inserts, so QA read every due date twice.
+//
+// Wiping the module rather than trying to tell a placeholder from a previously
+// inserted header is deliberate. Sniffing for the placeholder leaves stale
+// headers behind the moment a due day changes between runs: the old day no
+// longer matches the new one, so nothing removes it and the doubling returns —
+// this time in a form that looks legitimate, which is worse. Rebuilding makes
+// the module match the pattern table exactly on every run, by construction, and
+// it is how the rest of this tool already treats modules 1..N (fillSlot
+// overwrites titles outright; removeSlot deletes surplus slots).
+//
+// GATE: nothing is removed unless this module actually has headers going in.
+// A run made while the pattern table's due-day column is still blank — an
+// ordinary mid-build state — would otherwise strip the placeholders and put
+// nothing back. Apps Script cannot recreate a dropdown chip, so that is not
+// undoable inside the tool; recovery means re-copying the module by hand.
+function placeDueHeaders(body, slotParas, activities, params, stats) {
   const H3 = DocumentApp.ParagraphHeading.HEADING3;
-  const canvasText = {
+  // hasOwnProperty, not a bare lookup: google.script.run is callable directly,
+  // so params.canvasOption can be anything. A bare lookup of "constructor" or
+  // "toString" resolves up the prototype chain to a truthy function, which the
+  // || fallback does not catch — the function body would then be stringified
+  // into the heading and throw the annotation's styling offsets off. The same
+  // reasoning already guards numModules and toolOverrides upstream.
+  const CANVAS_TEXT = {
     display:     'Text Header in Canvas',
     doNotBuild:  'Do not build in Canvas',
     unpublished: 'Unpublished text header in Canvas'
-  }[params.canvasOption] || 'Text Header in Canvas';
-  // NOTE: This function used to scan the module for existing "Due by … Mountain
-  // Time" headers and delete them before inserting new ones. Per request, the
-  // template's original due-date markers are now left in place untouched —
-  // only new headers are inserted at the correct activity positions below.
+  };
+  const canvasText = Object.prototype.hasOwnProperty.call(CANVAS_TEXT, params.canvasOption)
+    ? CANVAS_TEXT[params.canvasOption]
+    : 'Text Header in Canvas';
   const groups = getDueDayGroups(activities);
   if (groups.length === 0) return 0;
   const targets = [];
@@ -640,9 +813,20 @@ function placeDueHeaders(body, slotParas, activities, params) {
     const targetPara = startIndex < slotParas.length ? slotParas[startIndex] : null;
     if (targetPara) targets.push({ day, targetPara });
   }
+  // The gate. Also covers a module with fewer slots than the pattern expects:
+  // no slot to hang a header on means nothing lands here, so nothing is cleared.
+  if (targets.length === 0) return 0;
+  // Collect the old markers, INSERT the replacements, and only then remove what
+  // was collected. Ordering matters against the 6-minute execution limit: Docs
+  // persists as it goes, so a run that dies mid-loop after clearing but before
+  // inserting would leave a module stripped with nothing put back — and the
+  // chips it stripped cannot be recreated by script. This ordering makes the
+  // worst case a duplicate instead, which is merely the bug this change set out
+  // to fix, and is recoverable by re-running.
+  const span     = getModuleSpan(body, slotParas);
+  const oldMarks = span ? collectDueMarkers(body, span) : [];
   for (let i = targets.length - 1; i >= 0; i--) {
     const { day, targetPara } = targets[i];
-    if (dueHeaderAlreadyExists(body, targetPara, day)) continue;
     const childIdx = body.getChildIndex(targetPara);
     // The Canvas annotation rides on the SAME paragraph as the due-by header,
     // separated by one space. As its own paragraph it wrapped to the next line
@@ -660,6 +844,8 @@ function placeDueHeaders(body, slotParas, activities, params) {
     headerTxt.setItalic(annotStart, annotEnd, true);
     headerTxt.setForegroundColor(annotStart, annotEnd, RED);
   }
+  // Replacements are in; now retire the originals.
+  stats.headersRemoved += removeDueMarkers(oldMarks);
   return targets.length;
 }
 // ── BLUE BORDERS ON DUE-BY HEADERS ────────────────────────────────
@@ -693,8 +879,6 @@ function applyDueHeaderBorders(doc, devTabTitle) {
 // Docs-API worker for applyDueHeaderBorders. Kept separate so the caller can
 // guard it in try/catch without deep-nesting the whole body.
 function borderDueHeaders_(docId, devTabTitle) {
-  const DUE_RE = /due by .+mountain time/i;
-
   // Re-read via the Docs API. Locate the Development tab BY TITLE (the
   // DocumentApp tab id and the Docs API tabId are not guaranteed to match, so
   // we don't rely on that) and read its own tabId for the ranges.
@@ -734,7 +918,7 @@ function borderDueHeaders_(docId, devTabTitle) {
     if (!el.paragraph || !el.paragraph.elements) continue;
     const text = el.paragraph.elements
       .map(e => (e.textRun && e.textRun.content) || '').join('');
-    if (!DUE_RE.test(text)) continue;
+    if (!DUE_HEADER_RE.test(text)) continue;
     requests.push({
       updateParagraphStyle: {
         range: { startIndex: el.startIndex, endIndex: el.endIndex, tabId: tabId },
@@ -772,12 +956,39 @@ function _fmt(textEl, opts) {
   if (opts.color  !== undefined) textEl.setForegroundColor(opts.color);
   return textEl;
 }
-// Grey chip on the tool name only, never the "; Link to settings tab" suffix.
-// Applied to the placeholder and to real tool names alike, so an untagged slot
-// looks like every tagged one.
-function _chipTool(para, toolName) {
-  if (!toolName || toolName.length === 0) return;
-  para.editAsText().setBackgroundColor(0, toolName.length - 1, GREY_CHIP);
+// Paint a Canvas-tool line: Arial 11 bold red throughout, except the marker,
+// which is black. Also strips the old grey chip if the line is carrying one.
+//
+// Every place that writes this line goes through here, so the two paths that
+// fill a slot — building it fresh and swapping a real tool into an existing
+// "Select Tool" line — can no longer drift apart in formatting.
+function _fmtToolLine(para) {
+  const pt   = para.editAsText();
+  const text = pt.getText();
+  if (text.length === 0) return;
+  _fmt(pt, { font: FONT, size: 11, bold: true, italic: false, color: RED });
+  const sepIdx = text.indexOf(TOOL_MARKER);
+  if (sepIdx !== -1) pt.setForegroundColor(sepIdx, sepIdx, TOOL_MARKER_COLOR);
+  _clearGreyChip(pt, text.length);
+}
+// Remove the old grey chip from a tool line, and ONLY the old grey chip.
+//
+// A blanket setBackgroundColor(null) would also wipe the light-green "ready for
+// Canvas" highlight QA applies by hand — the very marking this whole change
+// exists to protect. So the colour is checked first and the line is left alone
+// unless it is carrying our grey.
+//
+// The chip always started at offset 0, and a highlight is applied to the whole
+// line, so testing the first character is enough to tell grey from green. That
+// keeps this to two DocumentApp round trips on affected lines and one on the
+// rest, rather than a per-character scan on every activity in the course.
+// Takes the Text element and its length rather than the Paragraph: the only
+// caller has both in hand already, so re-deriving them here was two wasted
+// round trips on every tool line in the course.
+function _clearGreyChip(pt, len) {
+  if (len === 0) return;
+  if (pt.getBackgroundColor(0) !== GREY_CHIP) return;
+  pt.setBackgroundColor(0, len - 1, null);
 }
 // ── BUILD SUMMARY ─────────────────────────────────────────────────
 function buildSummary(stats, params, activities, numModules) {
@@ -806,6 +1017,7 @@ function buildSummary(stats, params, activities, numModules) {
     `Tools assigned: ${stats.tools}`,
     stats.slotsDeleted > 0 ? `Extra slots removed: ${stats.slotsDeleted}`   : null,
     `Due-day headers inserted: ${stats.headers}`,
+    stats.headersRemoved > 0 ? `  − ${stats.headersRemoved} old due-date marker(s) replaced` : null,
     '',
     `Numbered: ${params.numbered ? 'Yes' : 'No'}`,
     `Time estimates: ${params.timeEstimates ? 'Yes' : 'No'}`,

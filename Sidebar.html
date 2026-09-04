@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-08-31 at 10:12 MDT -->
+<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-09-04 at 09:44 MDT -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -116,6 +116,14 @@
   <h3>What Does This Tool Do?</h3>
   <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 14px;">
     It reads the Course Pattern Table in your Design tab and builds out the Development tab from it. Using proper Blueprint formatting, this tool inserts the activity titles in each module, tags each one with its Canvas tool (Page, Assignment, Discussion, etc.), and adds a time estimate. Run this first &mdash; the other tools build on the structure it creates.
+  </p>
+
+  <!-- This tool deletes as well as inserts, so say so before the run rather than
+       only in the summary afterwards. The placeholder chips it removes cannot be
+       recreated by script (Apps Script cannot build a Google Docs dropdown), so
+       the deletion is not undoable from inside the tool. -->
+  <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 14px;">
+    In each module it builds, this tool replaces the existing &ldquo;Due by &hellip;&rdquo; markers &mdash; including the template&rsquo;s <em>Select Day</em> and <em>Display header as</em> dropdown chips &mdash; with its own due date headers. Those chips cannot be put back by the tool, so work on a copy if you are unsure. Modules beyond the number you enter below are left untouched.
   </p>
 
   <label for="numModules">How many modules will this course contain?</label>

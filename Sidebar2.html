@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar2.html | Last updated on 2026-08-30 at 13:36 MDT -->
+<!-- Blueprint Tools — Sidebar2.html | Last updated on 2026-09-04 at 09:44 MDT -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -48,7 +48,12 @@
     }
 
     .activity-select:focus {
-      outline: none;
+      /* Transparent, not none. Windows High Contrast drops box-shadow entirely
+         and overrides border-color, so `outline: none` left those users with no
+         focus indicator at all. A transparent outline is repainted by the
+         forced palette and is invisible everywhere else. */
+      outline: 2px solid transparent;
+      outline-offset: 2px;
       border-color: #0033a0;
       box-shadow: 0 0 0 2px rgba(0, 51, 160, 0.35);
     }
