@@ -5,7 +5,7 @@
 // headings, and optionally fills in module start/end dates from
 // the Boise State registrar's academic calendar.
 // ------------------------------------------------------------
-// Last updated on 2026-09-04 at 23:18 MDT
+// Last updated on 2026-09-05 at 00:14 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is what
@@ -15,7 +15,7 @@
 //   collectTabs, getDevelopmentTabBody
 //
 // The dates half of this tool has been split out into the standalone
-// "Add Module Dates" tool (Code8.gs / Sidebar8.html) — see project memory
+// "Specialty Tool: Add Module Dates" tool (Code8.gs / Sidebar8.html) — see project memory
 // project_blueprint_designmap_dev_tab.md, Phase 2. This file is kept in place,
 // unchanged in behavior, because its title half still has to be absorbed into
 // the upcoming Design Map → Dev Tab tool (Phase 3) before it can be retired.

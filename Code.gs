@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-04 at 23:18 MDT
+ * Last updated on 2026-09-05 at 00:14 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -100,7 +100,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Time Estimator',                         'showTimeEstimatorSidebar')
     .addSeparator()
-    .addItem('Add Module Dates',                       'showModuleDatesSidebar8')
+    .addItem('Specialty Tool: Add Module Dates',       'showModuleDatesSidebar8')
     .addSeparator()
     .addItem('KB Article',                             'showKbArticle')
     .addToUi();

@@ -1,10 +1,10 @@
 // ============================================================
 // Blueprint Tools — Code8.gs
-// Add Module Dates: fills in module start/end dates on the
+// Specialty Tool: Add Module Dates. Fills in module start/end dates on the
 // Development tab's H2 headings from the Boise State registrar's
 // academic calendar.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 00:07 MDT
+// Last updated on 2026-09-05 at 00:14 MDT
 // ------------------------------------------------------------
 //
 // Split out of the "Add Module Titles & Module Dates (Beta)" tool
@@ -57,7 +57,7 @@ var FIVE_YEAR_URL_7 = CALENDAR_BASE_7 + 'boise-state-academic-calendars/5-year-a
 
 function showModuleDatesSidebar8() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar8')
-    .setTitle('Add Module Dates')
+    .setTitle('Specialty Tool: Add Module Dates')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }
