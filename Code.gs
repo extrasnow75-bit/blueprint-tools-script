@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-05 at 00:14 MDT
+ * Last updated on 2026-09-05 at 00:47 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -89,10 +89,11 @@ function onOpen() {
   DocumentApp.getUi()
     .createMenu('🎓 Blueprint Tools')
     .addItem('Add Activity Titles, Tools, Due Date Headers, & Times', 'showSidebar')
-    // Marked Beta until it has been exercised against real Blueprints — it is
-    // the only tool that writes to module headings and the only one that
-    // depends on an external site's markup.
-    .addItem('Add Module Titles & Module Dates (Beta)', 'showModuleTitlesSidebar7')
+    // Position 2, directly under the tool that creates the headings and slots
+    // it writes into. Replaces "Add Module Titles & Module Dates (Beta)", whose
+    // title half now lives here and whose dates half became the Specialty Tool
+    // below — see project_blueprint_designmap_dev_tab.md, section 3.
+    .addItem('Design Map → Dev Tab',                   'showDesignMapSidebar9')
     .addSeparator()
     .addItem('Create Model Module',                    'showModelModuleNoAiSidebar')
     .addSeparator()

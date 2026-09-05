@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar7.html | Last updated on 2026-09-04 at 09:44 MDT -->
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 00:47 MDT
+
+     UI for the "Design Map → Dev Tab" tool (Code9.gs). The Module Titles panel
+     is Sidebar7.html's, ported across unchanged — same radio-per-module group,
+     same grey starter text, same "already titled" lock. Everything below it is
+     new: the module and activity pickers, the per-row match resolution, and the
+     paste-anyway list. The shell (spinner, notices, summary, focus handling) is
+     shared with Sidebar7/Sidebar8 so the tools feel identical to a user. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -102,8 +109,8 @@
     .state-badge.locked { color: #8a1c12; }
 
     /* Visually hidden but read aloud. Several controls here are labelled only
-       by position — the custom-title box, the semester and year pair — and a
-       visible label for each would crowd a 320px sidebar. */
+       by position — the custom-title box, the per-row match dropdowns — and a
+       visible label for each would crowd a 360px sidebar. */
     .sr-only {
       position: absolute;
       width: 1px;
@@ -158,8 +165,7 @@
 
     .title-input:focus,
     .text-input:focus,
-    .select-input:focus,
-    .date-input:focus {
+    .select-input:focus {
       /* Transparent, not none — Windows High Contrast drops box-shadow and
          overrides border-color, so `none` left no focus indicator at all. */
       outline: 2px solid transparent;
@@ -181,44 +187,71 @@
       margin-bottom: 8px;
     }
 
-    /* ── Dates ───────────────────────────────────────────────── */
-    .yesno { margin-bottom: 10px; }
+    /* ── Checkbox pickers ────────────────────────────────────── */
+    .check-list { list-style: none; padding: 0; margin: 0; }
 
-    .year-row { display: flex; gap: 8px; margin-bottom: 8px; }
-    .year-row .select-input { margin-bottom: 0; }
-    .year-row input { width: 90px; }
-
-    .date-row {
+    .check-item {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 3px 0;
     }
 
-    .date-row .date-label {
-      width: 76px;
+    .check-item input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
       flex-shrink: 0;
+      margin-top: 2px;
+      cursor: pointer;
+      accent-color: #0033a0;
+    }
+
+    .check-item label {
+      font-size: 12px;
+      color: #333;
+      cursor: pointer;
+    }
+
+    .check-links {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+
+    .check-links button {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #0033a0;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* ── Match resolution ────────────────────────────────────── */
+    .match-row {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eef0f4;
+    }
+
+    .match-row:last-child { border-bottom: none; }
+
+    .match-label {
+      display: block;
       font-size: 12px;
       font-weight: bold;
       color: #333;
+      margin-bottom: 3px;
     }
 
-    .date-input {
-      flex: 1;
-      padding: 4px 6px;
-      font-size: 12px;
-      font-family: Arial, sans-serif;
-      border: 1px solid #767676;
-      border-radius: 3px;
-      color: #333;
-      background: #fff;
-    }
-
-    .module-note {
+    .match-note {
       font-size: 11px;
-      color: #6b4400;
-      margin: 2px 0 6px 82px;
+      color: #555;
+      margin-bottom: 3px;
     }
+
+    .match-row .select-input { margin-bottom: 0; }
 
     /* ── Buttons ─────────────────────────────────────────────── */
     .btn-row { margin-top: 16px; }
@@ -256,17 +289,6 @@
     }
 
     .again-btn:hover { background: #333; }
-
-    .link-btn {
-      background: none;
-      border: none;
-      color: #0033a0;
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-      text-decoration: underline;
-      cursor: pointer;
-      padding: 0;
-    }
 
     /* ── Spinner ─────────────────────────────────────────────── */
     .spinner-wrap {
@@ -310,7 +332,7 @@
 </head>
 <body>
 
-  <h3>Add Module Titles &amp; Module Dates</h3>
+  <h3>Design Map &rarr; Dev Tab</h3>
 
   <!-- ── LOADING ─────────────────────────────────────────── -->
   <!-- The ticking node is aria-hidden and a static line is announced instead.
@@ -326,80 +348,94 @@
   <div id="main" class="hidden">
 
     <p class="intro">
-      Copies module titles from the Design tab&rsquo;s Course Design Map into the
-      Development tab. Run this after &ldquo;Add Activity Titles, Tools, Due Date
-      Headers, &amp; Times&rdquo;.
+      Copies the Design tab&rsquo;s Course Design Map into the Development tab:
+      module titles into the module headings, the CLO/MLO row into each Module
+      Overview, and every other row&rsquo;s notes under that activity&rsquo;s
+      &ldquo;Directions go here&hellip;&rdquo; line. Run this after &ldquo;Add
+      Activity Titles, Tools, Due Date Headers, &amp; Times&rdquo;.
     </p>
 
     <div id="alerts" role="status" aria-live="polite"></div>
 
+    <!-- ── 1. TITLES (ported from Sidebar7.html unchanged) ── -->
     <h4 id="main-heading" tabindex="-1">Module Titles</h4>
     <p class="section-hint">Choose one of the module titles below or create a new one.</p>
     <div id="modules"></div>
 
     <hr class="divider">
 
-    <!-- ── DATES ─────────────────────────────────────────── -->
-    <h4 id="dates-heading">Module Dates</h4>
-
-    <div class="yesno" role="radiogroup" aria-labelledby="dates-heading">
-      <label class="radio-option">
-        <input type="radio" name="wantDates" value="no" checked> No &mdash; titles only
-      </label>
-      <label class="radio-option">
-        <input type="radio" name="wantDates" value="yes"> Yes &mdash; add start and end dates
-      </label>
+    <!-- ── 2. MODULES TO PROCESS ─────────────────────────── -->
+    <h4 id="picker-heading">Modules to fill in</h4>
+    <p class="section-hint">
+      Objectives and activity notes are copied only into the modules checked here.
+      Module titles above are written for every module regardless.
+    </p>
+    <div class="check-links">
+      <button type="button" id="mod-all">Select all</button>
+      &nbsp;&middot;&nbsp;
+      <button type="button" id="mod-none">Deselect all</button>
+    </div>
+    <div role="group" aria-labelledby="picker-heading">
+      <ul id="module-picker" class="check-list"></ul>
     </div>
 
-    <div id="dates-panel" class="hidden">
-      <p class="section-hint">Select semester and year.</p>
-      <div class="year-row">
-        <label class="sr-only" for="semester">Semester</label>
-        <select id="semester" class="select-input">
-          <option value="fall">Fall</option>
-          <option value="spring">Spring</option>
-          <option value="summer">Summer</option>
-        </select>
-        <!-- Labelled, not placeholder'd: initTerm sets a real value, so a
-             placeholder would never render and the field would have no name. -->
-        <label class="sr-only" for="year">Year</label>
-        <input type="text" id="year" class="text-input" maxlength="4"
-               inputmode="numeric" style="margin-top:0;">
-      </div>
+    <hr class="divider">
 
-      <button id="lookup-btn" class="again-btn" type="button">Look up Academic Calendar</button>
+    <!-- ── 3. ACTIVITIES TO PROCESS ──────────────────────── -->
+    <h4 id="acts-heading">Activities to fill in</h4>
+    <p class="section-hint">
+      Notes are pasted only under the activities checked here.
+    </p>
+    <div class="check-links">
+      <button type="button" id="act-all">Select all</button>
+      &nbsp;&middot;&nbsp;
+      <button type="button" id="act-none">Deselect all</button>
+    </div>
+    <div role="group" aria-labelledby="acts-heading">
+      <ul id="activity-picker" class="check-list"></ul>
+    </div>
 
-      <div id="calendar-status" role="status" aria-live="polite"></div>
+    <!-- ── 4. UNMATCHED ROWS ─────────────────────────────── -->
+    <div id="match-wrap" class="hidden">
+      <hr class="divider">
+      <h4 id="match-heading">Rows that need a decision</h4>
+      <p class="section-hint">
+        These Course Design Map rows either have no obvious activity in the
+        Development tab, or were matched on a guess. Pick where each one belongs,
+        or leave it skipped. Rows matched confidently are not listed.
+      </p>
+      <div id="match-list"></div>
+    </div>
 
-      <div id="session-wrap" class="hidden">
-        <label class="field-label" for="session">Session</label>
-        <select id="session" class="select-input"></select>
-      </div>
-
-      <div id="manual-wrap" class="hidden" role="group" aria-labelledby="manual-legend">
-        <p class="field-label" id="manual-legend">First and last day of the course</p>
-        <div class="date-row">
-          <label class="date-label" for="manual-start">First day</label>
-          <input type="date" id="manual-start" class="date-input">
-        </div>
-        <div class="date-row">
-          <label class="date-label" for="manual-end">Last day</label>
-          <input type="date" id="manual-end" class="date-input">
-        </div>
-        <button id="manual-btn" class="again-btn" type="button" style="margin-top:6px;">
-          Generate module dates
-        </button>
-      </div>
-
-      <div id="date-list-wrap" class="hidden">
-        <hr class="divider">
-        <div id="date-alerts" role="status" aria-live="polite"></div>
-        <!-- Deliberately not a live region: injecting a dozen modules' worth of
-             date inputs would flood the buffer. #date-alerts carries the
-             summary and focus moves here instead. -->
-        <div id="date-list" tabindex="-1"></div>
+    <!-- ── 5. ALREADY-POPULATED DESTINATIONS ─────────────── -->
+    <div id="occupied-wrap" class="hidden">
+      <hr class="divider">
+      <h4 id="occupied-heading">Already has content</h4>
+      <p class="section-hint">
+        These destinations are not empty, so they are skipped by default and
+        nothing is overwritten. Tick one to append the Design Map content below
+        what is already there.
+      </p>
+      <div role="group" aria-labelledby="occupied-heading">
+        <ul id="occupied-list" class="check-list"></ul>
       </div>
     </div>
+
+    <hr class="divider">
+
+    <!-- ── 6. HIGHLIGHT ──────────────────────────────────── -->
+    <h4 id="highlight-heading">Highlight the pasted notes?</h4>
+    <p class="section-hint">
+      Cyan is the IDC convention for &ldquo;note to self, delete before this goes
+      to the SME&rdquo;. It makes the copied Design Map notes easy to find and
+      strip out once the directions are written. The module objectives are never
+      highlighted &mdash; those are real course content that stays.
+    </p>
+    <label class="sr-only" for="highlight">Highlight the pasted notes</label>
+    <select id="highlight" class="select-input">
+      <option value="yes">Yes &mdash; highlight pasted notes cyan</option>
+      <option value="no">No &mdash; paste with no highlight</option>
+    </select>
 
     <div class="btn-row">
       <button id="run-btn" class="run-btn" type="button">Run Script</button>
@@ -423,10 +459,9 @@
 
 <script>
   var STATE = {
-    modules:  [],
-    dates:    null,   // { moduleNum: {start, end} } once generated
-    holidays: [],
-    sessions: []
+    modules:       [],   // title-half rows, in Development tab order
+    mapModules:    [],   // design-map payload, index-aligned with STATE.modules
+    devActivities: []
   };
 
   // ── Helpers ────────────────────────────────────────────────
@@ -446,7 +481,7 @@
   }
 
   // Moves focus without scrolling the sidebar out from under the user. Hiding
-  // a container that contains the focused element drops focus to <body>, which
+  // a container that holds the focused element drops focus to <body>, which
   // loses a keyboard user's place entirely.
   function focusEl(id) {
     var el = $(id);
@@ -455,23 +490,6 @@
 
   function notice(kind, html) {
     return '<div class="notice ' + kind + '">' + html + '</div>';
-  }
-
-  // Local yyyy-mm-dd. Deliberately not toISOString(), which converts to UTC and
-  // can land the input on the previous day west of Greenwich.
-  function toInputDate(ms) {
-    var d = new Date(ms);
-    var mm = String(d.getMonth() + 1);
-    var dd = String(d.getDate());
-    if (mm.length < 2) mm = '0' + mm;
-    if (dd.length < 2) dd = '0' + dd;
-    return d.getFullYear() + '-' + mm + '-' + dd;
-  }
-
-  function fromInputDate(value) {
-    var parts = String(value || '').split('-');
-    if (parts.length !== 3) return null;
-    return new Date(+parts[0], +parts[1] - 1, +parts[2]).getTime();
   }
 
   // ── Elapsed timer ──────────────────────────────────────────
@@ -513,38 +531,10 @@
     if (TIMER.id) { clearInterval(TIMER.id); TIMER.id = null; }
   }
 
-  // ── Default term ───────────────────────────────────────────
-  // Jan 1 – Aug 15  → Fall of the current year
-  // Aug 16 – Dec 31 → Spring of the next year
-  // Matches when designers are actually building: in the autumn you are working
-  // on the coming spring, the rest of the year on the coming fall.
-  function defaultTerm7() {
-    var now   = new Date();
-    var month = now.getMonth();          // 0 = January, 7 = August
-    var day   = now.getDate();
-    var early = (month < 7) || (month === 7 && day <= 15);
-
-    return early
-      ? { semester: 'fall',   year: now.getFullYear() }
-      : { semester: 'spring', year: now.getFullYear() + 1 };
-  }
-
-  function semesterLabel7(value) {
-    return value.charAt(0).toUpperCase() + value.slice(1);
-  }
-
   // ── Load ───────────────────────────────────────────────────
-  (function initTerm() {
-    var term = defaultTerm7();
-    $('semester').value = term.semester;
-    // A real value rather than a placeholder — a guessed year is only a
-    // convenience if the user can go straight to the lookup without typing it.
-    $('year').value = String(term.year);
-  })();
-
   // Used for the first load and for "Run again" — the second pass has to re-read
-  // the document, since the run just changed which headings are already titled.
-  function loadModules() {
+  // the document, since the run just changed which destinations are still empty.
+  function loadData() {
     startTimer('loading-text', 'Reading the Course Design Map…');
 
     google.script.run
@@ -557,12 +547,13 @@
         // than waiting politely for a pause.
         $('alerts').setAttribute('role', 'alert');
         $('alerts').innerHTML = notice('error', esc(err.message || err));
+        $('run-btn').disabled = true;
         focusEl('main-heading');
       })
-      .getModuleTitlesSidebarData7();
+      .getDesignMapSidebarData9();
   }
 
-  loadModules();
+  loadData();
 
   function onData(data) {
     stopTimer();
@@ -577,7 +568,9 @@
       return;
     }
 
-    STATE.modules = data.modules;
+    STATE.modules       = data.modules       || [];
+    STATE.mapModules    = data.mapModules    || [];
+    STATE.devActivities = data.devActivities || [];
 
     var alerts = '';
 
@@ -600,7 +593,7 @@
         'These have no matching module heading, so they will be skipped:<ul>' + un + '</ul>');
     }
 
-    var locked = data.modules.filter(function (m) { return !m.canWriteTitle; });
+    var locked = STATE.modules.filter(function (m) { return !m.canWriteTitle; });
     if (locked.length > 0) {
       alerts += notice('info',
         '<strong>' + locked.length + ' heading(s) already have a title.</strong> ' +
@@ -609,9 +602,16 @@
     }
 
     $('alerts').innerHTML = alerts;
+
     renderModules();
+    renderModulePicker();
+    renderActivityPicker();
+    renderMatchList();
+    renderOccupiedList();
   }
 
+  // ── 1. Titles ──────────────────────────────────────────────
+  // Ported from Sidebar7.html with no behavioral change.
   function renderModules() {
     var html = STATE.modules.map(function (m, i) {
       // Each module is its own radio group, named by its label. Without this a
@@ -683,203 +683,124 @@
     );
   }
 
-  // ── Dates: show/hide ───────────────────────────────────────
-  Array.prototype.forEach.call(
-    document.querySelectorAll('input[name="wantDates"]'),
-    function (r) {
-      r.addEventListener('change', function () {
-        if (r.value === 'yes' && r.checked) show('dates-panel');
-        if (r.value === 'no'  && r.checked) { hide('dates-panel'); STATE.dates = null; }
-      });
-    }
-  );
+  // ── 2. Module picker ───────────────────────────────────────
+  function renderModulePicker() {
+    $('module-picker').innerHTML = STATE.mapModules.map(function (mm, i) {
+      var bits = [];
+      if (mm.objectives.available) bits.push('objectives');
+      var noteCount = mm.rows.length;
+      if (noteCount > 0) bits.push(noteCount + ' note row' + (noteCount === 1 ? '' : 's'));
+      var tail = bits.length
+        ? ' <span class="state-badge">' + esc(bits.join(', ')) + '</span>'
+        : ' <span class="state-badge">nothing to copy</span>';
 
-  // ── Calendar lookup ────────────────────────────────────────
-  $('lookup-btn').addEventListener('click', function () {
-    var sem  = $('semester').value;
-    var year = $('year').value.trim();
-
-    // Remembered so the result can name the term it actually found, rather
-    // than leaving the user to assume the guessed year was the one used.
-    STATE.requestedTerm = semesterLabel7(sem) + ' ' + year;
-
-    $('calendar-status').innerHTML = notice('info', 'Looking up the academic calendar&hellip;');
-    hide('session-wrap');
-    hide('manual-wrap');
-    hide('date-list-wrap');
-
-    google.script.run
-      .withSuccessHandler(onCalendar)
-      .withFailureHandler(function (err) {
-        $('calendar-status').innerHTML = notice('error', esc(err.message || err));
-        show('manual-wrap');
-      })
-      .fetchAcademicCalendar7(sem, year);
-  });
-
-  // Enter in the year box fires the lookup. There is no <form>, so without this
-  // the key does nothing beside a button that obviously expects it.
-  $('year').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); $('lookup-btn').click(); }
-  });
-
-  function onCalendar(cal) {
-    var html = '';
-
-    if (cal.warnings && cal.warnings.length > 0) {
-      html += notice('warn', cal.warnings.map(esc).join('<br>'));
-    }
-
-    if (cal.error) {
-      html += notice('warn', esc(cal.error));
-      $('calendar-status').innerHTML = html;
-      // Summer has no session table to choose from, but the 5-year calendar
-      // still knows when the summer block runs, so start the pickers there
-      // rather than empty.
-      if (cal.suggestedStart && cal.suggestedEnd) {
-        $('manual-start').value = toInputDate(cal.suggestedStart);
-        $('manual-end').value   = toInputDate(cal.suggestedEnd);
-      }
-      show('manual-wrap');
-      return;
-    }
-
-    STATE.holidays = cal.holidays || [];
-    STATE.sessions = cal.sessions || [];
-
-    if (STATE.sessions.length === 0) {
-      html += notice('warn', 'The calendar page was found but no session table could be read from it.');
-      $('calendar-status').innerHTML = html;
-      show('manual-wrap');
-      return;
-    }
-
-    if (STATE.holidays.length > 0) {
-      var full = STATE.holidays.filter(function (h) { return h.fullWeek; });
-      var days = STATE.holidays.filter(function (h) { return !h.fullWeek; });
-      var parts = [];
-      if (full.length > 0) {
-        parts.push('<strong>Full weeks off (skipped, later modules shift):</strong> ' +
-                   full.map(function (h) { return esc(h.name); }).join(', '));
-      }
-      if (days.length > 0) {
-        parts.push('<strong>Single days off (reported, dates unchanged):</strong> ' +
-                   days.map(function (h) { return esc(h.name); }).join(', '));
-      }
-      html += notice('info', parts.join('<br>'));
-    }
-
-    html = notice('info', 'Found <strong>' + esc(STATE.requestedTerm) + '</strong> session deadlines &mdash; ' +
-                          STATE.sessions.length + ' session(s).') + html;
-
-    $('calendar-status').innerHTML = html;
-
-    $('session').innerHTML = '<option value="">Choose a session&hellip;</option>' +
-      STATE.sessions.map(function (s, i) {
-        return '<option value="' + i + '">' + esc(s.session) + '</option>';
-      }).join('');
-
-    show('session-wrap');
-    // A new required control just appeared below the button that was clicked.
-    focusEl('session');
-  }
-
-  $('session').addEventListener('change', function () {
-    var idx = $('session').value;
-    if (idx === '') { hide('date-list-wrap'); return; }
-    var s = STATE.sessions[+idx];
-    generateDates(s.start, s.end);
-  });
-
-  $('manual-btn').addEventListener('click', function () {
-    var start = fromInputDate($('manual-start').value);
-    var end   = fromInputDate($('manual-end').value);
-    if (!start || !end) {
-      $('date-alerts').innerHTML = notice('error', 'Enter both a first and last day.');
-      show('date-list-wrap');
-      return;
-    }
-    STATE.holidays = [];
-    generateDates(start, end);
-  });
-
-  function generateDates(startMs, endMs) {
-    google.script.run
-      .withSuccessHandler(onDates)
-      .withFailureHandler(function (err) {
-        $('date-alerts').innerHTML = notice('error', esc(err.message || err));
-        show('date-list-wrap');
-      })
-      .buildModuleDates7(startMs, endMs, STATE.modules.length, STATE.holidays);
-  }
-
-  function onDates(res) {
-    var html = '';
-
-    if (res.error) {
-      $('date-alerts').innerHTML = notice('error', esc(res.error));
-      show('date-list-wrap');
-      return;
-    }
-
-    if (res.skippedWeeks && res.skippedWeeks.length > 0) {
-      html += notice('info', '<strong>Weeks skipped:</strong> ' +
-        res.skippedWeeks.map(function (w) { return esc(w.name); }).join(', ') +
-        '. Later modules shift accordingly.');
-    }
-
-    if (res.warnings && res.warnings.length > 0) {
-      html += notice('warn', res.warnings.map(esc).join('<br>'));
-    }
-
-    $('date-alerts').innerHTML = html;
-
-    var noteByModule = {};
-    (res.notes || []).forEach(function (n) { noteByModule[n.module] = n.text; });
-
-    $('date-list').innerHTML = res.modules.map(function (md, i) {
-      var m = STATE.modules[i];
-      if (!m) return '';
-
-      // Distinct id prefix from the title list's "modlabel-" so the two sets of
-      // per-module labels cannot collide.
-      var block = '<div class="module-row" role="group" aria-labelledby="datelabel-' + i + '">';
-      block += '<span class="module-label" id="datelabel-' + i + '">' + esc(m.displayLabel) + ' ';
-      if (!m.canWriteDates) {
-        block += '<span class="state-badge locked">already dated &mdash; will not be changed</span>';
-      }
-      block += '</span>';
-
-      var dis  = m.canWriteDates ? '' : ' disabled';
-      var note = noteByModule[i + 1];
-      // These inputs are not disabled when a note is present, so
-      // aria-describedby is reliable here.
-      var desc = note ? ' aria-describedby="note-' + i + '"' : '';
-
-      block += '<div class="date-row">' +
-               '<label class="date-label" for="start-' + i + '">Start</label>' +
-               '<input type="date" class="date-input" id="start-' + i + '"' +
-               ' aria-label="' + esc(m.displayLabel) + ' start date"' + desc + ' value="' +
-               (md.start ? toInputDate(md.start) : '') + '"' + dis + '></div>';
-
-      block += '<div class="date-row">' +
-               '<label class="date-label" for="end-' + i + '">End</label>' +
-               '<input type="date" class="date-input" id="end-' + i + '"' +
-               ' aria-label="' + esc(m.displayLabel) + ' end date"' + desc + ' value="' +
-               (md.end ? toInputDate(md.end) : '') + '"' + dis + '></div>';
-
-      if (note) {
-        block += '<div class="module-note" id="note-' + i + '">' + esc(note) + '</div>';
-      }
-
-      block += '</div>';
-      return block;
+      return '<li class="check-item">' +
+             '<input type="checkbox" id="mod-' + i + '" value="' + esc(mm.num) + '"' +
+             (bits.length ? ' checked' : '') + '>' +
+             '<label for="mod-' + i + '">' + esc(mm.displayLabel) + tail + '</label></li>';
     }).join('');
-
-    STATE.dates = true;
-    show('date-list-wrap');
-    focusEl('date-list');
   }
+
+  // ── 3. Activity picker ─────────────────────────────────────
+  function renderActivityPicker() {
+    if (STATE.devActivities.length === 0) {
+      $('activity-picker').innerHTML =
+        '<li class="check-item"><label>No activity slots were found in the Development tab.</label></li>';
+      return;
+    }
+    $('activity-picker').innerHTML = STATE.devActivities.map(function (title, i) {
+      return '<li class="check-item">' +
+             '<input type="checkbox" id="act-' + i + '" value="' + esc(title) + '" checked>' +
+             '<label for="act-' + i + '">' + esc(title) + '</label></li>';
+    }).join('');
+  }
+
+  // ── 4. Match resolution ────────────────────────────────────
+  // A dropdown for every Course Design Map row the matcher could not place, plus
+  // the ones it placed on its weakest evidence (leading words only) — those are
+  // pre-selected, so confirming is doing nothing. Confident matches are left out
+  // entirely: a dozen of them awaiting confirmation would bury the handful that
+  // actually need a decision.
+  var WEAK_MATCH = 'by leading words';
+
+  function renderMatchList() {
+    var html = '';
+    var n = 0;
+
+    STATE.mapModules.forEach(function (mm) {
+      mm.rows.forEach(function (row) {
+        var weak = row.matchedTitle && row.matchedHow === WEAK_MATCH;
+        if (row.matchedTitle && !weak) return;
+
+        var id = 'match-' + n;
+        var note = weak
+          ? '<span class="match-note">Best guess: &ldquo;' + esc(row.matchedTitle) +
+            '&rdquo; &mdash; matched on the opening words only.</span>'
+          : '<span class="match-note">No activity in this module looks like a match.</span>';
+
+        html += '<div class="match-row">' +
+                '<span class="match-label" id="' + id + '-label">' +
+                esc(mm.displayLabel) + ' &mdash; &ldquo;' + esc(row.label) + '&rdquo;</span>' +
+                note +
+                '<select class="select-input" id="' + id + '" data-key="' + esc(row.key) + '"' +
+                ' aria-labelledby="' + id + '-label">' +
+                '<option value="">Skip this row</option>' +
+                mm.devTitles.map(function (t) {
+                  var sel = (weak && t === row.matchedTitle) ? ' selected' : '';
+                  return '<option value="' + esc(t) + '"' + sel + '>' + esc(t) + '</option>';
+                }).join('') +
+                '</select></div>';
+        n++;
+      });
+    });
+
+    if (n === 0) { hide('match-wrap'); return; }
+    $('match-list').innerHTML = html;
+    show('match-wrap');
+  }
+
+  // ── 5. Already-populated destinations ──────────────────────
+  function renderOccupiedList() {
+    var html = '';
+    var n = 0;
+
+    STATE.mapModules.forEach(function (mm) {
+      if (mm.objectives.available && mm.objectives.occupied) {
+        html += '<li class="check-item">' +
+                '<input type="checkbox" id="occ-' + n + '" data-key="ov||' + esc(mm.num) + '">' +
+                '<label for="occ-' + n + '">' + esc(mm.displayLabel) +
+                ' Module Overview &mdash; already has content</label></li>';
+        n++;
+      }
+      mm.rows.forEach(function (row) {
+        if (!row.occupied) return;
+        html += '<li class="check-item">' +
+                '<input type="checkbox" id="occ-' + n + '" data-key="act||' + esc(mm.num) +
+                '||' + esc(row.label) + '">' +
+                '<label for="occ-' + n + '">' + esc(mm.displayLabel) + ' &mdash; &ldquo;' +
+                esc(row.label) + '&rdquo; &rarr; &ldquo;' + esc(row.matchedTitle) +
+                '&rdquo; already has directions</label></li>';
+        n++;
+      });
+    });
+
+    if (n === 0) { hide('occupied-wrap'); return; }
+    $('occupied-list').innerHTML = html;
+    show('occupied-wrap');
+  }
+
+  // ── Select all / none ──────────────────────────────────────
+  function setAll(selector, on) {
+    Array.prototype.forEach.call(
+      document.querySelectorAll(selector),
+      function (cb) { if (!cb.disabled) cb.checked = on; }
+    );
+  }
+
+  $('mod-all').addEventListener('click',  function () { setAll('#module-picker input[type="checkbox"]', true);  });
+  $('mod-none').addEventListener('click', function () { setAll('#module-picker input[type="checkbox"]', false); });
+  $('act-all').addEventListener('click',  function () { setAll('#activity-picker input[type="checkbox"]', true);  });
+  $('act-none').addEventListener('click', function () { setAll('#activity-picker input[type="checkbox"]', false); });
 
   // ── Run ────────────────────────────────────────────────────
   $('run-btn').addEventListener('click', function () {
@@ -899,17 +820,32 @@
       if (v) titles[m.num] = v;
     });
 
-    var dates = {};
-    var wantDates = document.querySelector('input[name="wantDates"]:checked').value === 'yes';
-    if (wantDates && STATE.dates) {
-      STATE.modules.forEach(function (m, i) {
-        if (!m.canWriteDates) return;
-        var s = $('start-' + i), e = $('end-' + i);
-        if (!s || !e) return;
-        var sm = fromInputDate(s.value), em = fromInputDate(e.value);
-        if (sm && em) dates[m.num] = { start: sm, end: em };
-      });
-    }
+    var modules = [];
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#module-picker input[type="checkbox"]:checked'),
+      function (cb) { modules.push(parseInt(cb.value, 10)); }
+    );
+
+    // Always sent as an explicit list, including when it is empty — the server
+    // reads [] as "none chosen", never as "all", so deselecting everything does
+    // what it says rather than the exact opposite.
+    var activities = [];
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#activity-picker input[type="checkbox"]:checked'),
+      function (cb) { activities.push(cb.value); }
+    );
+
+    var resolutions = {};
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#match-list select'),
+      function (sel) { resolutions[sel.getAttribute('data-key')] = sel.value; }
+    );
+
+    var pasteAnyway = {};
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#occupied-list input[type="checkbox"]:checked'),
+      function (cb) { pasteAnyway[cb.getAttribute('data-key')] = true; }
+    );
 
     hide('main');
     show('running');
@@ -919,8 +855,8 @@
 
     // Writes cost more than reads in Apps Script, and this is the step that
     // modifies the document — so a stall here is the most alarming. If it does
-    // die partway, the headings already written have lost their placeholders,
-    // so a re-run skips them and finishes the rest.
+    // die partway, the destinations already written are no longer empty, so a
+    // re-run skips them and finishes the rest.
     startTimer('running-text', 'Updating the Development tab…');
 
     google.script.run
@@ -938,13 +874,19 @@
         show('done');
         focusEl('done-heading');
       })
-      .applyModuleTitlesAndDates7({ titles: titles, dates: dates });
+      .applyDesignMapToDevTab9({
+        titles:      titles,
+        modules:     modules,
+        activities:  activities,
+        resolutions: resolutions,
+        pasteAnyway: pasteAnyway,
+        highlight:   $('highlight').value === 'yes'
+      });
   });
 
-  // "Run again" re-runs. It used to close the sidebar, which contradicted its
-  // own label. A second pass is genuinely useful: because writes skip anything
-  // already filled in, the normal way to add dates to a Blueprint you titled
-  // earlier is to run the tool twice.
+  // "Run again" re-runs rather than closing the sidebar. A second pass is
+  // genuinely useful: because writes skip anything already filled in, the normal
+  // way to add notes to a Blueprint you titled earlier is to run this twice.
   $('again-btn').addEventListener('click', function () {
     hide('done');
 
@@ -952,27 +894,23 @@
     // so any of it would now be stale.
     $('alerts').innerHTML          = '';
     $('alerts').removeAttribute('role');
-    $('calendar-status').innerHTML = '';
-    $('date-alerts').innerHTML     = '';
-    $('date-list').innerHTML       = '';
     $('modules').innerHTML         = '';
-    $('session').innerHTML         = '';
+    $('module-picker').innerHTML   = '';
+    $('activity-picker').innerHTML = '';
+    $('match-list').innerHTML      = '';
+    $('occupied-list').innerHTML   = '';
     $('summary').textContent       = '';
 
-    hide('date-list-wrap');
-    hide('session-wrap');
-    hide('manual-wrap');
-    hide('dates-panel');
-    document.querySelector('input[name="wantDates"][value="no"]').checked = true;
+    hide('match-wrap');
+    hide('occupied-wrap');
 
-    STATE.modules  = [];
-    STATE.dates    = null;
-    STATE.holidays = [];
-    STATE.sessions = [];
+    STATE.modules       = [];
+    STATE.mapModules    = [];
+    STATE.devActivities = [];
     $('run-btn').disabled = false;
 
     show('loading');
-    loadModules();
+    loadData();
   });
 </script>
 </body>

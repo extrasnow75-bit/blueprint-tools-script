@@ -4,36 +4,36 @@
 // Development tab's H2 headings from the Boise State registrar's
 // academic calendar.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 00:14 MDT
+// Last updated on 2026-09-05 at 00:47 MDT
 // ------------------------------------------------------------
 //
-// Split out of the "Add Module Titles & Module Dates (Beta)" tool
-// (Code7.gs / Sidebar7.html) — see project memory
-// project_blueprint_designmap_dev_tab.md, Phase 2. The Beta tool is left in
-// place for its title half; this is the standalone dates-only replacement.
+// Split out of the "Add Module Titles & Module Dates (Beta)" tool — see project
+// memory project_blueprint_designmap_dev_tab.md, Phase 2. That tool is now
+// retired: its title half moved into "Design Map → Dev Tab" (Code9.gs /
+// Sidebar9.html) and this is its standalone dates-only replacement.
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
 // what creates the H2 headings this tool writes into.
 //
 // Relies on shared helpers defined elsewhere in the same flat GAS namespace —
 // do NOT redefine any of these here:
-//   getDevelopmentTabBody         (Code2.gs)
+//   getDevelopmentTabBody                 (Code2.gs)
 //   classifyHeading7_,
 //   scanDevelopmentHeadings7_,
-//   MODULE_PREFIX_RE_7,
-//   START_PLACEHOLDER_7 (below, but its dateIsPlaceholder consumer,
-//     classifyHeading7_, lives in Code7.gs),
-//   END_PLACEHOLDER_7                     (all Code7.gs)
+//   MODULE_PREFIX_RE_7                    (Code9.gs — they used to live in
+//     Code7.gs and moved with the title half when that file was deleted)
+// The START_PLACEHOLDER_7 / END_PLACEHOLDER_7 constants are defined below, in
+// this file, but their consumer classifyHeading7_ is the Code9.gs one.
 // ============================================================
 
 
 // ── CONSTANTS ────────────────────────────────────────────────
 
 // The two placeholder substrings this tool replaces. Load-bearing contract
-// with the Blueprint template, same as Code7.gs's TITLE_PLACEHOLDER_7: the
+// with the Blueprint template, same as Code9.gs's TITLE_PLACEHOLDER_7: the
 // tool writes a field ONLY where its placeholder is still present, which is
 // what makes "skip and report" work without ever clobbering a designer's own
-// text. classifyHeading7_ (Code7.gs) reads these to compute dateIsPlaceholder.
+// text. classifyHeading7_ (Code9.gs) reads these to compute dateIsPlaceholder.
 var START_PLACEHOLDER_7 = 'start date';
 var END_PLACEHOLDER_7   = 'end date';
 
@@ -68,7 +68,7 @@ function showModuleDatesSidebar8() {
 /**
  * Sidebar-callable. Builds the per-module panel data this tool needs: just the
  * Development tab's numbered module headings and whether each already has
- * dates. Unlike getModuleTitlesSidebarData7 (Code7.gs), this does NOT touch
+ * dates. Unlike getDesignMapSidebarData9 (Code9.gs), this does NOT touch
  * the Design tab — a dates-only tool has no reason to require one, and
  * requiring it would block a course whose Design tab is missing or renamed
  * from adding dates at all.
@@ -762,9 +762,9 @@ function formatModuleDate7(ms) {
  * Sidebar-callable. Writes the generated start/end dates into the Development
  * tab's module headings.
  *
- * Dates-only extract of applyModuleTitlesAndDates7 (Code7.gs) — that function
- * is left intact for the Beta tool's combined titles+dates run; this is the
- * standalone version for the new tool.
+ * Dates-only extract of the retired Beta tool's applyModuleTitlesAndDates7.
+ * Its title half went the other way, into applyDesignMapToDevTab9 (Code9.gs);
+ * this is the standalone dates version.
  *
  * Three outcomes per heading:
  *   - blank placeholder ("start date - end date")  → always filled in. Writes
