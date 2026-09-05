@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-05 at 00:31 MDT -->
+<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-05 at 00:41 MDT -->
 <!-- Dates-only sidebar for the "Specialty Tool: Add Module Dates" tool. Split out of
      Sidebar7.html (the "Add Module Titles & Module Dates (Beta)" tool) — see
      project memory project_blueprint_designmap_dev_tab.md, Phase 2. This is
@@ -64,10 +64,13 @@
     }
 
     /* ── Divider ─────────────────────────────────────────────── */
+    /* #dde1ea at 1px was nearly invisible against the sidebar's own
+       background — this sidebar is long enough that section breaks need to
+       actually read as breaks. */
     .divider {
       border: none;
-      border-top: 1px solid #dde1ea;
-      margin: 14px 0;
+      border-top: 2px solid #aab2c8;
+      margin: 16px 0;
     }
 
     /* ── Notices ─────────────────────────────────────────────── */
@@ -325,6 +328,8 @@
 
     <div id="alerts" role="status" aria-live="polite"></div>
 
+    <hr class="divider">
+
     <h4 id="main-heading" tabindex="-1">Module Dates</h4>
 
     <div id="dates-panel">
@@ -347,12 +352,19 @@
 
       <div id="calendar-status" role="status" aria-live="polite"></div>
 
+      <!-- The divider lives inside each wrap, not between calendar-status and
+           here, so it only appears once one of these actually has something
+           to show — session-wrap and manual-wrap are mutually exclusive, but
+           both start hidden, and a bare <hr> here would show as a stray line
+           before any lookup has run. -->
       <div id="session-wrap" class="hidden">
+        <hr class="divider">
         <label class="field-label" for="session">Session</label>
         <select id="session" class="select-input"></select>
       </div>
 
       <div id="manual-wrap" class="hidden" role="group" aria-labelledby="manual-legend">
+        <hr class="divider">
         <p class="field-label" id="manual-legend">First and last day of the course</p>
         <div class="date-row">
           <label class="date-label" for="manual-start">First day</label>
@@ -376,7 +388,7 @@
              it, redoing dates for a different term means flipping each row by
              hand. -->
         <div id="bulk-mode-wrap" class="hidden">
-          <label class="field-label" for="bulk-mode-select" style="display:inline;">Already-dated modules:</label>
+          <label class="field-label" for="bulk-mode-select" style="display:inline;">Dates already present:</label>
           <select id="bulk-mode-select" class="select-input">
             <option value="">Choose an action&hellip;</option>
             <option value="overwrite">Overwrite all</option>
@@ -754,7 +766,7 @@
       block += '<span class="module-label" id="datelabel-' + i + '">' + esc(m.displayLabel) + ' ';
 
       if (m.hasExistingDates) {
-        block += '<span class="state-badge locked">already dated</span>';
+        block += '<span class="state-badge locked">dates already present</span>';
       } else if (!m.canWriteDates) {
         block += '<span class="state-badge locked">no date placeholder found</span>';
       }
