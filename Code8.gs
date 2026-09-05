@@ -4,7 +4,7 @@
 // Development tab's H2 headings from the Boise State registrar's
 // academic calendar.
 // ------------------------------------------------------------
-// Last updated on 2026-09-04 at 23:18 MDT
+// Last updated on 2026-09-05 at 00:07 MDT
 // ------------------------------------------------------------
 //
 // Split out of the "Add Module Titles & Module Dates (Beta)" tool
@@ -96,10 +96,15 @@ function getModuleDatesSidebarData8() {
     for (var i = 0; i < headings.length; i++) {
       var info = headings[i];
       result.modules.push({
-        num:           info.num,
-        displayLabel:  info.displayLabel,
-        canWriteDates: info.dateIsPlaceholder,
-        currentDates:  info.dateIsPlaceholder ? '' : (info.datePart || '')
+        num:              info.num,
+        displayLabel:     info.displayLabel,
+        canWriteDates:    info.dateIsPlaceholder,
+        // True only when there is a real "(...)" to overwrite — a heading a
+        // designer rewrote by hand with no trailing parenthetical at all
+        // (info.datePart === null) has nowhere to put a date range, no matter
+        // what the user chooses, so it is neither "writable" nor "overwritable".
+        hasExistingDates: info.datePart !== null && !info.dateIsPlaceholder,
+        currentDates:     info.dateIsPlaceholder ? '' : (info.datePart || '')
       });
     }
 
@@ -759,19 +764,36 @@ function formatModuleDate7(ms) {
  *
  * Dates-only extract of applyModuleTitlesAndDates7 (Code7.gs) — that function
  * is left intact for the Beta tool's combined titles+dates run; this is the
- * standalone version for the new tool. Same write strategy: replaces the
- * placeholder substrings rather than calling setText on the paragraph, which
- * keeps the parentheses, hyphen and heading's Arial 17 bold untouched.
+ * standalone version for the new tool.
  *
- * Never overwrites. A heading whose date placeholder is already gone is
- * skipped and reported, so a re-run cannot destroy a designer's own edits.
+ * Three outcomes per heading:
+ *   - blank placeholder ("start date - end date")  → always filled in. Writes
+ *     by replacing the placeholder substrings rather than calling setText on
+ *     the paragraph, which keeps the parentheses, hyphen and heading's Arial
+ *     17 bold untouched.
+ *   - already has a real date range                → filled in ONLY when the
+ *     sidebar marked this module for overwrite (params.overwrite[num] truthy).
+ *     There is no fixed placeholder word left to target here, so the whole
+ *     trailing "(...)" is replaced as a unit instead.
+ *   - no trailing "(...)" at all (a heading rewritten by hand)  → never
+ *     written, regardless of params — there is nowhere to put a date range.
+ *
+ * The user, not this function, decides overwrite vs. preserve per module in
+ * the sidebar; params.overwrite carries that choice. Defaulting to preserve
+ * there (not here) is what keeps a re-run from silently destroying a
+ * designer's own edit unless the user explicitly asks to replace it.
  *
  * @param {Object} params
- *   .dates {Object}  module number → {start: ms, end: ms}
+ *   .dates     {Object}  module number → {start: ms, end: ms}
+ *   .overwrite {Object}  module number → true if an existing date range
+ *                        should be replaced (ignored for blank placeholders,
+ *                        which are always written; ignored for modules with
+ *                        no trailing "(...)" at all, which can never be)
  * @returns {string} plain-text summary for the sidebar
  */
 function applyModuleDates8(params) {
-  var dates = (params && params.dates) || {};
+  var dates     = (params && params.dates)     || {};
+  var overwrite = (params && params.overwrite) || {};
 
   var doc     = DocumentApp.getActiveDocument();
   var devBody = getDevelopmentTabBody(doc);
@@ -780,8 +802,10 @@ function applyModuleDates8(params) {
   var headings = scanDevelopmentHeadings7_(devBody);
   if (headings.length === 0) throw new Error('No numbered module headings found in the Development tab.');
 
-  var datesWritten = 0;
-  var datesSkipped = [];
+  var filledIn    = 0;
+  var overwritten = 0;
+  var preserved   = [];
+  var unsupported = [];
 
   var H2 = DocumentApp.ParagraphHeading.HEADING2;
 
@@ -793,27 +817,50 @@ function applyModuleDates8(params) {
     if (para.getHeading() !== H2) continue;
 
     var moduleDates = dates[info.num];
-    if (!moduleDates || !moduleDates.start || !moduleDates.end) continue;
 
     if (info.dateIsPlaceholder) {
+      if (!moduleDates || !moduleDates.start || !moduleDates.end) continue;
       para.replaceText('\\b' + START_PLACEHOLDER_7 + '\\b', formatModuleDate7(moduleDates.start));
       para.replaceText('\\b' + END_PLACEHOLDER_7   + '\\b', formatModuleDate7(moduleDates.end));
-      datesWritten++;
-    } else {
-      datesSkipped.push(info.displayLabel + ' — already reads "(' + info.datePart + ')"');
+      filledIn++;
+      continue;
     }
+
+    if (info.datePart === null) {
+      unsupported.push(info.displayLabel);
+      continue;
+    }
+
+    if (!overwrite[info.num] || !moduleDates || !moduleDates.start || !moduleDates.end) {
+      preserved.push(info.displayLabel + ' — kept "(' + info.datePart + ')"');
+      continue;
+    }
+
+    var newRange = formatModuleDate7(moduleDates.start) + ' - ' + formatModuleDate7(moduleDates.end);
+    // Replaces the trailing "(...)" as a whole, whatever it currently holds —
+    // unlike the placeholder branch above, there is no fixed word ("start
+    // date") to target once a real date range is already sitting there.
+    para.replaceText('\\([^()]*\\)\\s*$', '(' + newRange + ')');
+    overwritten++;
   }
 
-  Logger.log('applyModuleDates8: %s date range(s) written; %s skipped.',
-             datesWritten, datesSkipped.length);
+  Logger.log('applyModuleDates8: %s filled in, %s overwritten, %s preserved, %s unsupported.',
+             filledIn, overwritten, preserved.length, unsupported.length);
 
   var lines = ['✅ Development tab updated.', ''];
-  lines.push('Date ranges written: ' + datesWritten);
+  lines.push('Newly filled in: ' + filledIn);
+  lines.push('Overwritten with new dates: ' + overwritten);
 
-  if (datesSkipped.length > 0) {
-    lines.push('', 'Dates left alone (' + datesSkipped.length + ') — these headings already ' +
-                   'have dates, so nothing was overwritten:');
-    for (var d = 0; d < datesSkipped.length; d++) lines.push('  • ' + datesSkipped[d]);
+  if (preserved.length > 0) {
+    lines.push('', 'Kept as-is (' + preserved.length + ') — you chose to preserve these:');
+    for (var p = 0; p < preserved.length; p++) lines.push('  • ' + preserved[p]);
+  }
+
+  if (unsupported.length > 0) {
+    lines.push('', 'No date placeholder found (' + unsupported.length + ') — dates cannot be ' +
+                   'added to these headings by this tool, since they have no trailing ' +
+                   '"(...)" left to put a date range into:');
+    for (var u = 0; u < unsupported.length; u++) lines.push('  • ' + unsupported[u]);
   }
 
   return lines.join('\n');

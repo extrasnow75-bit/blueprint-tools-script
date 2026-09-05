@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-04 at 23:18 MDT -->
+<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-05 at 00:07 MDT -->
 <!-- Dates-only sidebar for the new "Add Module Dates" tool. Split out of
      Sidebar7.html (the "Add Module Titles & Module Dates (Beta)" tool) — see
      project memory project_blueprint_designmap_dev_tab.md, Phase 2. This is
@@ -59,6 +59,10 @@
       color: #333;
     }
 
+    #bulk-mode-wrap {
+      margin-bottom: 12px;
+    }
+
     /* ── Divider ─────────────────────────────────────────────── */
     .divider {
       border: none;
@@ -107,6 +111,38 @@
     }
 
     .state-badge.locked { color: #8a1c12; }
+
+    /* ── Preserve / overwrite ───────────────────────────────── */
+    .mode-row {
+      margin: 4px 0 2px;
+    }
+
+    .radio-option {
+      display: block;
+      font-weight: normal;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 4px;
+      cursor: pointer;
+    }
+
+    .radio-option input[type="radio"] { margin-right: 6px; }
+
+    .mini-btn {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #555;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .mini-btn:hover { background: #333; }
 
     /* Visually hidden but read aloud. The semester/year pair are labelled only
        by position, and a visible label for each would crowd a 320px sidebar. */
@@ -342,6 +378,27 @@
       <div id="date-list-wrap" class="hidden">
         <hr class="divider">
         <div id="date-alerts" role="status" aria-live="polite"></div>
+
+        <!-- Only shown when at least one module already has a real date range.
+             A one-click way to set every such module's radio at once — without
+             it, redoing dates for a different term means flipping each row by
+             hand. -->
+        <div id="bulk-mode-wrap" class="hidden">
+          <span class="field-label" style="display:inline;">Already-dated modules:</span>
+          <button id="overwrite-all-btn" class="mini-btn" type="button">Overwrite all</button>
+          <button id="preserve-all-btn" class="mini-btn" type="button">Preserve all</button>
+        </div>
+
+        <!-- Shown whenever nothing in the current selection would actually be
+             written — every already-dated module is set to Preserve and there
+             are no blank ones left to fill in. Recomputed after every mode
+             change, not just the bulk buttons, so it stays accurate if the
+             user then flips one row back by hand. -->
+        <div id="nothing-to-write" class="notice info hidden">
+          Every module will keep its current dates &mdash; there is nothing new to write.
+          You can close this sidebar now, or click Run Script anyway for a summary.
+        </div>
+
         <!-- Deliberately not a live region: injecting a dozen modules' worth of
              date inputs would flood the buffer. #date-alerts carries the
              summary and focus moves here instead. -->
@@ -526,13 +583,26 @@
 
     STATE.modules = data.modules;
 
-    var locked = data.modules.filter(function (m) { return !m.canWriteDates; });
-    if (locked.length > 0) {
-      $('alerts').innerHTML = notice('info',
-        '<strong>' + locked.length + ' heading(s) already have dates.</strong> ' +
-        'They will be listed below once you generate dates, but will not be ' +
-        'overwritten &mdash; edit them in the document directly if they need to change.');
+    var alerts = '';
+
+    var alreadyDated = data.modules.filter(function (m) { return m.hasExistingDates; });
+    if (alreadyDated.length > 0) {
+      alerts += notice('info',
+        '<strong>' + alreadyDated.length + ' heading(s) already have dates.</strong> ' +
+        'Once you generate dates below, you can choose to preserve or overwrite each one ' +
+        'individually &mdash; preserve is selected by default, so nothing changes unless ' +
+        'you say so.');
     }
+
+    var unsupported = data.modules.filter(function (m) { return !m.canWriteDates && !m.hasExistingDates; });
+    if (unsupported.length > 0) {
+      alerts += notice('warn',
+        '<strong>' + unsupported.length + ' heading(s) have no date placeholder at all</strong> ' +
+        '&mdash; the heading was rewritten by hand with nothing in parentheses at the end. ' +
+        'Dates cannot be added to these by this tool.');
+    }
+
+    $('alerts').innerHTML = alerts;
   }
 
   // ── Calendar lookup ────────────────────────────────────────
@@ -678,17 +748,42 @@
     var noteByModule = {};
     (res.notes || []).forEach(function (n) { noteByModule[n.module] = n.text; });
 
+    var anyExisting = STATE.modules.some(function (m) { return m.hasExistingDates; });
+    if (anyExisting) show('bulk-mode-wrap'); else hide('bulk-mode-wrap');
+
     $('date-list').innerHTML = res.modules.map(function (md, i) {
       var m = STATE.modules[i];
       if (!m) return '';
 
       var block = '<div class="module-row" role="group" aria-labelledby="datelabel-' + i + '">';
       block += '<span class="module-label" id="datelabel-' + i + '">' + esc(m.displayLabel) + ' ';
-      if (!m.canWriteDates) {
-        block += '<span class="state-badge locked">already dated &mdash; will not be changed</span>';
+
+      if (m.hasExistingDates) {
+        block += '<span class="state-badge locked">already dated</span>';
+      } else if (!m.canWriteDates) {
+        block += '<span class="state-badge locked">no date placeholder found</span>';
       }
       block += '</span>';
 
+      // Preserve is checked by default — a re-run can only overwrite an
+      // existing date range when the user explicitly says so here.
+      if (m.hasExistingDates) {
+        block += '<div class="mode-row" role="radiogroup" aria-label="' +
+                 esc(m.displayLabel) + ' — preserve or overwrite existing dates">' +
+                 '<label class="radio-option"><input type="radio" name="mode-' + i +
+                 '" value="preserve" data-row="' + i + '" checked> Preserve existing dates</label>' +
+                 '<label class="radio-option"><input type="radio" name="mode-' + i +
+                 '" value="overwrite" data-row="' + i + '"> Overwrite with new dates</label>' +
+                 '</div>';
+        if (m.currentDates) {
+          block += '<div class="module-note">Currently: (' + esc(m.currentDates) + ')</div>';
+        }
+      }
+
+      // Editable when the module is blank (always written) or the user has
+      // just chosen to overwrite it above. A module with no date placeholder
+      // at all stays disabled no matter what — there is nowhere in the
+      // heading to put a date range.
       var dis  = m.canWriteDates ? '' : ' disabled';
       var note = noteByModule[i + 1];
       // These inputs are not disabled when a note is present, so
@@ -715,23 +810,88 @@
       return block;
     }).join('');
 
+    // Toggling a mode radio enables/disables that same module's date inputs —
+    // Overwrite makes them editable, Preserve locks them back to a read-only
+    // preview of what would be written if the user changes their mind.
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.mode-row input[type="radio"]'),
+      function (radio) {
+        radio.addEventListener('change', function () {
+          var row = radio.getAttribute('data-row');
+          var wantsOverwrite = radio.value === 'overwrite' && radio.checked;
+          var s = $('start-' + row), e = $('end-' + row);
+          if (s) s.disabled = !wantsOverwrite;
+          if (e) e.disabled = !wantsOverwrite;
+          updateNothingToWriteNotice();
+        });
+      }
+    );
+
     STATE.dates = true;
     $('run-btn').disabled = false;
     show('date-list-wrap');
+    updateNothingToWriteNotice();
     focusEl('date-list');
+  }
+
+  // ── Bulk preserve/overwrite ──────────────────────────────────
+  function setAllModes(mode) {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.mode-row input[value="' + mode + '"]'),
+      function (radio) {
+        radio.checked = true;
+        // Reuses each row's own change listener (enable/disable inputs, then
+        // recheck whether there is anything left to write) instead of
+        // duplicating that logic here.
+        radio.dispatchEvent(new Event('change'));
+      }
+    );
+  }
+
+  $('overwrite-all-btn').addEventListener('click', function () { setAllModes('overwrite'); });
+  $('preserve-all-btn').addEventListener('click', function () { setAllModes('preserve'); });
+
+  // Shown whenever the current selection would write nothing at all — every
+  // already-dated module is set to Preserve and there are no blank ones left
+  // to fill in. Recomputed after every mode change, not just the bulk
+  // buttons, so it also catches the "everything was already dated" case that
+  // is true by default before the user touches anything.
+  function updateNothingToWriteNotice() {
+    var anythingToWrite = STATE.modules.some(function (m, i) {
+      if (m.canWriteDates) return true;
+      if (!m.hasExistingDates) return false;
+      var radio = document.querySelector('input[name="mode-' + i + '"]:checked');
+      return !!radio && radio.value === 'overwrite';
+    });
+
+    if (anythingToWrite) hide('nothing-to-write'); else show('nothing-to-write');
   }
 
   // ── Run ────────────────────────────────────────────────────
   $('run-btn').addEventListener('click', function () {
     if (!STATE.dates) return;
 
-    var dates = {};
+    var dates     = {};
+    var overwrite = {};
     STATE.modules.forEach(function (m, i) {
-      if (!m.canWriteDates) return;
       var s = $('start-' + i), e = $('end-' + i);
       if (!s || !e) return;
       var sm = fromInputDate(s.value), em = fromInputDate(e.value);
-      if (sm && em) dates[m.num] = { start: sm, end: em };
+      if (!sm || !em) return;
+
+      if (m.canWriteDates) {
+        dates[m.num] = { start: sm, end: em };
+      } else if (m.hasExistingDates) {
+        var radio = document.querySelector('input[name="mode-' + i + '"]:checked');
+        if (radio && radio.value === 'overwrite') {
+          dates[m.num]     = { start: sm, end: em };
+          overwrite[m.num] = true;
+        }
+        // Preserve chosen (or nothing generated) — leave this module out of
+        // both maps entirely; the server treats an absent entry as "keep it".
+      }
+      // A module with no date placeholder at all is never included — its
+      // inputs stay disabled and there is nowhere to write a date anyway.
     });
 
     hide('main');
@@ -761,7 +921,7 @@
         show('done');
         focusEl('done-heading');
       })
-      .applyModuleDates8({ dates: dates });
+      .applyModuleDates8({ dates: dates, overwrite: overwrite });
   });
 
   // "Run again" re-runs. A second pass is genuinely useful: because writes
@@ -783,6 +943,8 @@
     hide('date-list-wrap');
     hide('session-wrap');
     hide('manual-wrap');
+    hide('bulk-mode-wrap');
+    hide('nothing-to-write');
 
     STATE.modules  = [];
     STATE.dates    = null;
