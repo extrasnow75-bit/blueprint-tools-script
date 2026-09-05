@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-05 at 00:14 MDT -->
+<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-05 at 00:31 MDT -->
 <!-- Dates-only sidebar for the "Specialty Tool: Add Module Dates" tool. Split out of
      Sidebar7.html (the "Add Module Titles & Module Dates (Beta)" tool) — see
      project memory project_blueprint_designmap_dev_tab.md, Phase 2. This is
@@ -128,21 +128,13 @@
 
     .radio-option input[type="radio"] { margin-right: 6px; }
 
-    .mini-btn {
+    #bulk-mode-select {
       display: inline-block;
-      padding: 4px 10px;
-      background: #555;
-      color: #fff;
-      font-family: Arial, sans-serif;
+      width: auto;
+      margin: 0 0 0 6px;
+      padding: 4px 6px;
       font-size: 11px;
-      font-weight: bold;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-left: 6px;
     }
-
-    .mini-btn:hover { background: #333; }
 
     /* Visually hidden but read aloud. The semester/year pair are labelled only
        by position, and a visible label for each would crowd a 320px sidebar. */
@@ -384,15 +376,18 @@
              it, redoing dates for a different term means flipping each row by
              hand. -->
         <div id="bulk-mode-wrap" class="hidden">
-          <span class="field-label" style="display:inline;">Already-dated modules:</span>
-          <button id="overwrite-all-btn" class="mini-btn" type="button">Overwrite all</button>
-          <button id="preserve-all-btn" class="mini-btn" type="button">Preserve all</button>
+          <label class="field-label" for="bulk-mode-select" style="display:inline;">Already-dated modules:</label>
+          <select id="bulk-mode-select" class="select-input">
+            <option value="">Choose an action&hellip;</option>
+            <option value="overwrite">Overwrite all</option>
+            <option value="preserve">Preserve all</option>
+          </select>
         </div>
 
         <!-- Shown whenever nothing in the current selection would actually be
              written — every already-dated module is set to Preserve and there
              are no blank ones left to fill in. Recomputed after every mode
-             change, not just the bulk buttons, so it stays accurate if the
+             change, not just the bulk dropdown, so it stays accurate if the
              user then flips one row back by hand. -->
         <div id="nothing-to-write" class="notice info hidden">
           Every module will keep its current dates &mdash; there is nothing new to write.
@@ -848,8 +843,15 @@
     );
   }
 
-  $('overwrite-all-btn').addEventListener('click', function () { setAllModes('overwrite'); });
-  $('preserve-all-btn').addEventListener('click', function () { setAllModes('preserve'); });
+  // Resets to the placeholder option after firing — this is a one-shot action
+  // on the per-module radios, not a persistent choice of its own, and leaving
+  // "Overwrite all" selected would misrepresent the state once the user flips
+  // one row back by hand.
+  $('bulk-mode-select').addEventListener('change', function () {
+    var mode = this.value;
+    if (mode) setAllModes(mode);
+    this.value = '';
+  });
 
   // Shown whenever the current selection would write nothing at all — every
   // already-dated module is set to Preserve and there are no blank ones left
