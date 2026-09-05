@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-04 at 09:44 MDT
+ * Last updated on 2026-09-04 at 22:55 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -12,6 +12,20 @@ const GREY_CHIP = '#e8eaed'; // the OLD Canvas-tool highlight. No longer applied
                              // kept only so _clearGreyChip can recognise and
                              // remove it from Blueprints built before the marker.
 const FONT      = 'Arial';
+// ── SPACING (measured from the Blueprint template, 2026-09-04) ────
+// The template builds its white space out of paragraph SPACING, not out of
+// blank paragraphs: every one of its 14 due-by headers has a NON-blank
+// paragraph immediately above it, and the room comes from a 20pt space-before.
+// Headers this tool inserted carried no spacing at all, which is why they read
+// as crowded no matter how many empty paragraphs sat nearby. Docs stores these
+// as twips (20 per point); these are the template's own values converted to
+// the points DocumentApp expects.
+const DUE_SPACE_BEFORE         = 20;    // above a "Due by ..." header
+const DUE_SPACE_AFTER          = 1;     // below it
+const TITLE_SPACE_BEFORE       = 35;    // above an activity title ...
+const TITLE_SPACE_AFTER_HEADER = 15;    // ... unless it sits under a due header
+const LINE_SPACE_AFTER         = 3;     // "Estimated time:" and the tool line
+const RIGHT_INDENT             = 10.5;  // due headers and the directions line
 // A due-by marker line, in either of the two shapes a Blueprint can hold: the
 // template's placeholder, whose day sits in a dropdown chip and so reads as
 // empty ("Due by  at 11:59 p.m. Mountain Time"), and a header this tool inserted,
@@ -137,7 +151,6 @@ function processBlueprint(params) {
                        headers: 0, headersRemoved: 0 };
   const numModules = requested;
   const existing   = countExistingModules(devTab.body);
-  const indent     = getTemplateIndent(devTab.body);
   for (let m = existing; m > numModules; m--) {
     deleteModule(devTab.body, m);
     stats.deleted++;
@@ -145,11 +158,11 @@ function processBlueprint(params) {
   const afterMod  = Math.min(existing, numModules);
   let   insertIdx = findModuleInsertionPoint(devTab.body, afterMod);
   for (let m = afterMod + 1; m <= numModules; m++) {
-    insertIdx = createModule(devTab.body, m, params, indent, insertIdx, activities);
+    insertIdx = createModule(devTab.body, m, params, insertIdx, activities);
     stats.created++;
   }
   for (let m = 1; m <= numModules; m++) {
-    processModule(devTab.body, m, activities, params, indent, stats);
+    processModule(devTab.body, m, activities, params, stats);
   }
   // Add blue top/bottom borders to every due-by header in the Development tab.
   // Paragraph borders are single-valued style attributes, so re-applying the
@@ -349,14 +362,25 @@ function findModuleInsertionPoint(body, afterModNum) {
   }
   return -1;
 }
-// ── GET TEMPLATE INDENT ───────────────────────────────────────────
-function getTemplateIndent(body) {
-  const slots = getSlotsInModule(body, 1);
-  if (slots.length === 0) return 36;
-  return slots[0].para.getIndentStart() || 36;
+// ── INDENTATION ───────────────────────────────────────────────────
+// There is deliberately no getTemplateIndent(). It read module 1's first slot
+// and fell back to 36pt, but `getIndentStart() || 36` treats a legitimate ZERO
+// indent as "unset" - and zero is exactly what the current template specifies
+// (every H4 in it carries an explicit left=0, firstLine=0). So a correctly
+// formatted Blueprint was pushed to a half-inch indent, which showed from
+// Module 8 on because the template ships 7 modules and everything past them is
+// built by createModule.
+//
+// Every line this tool writes is now zeroed EXPLICITLY rather than left alone:
+// omitting the call would preserve the legacy indent in Blueprints built on the
+// older template, where the indent is real and no longer wanted.
+function zeroIndent_(para) {
+  para.setIndentStart(0);
+  para.setIndentFirstLine(0);
+  return para;
 }
 // ── CREATE MODULE ─────────────────────────────────────────────────
-function createModule(body, modNum, params, indent, insertIdx, activities) {
+function createModule(body, modNum, params, insertIdx, activities) {
   const H2     = DocumentApp.ParagraphHeading.HEADING2;
   const H3     = DocumentApp.ParagraphHeading.HEADING3;
   const H4     = DocumentApp.ParagraphHeading.HEADING4;
@@ -368,10 +392,14 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
   // Module heading — H2, bold
   const hPara = add(`Module ${modNum}: Title (start date - end date)`);
   hPara.setHeading(H2);
+  hPara.setSpacingBefore(0);
+  hPara.setSpacingAfter(0);
   _fmt(hPara.editAsText(), { font: FONT, bold: true });
   // Module overview — H3, NOT bold, Arial 15pt, black
   const ovPara = add(`Module ${modNum} Overview`);
   ovPara.setHeading(H3);
+  ovPara.setSpacingBefore(3);
+  ovPara.setSpacingAfter(1);
   _fmt(ovPara.editAsText(), { font: FONT, size: 15, bold: false, color: BLACK });
   // Refer-to note — Normal text, Arial 11pt, black, not italic
   const refPara = add('[Refer to the Template Blueprint Customization by Program document to populate this section.]');
@@ -383,22 +411,26 @@ function createModule(body, modNum, params, indent, insertIdx, activities) {
     // Activity title — H4, Arial 15pt, black, NOT bold, NOT italic
     const aPara = add(`${prefix}Activity Title`);
     aPara.setHeading(H4);
-    aPara.setIndentStart(indent);
+    zeroIndent_(aPara);
+    aPara.setSpacingBefore(TITLE_SPACE_BEFORE);
     _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
     // Estimated time
     const ePara = add('Estimated time:');
     ePara.setHeading(NORMAL);
-    ePara.setIndentStart(indent);
+    zeroIndent_(ePara);
+    ePara.setSpacingAfter(LINE_SPACE_AFTER);
     _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
     // Select Tool ⏺ Link to settings tab
     const tPara = add(TOOL_PLACEHOLDER + TOOL_SUFFIX);
     tPara.setHeading(NORMAL);
-    tPara.setIndentStart(indent);
+    zeroIndent_(tPara);
+    tPara.setSpacingAfter(LINE_SPACE_AFTER);
     _fmtToolLine(tPara);
     // Directions
     const dPara = add('Directions go here\u2026');
     dPara.setHeading(NORMAL);
-    dPara.setIndentStart(indent);
+    zeroIndent_(dPara);
+    dPara.setIndentEnd(RIGHT_INDENT);
     _fmt(dPara.editAsText(), { font: FONT, size: 11 });
   }
   // Spacer between modules
@@ -424,12 +456,12 @@ function deleteModule(body, modNum) {
   }
 }
 // ── PROCESS ONE MODULE ────────────────────────────────────────────
-function processModule(body, modNum, activities, params, indent, stats) {
+function processModule(body, modNum, activities, params, stats) {
   const slots     = getSlotsInModule(body, modNum);
   const slotParas = [];
   for (const { slotNum, para } of slots) {
     if (slotNum <= activities.length) {
-      fillSlot(body, para, modNum, slotNum, activities[slotNum - 1], params, indent, stats);
+      fillSlot(body, para, modNum, slotNum, activities[slotNum - 1], params, stats);
       slotParas.push(para);
     } else {
       removeSlot(body, para);
@@ -439,7 +471,7 @@ function processModule(body, modNum, activities, params, indent, stats) {
   if (activities.length > slots.length) {
     let idx = getIndexAfterSlots(body, modNum, slots);
     for (let s = slots.length + 1; s <= activities.length; s++) {
-      const result = insertActivitySlot(body, modNum, s, activities[s - 1], params, indent, idx, stats);
+      const result = insertActivitySlot(body, modNum, s, activities[s - 1], params, idx, stats);
       idx = result.idx;
       slotParas.push(result.h4Para);
     }
@@ -489,7 +521,7 @@ function getIndexAfterSlots(body, modNum, slots) {
   return lastIdx + 1;
 }
 // ── INSERT A NEW ACTIVITY SLOT AT INDEX ───────────────────────────
-function insertActivitySlot(body, modNum, slotNum, activity, params, indent, insertIdx, stats) {
+function insertActivitySlot(body, modNum, slotNum, activity, params, insertIdx, stats) {
   const H4     = DocumentApp.ParagraphHeading.HEADING4;
   const NORMAL = DocumentApp.ParagraphHeading.NORMAL;
   let idx = insertIdx;
@@ -499,21 +531,25 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, indent, ins
   const prefix = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
   const aPara  = ins(prefix + title);
   aPara.setHeading(H4);
-  aPara.setIndentStart(indent);
+  zeroIndent_(aPara);
+  aPara.setSpacingBefore(TITLE_SPACE_BEFORE);
   _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
   stats.filled++;
   const estText = (!params.timeEstimates && activity.time) ? 'Estimated time: ' + activity.time : 'Estimated time:';
   const ePara = ins(estText);
   ePara.setHeading(NORMAL);
-  ePara.setIndentStart(indent);
+  zeroIndent_(ePara);
+  ePara.setSpacingAfter(LINE_SPACE_AFTER);
   _fmt(ePara.editAsText(), { font: FONT, size: 11, italic: true });
   const tPara = ins(TOOL_PLACEHOLDER + TOOL_SUFFIX);
   tPara.setHeading(NORMAL);
-  tPara.setIndentStart(indent);
+  zeroIndent_(tPara);
+  tPara.setSpacingAfter(LINE_SPACE_AFTER);
   _fmtToolLine(tPara);
   const dPara = ins('Directions go here…');
   dPara.setHeading(NORMAL);
-  dPara.setIndentStart(indent);
+  zeroIndent_(dPara);
+  dPara.setIndentEnd(RIGHT_INDENT);
   _fmt(dPara.editAsText(), { font: FONT, size: 11 });
   if (activity.tool && setNearbyTool(body, aPara, activity.tool)) stats.tools++;
   return { idx, h4Para: aPara };
@@ -540,13 +576,18 @@ function getSlotsInModule(body, modNum) {
   return slots;
 }
 // ── FILL ONE SLOT ─────────────────────────────────────────────────
-function fillSlot(body, headingPara, modNum, slotNum, activity, params, indent, stats) {
+function fillSlot(body, headingPara, modNum, slotNum, activity, params, stats) {
   let title = activity.name;
   if (params.timeEstimates && activity.time) title += ` (${activity.time})`;
   const prefix   = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
   const fullText = prefix + title;
   headingPara.setText(fullText);
-  headingPara.setIndentStart(indent);
+  zeroIndent_(headingPara);
+  // Normalize to the between-activities value. placeDueHeaders drops this to
+  // TITLE_SPACE_AFTER_HEADER on whichever titles end up under a due header, and
+  // it runs after every slot is filled - so a title that STOPS being the first
+  // one under a header on a later run is corrected back to 35pt here.
+  headingPara.setSpacingBefore(TITLE_SPACE_BEFORE);
   _fmt(headingPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
   stats.filled++;
   if (activity.tool && setNearbyTool(body, headingPara, activity.tool)) stats.tools++;
@@ -834,6 +875,21 @@ function placeDueHeaders(body, slotParas, activities, params, stats) {
     const headerText = `Due by ${day} at 11:59 p.m. Mountain Time`;
     const headerPara = body.insertParagraph(childIdx, `${headerText} ${canvasText}`);
     headerPara.setHeading(H3);
+    // A paragraph made by insertParagraph carries the document's DEFAULT
+    // spacing, not the template header's, and setHeading does not supply it
+    // either - so without these three lines the blue rules sit hard against the
+    // text above and below them. This is what made inserted headers look
+    // crowded next to the template's own.
+    headerPara.setSpacingBefore(DUE_SPACE_BEFORE);
+    headerPara.setSpacingAfter(DUE_SPACE_AFTER);
+    headerPara.setIndentEnd(RIGHT_INDENT);
+    zeroIndent_(headerPara);
+    // The template gives a title sitting directly under a due header 15pt of
+    // space rather than the usual 35, because the header's own 20pt has already
+    // separated it from the activity above. This is the only point in the run
+    // that knows which title that is, and it happens after fillSlot has
+    // normalized every title to 35.
+    targetPara.setSpacingBefore(TITLE_SPACE_AFTER_HEADER);
     const headerTxt = headerPara.editAsText();
     _fmt(headerTxt, { font: FONT, size: 15, bold: true, italic: false, color: DEEP_BLUE });
     // Re-style just the annotation run (header + the separating space).
@@ -859,8 +915,10 @@ function placeDueHeaders(body, slotParas, activities, params, stats) {
 // a harmless no-op — no stacking, no visible change. That lets us skip any
 // new-vs-existing tracking and simply normalize them all to the same look.
 //
-// Border spec (sampled from the template): #0000E7, 1.5 pt, 2 pt padding,
-// solid, top + bottom.
+// Border spec, measured from the template's .docx export (2026-09-04):
+// #0000FF, 1.5 pt, 2 pt padding, solid, top + bottom. This was #0000E7 for a
+// while - close enough to pass on its own, visibly off beside a template
+// header that the tool had not touched.
 function applyDueHeaderBorders(doc, devTabTitle) {
   // Persist the DocumentApp inserts so the Docs API sees the new headers.
   const docId = doc.getId();
@@ -906,7 +964,7 @@ function borderDueHeaders_(docId, devTabTitle) {
   const content = (tab.documentTab && tab.documentTab.body && tab.documentTab.body.content) || [];
 
   const BLUE = {
-    color:     { color: { rgbColor: { red: 0, green: 0, blue: 0.90588 } } },
+    color:     { color: { rgbColor: { red: 0, green: 0, blue: 1 } } },
     width:     { magnitude: 1.5, unit: 'PT' },
     padding:   { magnitude: 2,   unit: 'PT' },
     dashStyle: 'SOLID'
