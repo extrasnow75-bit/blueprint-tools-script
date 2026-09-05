@@ -796,8 +796,8 @@ function applyModuleDates8(params) {
     if (!moduleDates || !moduleDates.start || !moduleDates.end) continue;
 
     if (info.dateIsPlaceholder) {
-      para.replaceText('\b' + START_PLACEHOLDER_7 + '\b', formatModuleDate7(moduleDates.start));
-      para.replaceText('\b' + END_PLACEHOLDER_7   + '\b', formatModuleDate7(moduleDates.end));
+      para.replaceText('\\b' + START_PLACEHOLDER_7 + '\\b', formatModuleDate7(moduleDates.start));
+      para.replaceText('\\b' + END_PLACEHOLDER_7   + '\\b', formatModuleDate7(moduleDates.end));
       datesWritten++;
     } else {
       datesSkipped.push(info.displayLabel + ' — already reads "(' + info.datePart + ')"');
