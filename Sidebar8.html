@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-04 at 23:18 MDT -->
+<!-- Dates-only sidebar for the new "Add Module Dates" tool. Split out of
+     Sidebar7.html (the "Add Module Titles & Module Dates (Beta)" tool) — see
+     project memory project_blueprint_designmap_dev_tab.md, Phase 2. This is
+     the "dates-panel" half of Sidebar7.html, restructured as its own
+     standalone flow (no title UI, no Yes/No "add dates" choice — this whole
+     tool IS the dates choice). Styling and interaction patterns are copied
+     from Sidebar7.html so the two tools feel identical to a user. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    /* ── Base ──────────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #333;
+      padding: 14px 16px 24px;
+      line-height: 1.5;
+    }
+
+    /* ── Headings ───────────────────────────────────────────── */
+    h3 {
+      color: #0033a0;
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .intro {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 12px;
+    }
+
+    .section-hint {
+      font-style: italic;
+      font-size: 12px;
+      color: #555;
+      margin: -4px 0 10px;
+    }
+
+    /* ── Field labels ───────────────────────────────────────── */
+    .field-label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    /* ── Divider ─────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid #dde1ea;
+      margin: 14px 0;
+    }
+
+    /* ── Notices ─────────────────────────────────────────────── */
+    .notice {
+      font-size: 12px;
+      border-radius: 3px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+    }
+
+    .notice.warn  { background: #fff4e5; border: 1px solid #e0b070; color: #6b4400; }
+    .notice.error { background: #fdecea; border: 1px solid #e0a0a0; color: #8a1c12; }
+    .notice.info  { background: #eef2fb; border: 1px solid #b8c6e8; color: #1c3566; }
+
+    .notice ul { margin: 4px 0 0 16px; }
+    .notice li { margin-bottom: 2px; }
+
+    /* ── Module rows ─────────────────────────────────────────── */
+    .module-row {
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eef0f4;
+    }
+
+    .module-row:last-child { border-bottom: none; }
+
+    .module-label {
+      display: block;
+      font-weight: bold;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .state-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: normal;
+      color: #555;
+      margin-left: 5px;
+    }
+
+    .state-badge.locked { color: #8a1c12; }
+
+    /* Visually hidden but read aloud. The semester/year pair are labelled only
+       by position, and a visible label for each would crowd a 320px sidebar. */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .text-input {
+      width: 100%;
+      padding: 5px 7px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #767676;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+      margin-top: 3px;
+    }
+
+    .text-input:focus,
+    .select-input:focus,
+    .date-input:focus {
+      /* Transparent, not none — Windows High Contrast drops box-shadow and
+         overrides border-color, so `none` left no focus indicator at all. */
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+      border-color: #0033a0;
+      box-shadow: 0 0 0 2px rgba(0,51,160,.35);
+      color: #333;
+    }
+
+    .select-input {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #767676;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    /* ── Dates ───────────────────────────────────────────────── */
+    .year-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .year-row .select-input { margin-bottom: 0; }
+    .year-row input { width: 90px; }
+
+    .date-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .date-row .date-label {
+      width: 76px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .date-input {
+      flex: 1;
+      padding: 4px 6px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      border: 1px solid #767676;
+      border-radius: 3px;
+      color: #333;
+      background: #fff;
+    }
+
+    .module-note {
+      font-size: 11px;
+      color: #6b4400;
+      margin: 2px 0 6px 82px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn-row { margin-top: 16px; }
+
+    .run-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #0033a0;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .run-btn:hover    { background: #002080; }
+    /* Disabled buttons are exempt from contrast rules, but this one signals a
+       real terminal state — a fatal load error disables Run — so it has to be
+       readable. #8899cc gave 2.81:1 against white; this gives 5.01:1. */
+    .run-btn:disabled { background: #5a6da8; cursor: default; }
+
+    .again-btn {
+      display: inline-block;
+      padding: 8px 18px;
+      background: #555;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .again-btn:hover { background: #333; }
+
+    /* ── Spinner ─────────────────────────────────────────────── */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid #ccc;
+      border-top-color: #0033a0;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; }
+    }
+
+    .spinner-text { font-size: 12px; color: #333; }
+
+    /* ── Summary ─────────────────────────────────────────────── */
+    .summary {
+      white-space: pre-wrap;
+      font-size: 12px;
+      color: #333;
+      background: #f5f7fb;
+      border: 1px solid #dde1ea;
+      border-radius: 3px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <h3>Add Module Dates</h3>
+
+  <!-- ── LOADING ─────────────────────────────────────────── -->
+  <!-- The ticking node is aria-hidden and a static line is announced instead.
+       startTimer rewrites its text every second; inside a live region that
+       would re-read the whole string once per second, indefinitely. -->
+  <div id="loading" class="spinner-wrap" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <span class="sr-only">Reading the Development tab, please wait&hellip;</span>
+    <div class="spinner-text" id="loading-text" aria-hidden="true">Reading the Development tab&hellip;</div>
+  </div>
+
+  <!-- ── MAIN FORM ───────────────────────────────────────── -->
+  <div id="main" class="hidden">
+
+    <p class="intro">
+      Fills in each module heading&rsquo;s start and end dates from the Boise
+      State registrar&rsquo;s academic calendar. Run this after &ldquo;Add
+      Activity Titles, Tools, Due Date Headers, &amp; Times&rdquo;.
+    </p>
+
+    <div id="alerts" role="status" aria-live="polite"></div>
+
+    <h4 id="main-heading" tabindex="-1">Module Dates</h4>
+
+    <div id="dates-panel">
+      <p class="section-hint">Select semester and year.</p>
+      <div class="year-row">
+        <label class="sr-only" for="semester">Semester</label>
+        <select id="semester" class="select-input">
+          <option value="fall">Fall</option>
+          <option value="spring">Spring</option>
+          <option value="summer">Summer</option>
+        </select>
+        <!-- Labelled, not placeholder'd: initTerm sets a real value, so a
+             placeholder would never render and the field would have no name. -->
+        <label class="sr-only" for="year">Year</label>
+        <input type="text" id="year" class="text-input" maxlength="4"
+               inputmode="numeric" style="margin-top:0;">
+      </div>
+
+      <button id="lookup-btn" class="again-btn" type="button">Look up Academic Calendar</button>
+
+      <div id="calendar-status" role="status" aria-live="polite"></div>
+
+      <div id="session-wrap" class="hidden">
+        <label class="field-label" for="session">Session</label>
+        <select id="session" class="select-input"></select>
+      </div>
+
+      <div id="manual-wrap" class="hidden" role="group" aria-labelledby="manual-legend">
+        <p class="field-label" id="manual-legend">First and last day of the course</p>
+        <div class="date-row">
+          <label class="date-label" for="manual-start">First day</label>
+          <input type="date" id="manual-start" class="date-input">
+        </div>
+        <div class="date-row">
+          <label class="date-label" for="manual-end">Last day</label>
+          <input type="date" id="manual-end" class="date-input">
+        </div>
+        <button id="manual-btn" class="again-btn" type="button" style="margin-top:6px;">
+          Generate module dates
+        </button>
+      </div>
+
+      <div id="date-list-wrap" class="hidden">
+        <hr class="divider">
+        <div id="date-alerts" role="status" aria-live="polite"></div>
+        <!-- Deliberately not a live region: injecting a dozen modules' worth of
+             date inputs would flood the buffer. #date-alerts carries the
+             summary and focus moves here instead. -->
+        <div id="date-list" tabindex="-1"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="run-btn" class="run-btn" type="button" disabled>Run Script</button>
+    </div>
+  </div>
+
+  <!-- ── RUNNING ─────────────────────────────────────────── -->
+  <div id="running" class="hidden spinner-wrap" role="status" aria-live="polite" tabindex="-1">
+    <div class="spinner" aria-hidden="true"></div>
+    <span class="sr-only">Updating the Development tab, please wait&hellip;</span>
+    <div class="spinner-text" id="running-text" aria-hidden="true">Updating the Development tab&hellip;</div>
+  </div>
+
+  <!-- ── DONE ────────────────────────────────────────────── -->
+  <div id="done" class="hidden" role="status" aria-live="polite">
+    <h4 id="done-heading" tabindex="-1">Finished</h4>
+    <div id="summary" class="summary"></div>
+    <button id="again-btn" class="again-btn" type="button">Run again</button>
+  </div>
+
+
+<script>
+  var STATE = {
+    modules:  [],
+    dates:    null,   // { moduleNum: {start, end} } once generated
+    holidays: [],
+    sessions: []
+  };
+
+  // ── Helpers ────────────────────────────────────────────────
+  function $(id) { return document.getElementById(id); }
+
+  function show(id) { $(id).classList.remove('hidden'); }
+  function hide(id) { $(id).classList.add('hidden'); }
+
+  // Escapes the apostrophe too. Every attribute built below is double-quoted,
+  // so it is not required today — but it costs nothing and stops a future
+  // single-quoted attribute from silently becoming an injection point.
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Moves focus without scrolling the sidebar out from under the user. Hiding
+  // a container that contains the focused element drops focus to <body>, which
+  // loses a keyboard user's place entirely.
+  function focusEl(id) {
+    var el = $(id);
+    if (el) el.focus();
+  }
+
+  function notice(kind, html) {
+    return '<div class="notice ' + kind + '">' + html + '</div>';
+  }
+
+  // Local yyyy-mm-dd. Deliberately not toISOString(), which converts to UTC and
+  // can land the input on the previous day west of Greenwich.
+  function toInputDate(ms) {
+    var d = new Date(ms);
+    var mm = String(d.getMonth() + 1);
+    var dd = String(d.getDate());
+    if (mm.length < 2) mm = '0' + mm;
+    if (dd.length < 2) dd = '0' + dd;
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  function fromInputDate(value) {
+    var parts = String(value || '').split('-');
+    if (parts.length !== 3) return null;
+    return new Date(+parts[0], +parts[1] - 1, +parts[2]).getTime();
+  }
+
+  // ── Elapsed timer ──────────────────────────────────────────
+  // Runs entirely in the sidebar's iframe, so it cannot affect the server-side
+  // script — the two share no thread or process. Its real job is not the count
+  // but the escalation: an Apps Script call can die without withFailureHandler
+  // ever firing (execution ceiling, dropped connection), which would otherwise
+  // leave the spinner turning forever with no explanation.
+  var TIMER = { id: null, start: 0 };
+
+  function startTimer(elId, base) {
+    stopTimer();
+    TIMER.start = Date.now();
+
+    var tick = function () {
+      var s  = Math.floor((Date.now() - TIMER.start) / 1000);
+      var el = $(elId);
+      if (!el) return;
+
+      var tail;
+      if (s < 20) {
+        tail = 'Usually a few seconds.';
+      } else if (s < 60) {
+        tail = 'This is taking longer than expected.';
+      } else {
+        tail = 'Something may have gone wrong. Check the Apps Script execution ' +
+               'log, then close and reopen the sidebar to try again.';
+      }
+      // Keep counting past 20s rather than freezing — the overrun is the
+      // informative case.
+      el.textContent = base + ' (' + s + 's) — ' + tail;
+    };
+
+    tick();
+    TIMER.id = setInterval(tick, 1000);
+  }
+
+  function stopTimer() {
+    if (TIMER.id) { clearInterval(TIMER.id); TIMER.id = null; }
+  }
+
+  // ── Default term ───────────────────────────────────────────
+  // Jan 1 – Aug 15  → Fall of the current year
+  // Aug 16 – Dec 31 → Spring of the next year
+  // Matches when designers are actually building: in the autumn you are working
+  // on the coming spring, the rest of the year on the coming fall.
+  function defaultTerm8() {
+    var now   = new Date();
+    var month = now.getMonth();          // 0 = January, 7 = August
+    var day   = now.getDate();
+    var early = (month < 7) || (month === 7 && day <= 15);
+
+    return early
+      ? { semester: 'fall',   year: now.getFullYear() }
+      : { semester: 'spring', year: now.getFullYear() + 1 };
+  }
+
+  function semesterLabel8(value) {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  // ── Load ───────────────────────────────────────────────────
+  (function initTerm() {
+    var term = defaultTerm8();
+    $('semester').value = term.semester;
+    // A real value rather than a placeholder — a guessed year is only a
+    // convenience if the user can go straight to the lookup without typing it.
+    $('year').value = String(term.year);
+  })();
+
+  // Used for the first load and for "Run again" — the second pass has to re-read
+  // the document, since the run just changed which headings already have dates.
+  function loadModules() {
+    startTimer('loading-text', 'Reading the Development tab…');
+
+    google.script.run
+      .withSuccessHandler(onData)
+      .withFailureHandler(function (err) {
+        stopTimer();
+        hide('loading');
+        show('main');
+        // A hard load failure leaves the tool unusable, so it interrupts rather
+        // than waiting politely for a pause.
+        $('alerts').setAttribute('role', 'alert');
+        $('alerts').innerHTML = notice('error', esc(err.message || err));
+        focusEl('main-heading');
+      })
+      .getModuleDatesSidebarData8();
+  }
+
+  loadModules();
+
+  function onData(data) {
+    stopTimer();
+    hide('loading');
+    show('main');
+    focusEl('main-heading');
+
+    if (data.error) {
+      $('alerts').setAttribute('role', 'alert');
+      $('alerts').innerHTML = notice('error', esc(data.error));
+      return;
+    }
+
+    STATE.modules = data.modules;
+
+    var locked = data.modules.filter(function (m) { return !m.canWriteDates; });
+    if (locked.length > 0) {
+      $('alerts').innerHTML = notice('info',
+        '<strong>' + locked.length + ' heading(s) already have dates.</strong> ' +
+        'They will be listed below once you generate dates, but will not be ' +
+        'overwritten &mdash; edit them in the document directly if they need to change.');
+    }
+  }
+
+  // ── Calendar lookup ────────────────────────────────────────
+  $('lookup-btn').addEventListener('click', function () {
+    var sem  = $('semester').value;
+    var year = $('year').value.trim();
+
+    // Remembered so the result can name the term it actually found, rather
+    // than leaving the user to assume the guessed year was the one used.
+    STATE.requestedTerm = semesterLabel8(sem) + ' ' + year;
+
+    $('calendar-status').innerHTML = notice('info', 'Looking up the academic calendar&hellip;');
+    hide('session-wrap');
+    hide('manual-wrap');
+    hide('date-list-wrap');
+
+    google.script.run
+      .withSuccessHandler(onCalendar)
+      .withFailureHandler(function (err) {
+        $('calendar-status').innerHTML = notice('error', esc(err.message || err));
+        show('manual-wrap');
+      })
+      .fetchAcademicCalendar7(sem, year);
+  });
+
+  // Enter in the year box fires the lookup. There is no <form>, so without this
+  // the key does nothing beside a button that obviously expects it.
+  $('year').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('lookup-btn').click(); }
+  });
+
+  function onCalendar(cal) {
+    var html = '';
+
+    if (cal.warnings && cal.warnings.length > 0) {
+      html += notice('warn', cal.warnings.map(esc).join('<br>'));
+    }
+
+    if (cal.error) {
+      html += notice('warn', esc(cal.error));
+      $('calendar-status').innerHTML = html;
+      // Summer has no session table to choose from, but the 5-year calendar
+      // still knows when the summer block runs, so start the pickers there
+      // rather than empty.
+      if (cal.suggestedStart && cal.suggestedEnd) {
+        $('manual-start').value = toInputDate(cal.suggestedStart);
+        $('manual-end').value   = toInputDate(cal.suggestedEnd);
+      }
+      show('manual-wrap');
+      return;
+    }
+
+    STATE.holidays = cal.holidays || [];
+    STATE.sessions = cal.sessions || [];
+
+    if (STATE.sessions.length === 0) {
+      html += notice('warn', 'The calendar page was found but no session table could be read from it.');
+      $('calendar-status').innerHTML = html;
+      show('manual-wrap');
+      return;
+    }
+
+    if (STATE.holidays.length > 0) {
+      var full = STATE.holidays.filter(function (h) { return h.fullWeek; });
+      var days = STATE.holidays.filter(function (h) { return !h.fullWeek; });
+      var parts = [];
+      if (full.length > 0) {
+        parts.push('<strong>Full weeks off (skipped, later modules shift):</strong> ' +
+                   full.map(function (h) { return esc(h.name); }).join(', '));
+      }
+      if (days.length > 0) {
+        parts.push('<strong>Single days off (reported, dates unchanged):</strong> ' +
+                   days.map(function (h) { return esc(h.name); }).join(', '));
+      }
+      html += notice('info', parts.join('<br>'));
+    }
+
+    html = notice('info', 'Found <strong>' + esc(STATE.requestedTerm) + '</strong> session deadlines &mdash; ' +
+                          STATE.sessions.length + ' session(s).') + html;
+
+    $('calendar-status').innerHTML = html;
+
+    $('session').innerHTML = '<option value="">Choose a session&hellip;</option>' +
+      STATE.sessions.map(function (s, i) {
+        return '<option value="' + i + '">' + esc(s.session) + '</option>';
+      }).join('');
+
+    show('session-wrap');
+    // A new required control just appeared below the button that was clicked.
+    focusEl('session');
+  }
+
+  $('session').addEventListener('change', function () {
+    var idx = $('session').value;
+    if (idx === '') { hide('date-list-wrap'); return; }
+    var s = STATE.sessions[+idx];
+    generateDates(s.start, s.end);
+  });
+
+  $('manual-btn').addEventListener('click', function () {
+    var start = fromInputDate($('manual-start').value);
+    var end   = fromInputDate($('manual-end').value);
+    if (!start || !end) {
+      $('date-alerts').innerHTML = notice('error', 'Enter both a first and last day.');
+      show('date-list-wrap');
+      return;
+    }
+    STATE.holidays = [];
+    generateDates(start, end);
+  });
+
+  function generateDates(startMs, endMs) {
+    google.script.run
+      .withSuccessHandler(onDates)
+      .withFailureHandler(function (err) {
+        $('date-alerts').innerHTML = notice('error', esc(err.message || err));
+        show('date-list-wrap');
+      })
+      .buildModuleDates7(startMs, endMs, STATE.modules.length, STATE.holidays);
+  }
+
+  function onDates(res) {
+    var html = '';
+
+    if (res.error) {
+      $('date-alerts').innerHTML = notice('error', esc(res.error));
+      show('date-list-wrap');
+      return;
+    }
+
+    if (res.skippedWeeks && res.skippedWeeks.length > 0) {
+      html += notice('info', '<strong>Weeks skipped:</strong> ' +
+        res.skippedWeeks.map(function (w) { return esc(w.name); }).join(', ') +
+        '. Later modules shift accordingly.');
+    }
+
+    if (res.warnings && res.warnings.length > 0) {
+      html += notice('warn', res.warnings.map(esc).join('<br>'));
+    }
+
+    $('date-alerts').innerHTML = html;
+
+    var noteByModule = {};
+    (res.notes || []).forEach(function (n) { noteByModule[n.module] = n.text; });
+
+    $('date-list').innerHTML = res.modules.map(function (md, i) {
+      var m = STATE.modules[i];
+      if (!m) return '';
+
+      var block = '<div class="module-row" role="group" aria-labelledby="datelabel-' + i + '">';
+      block += '<span class="module-label" id="datelabel-' + i + '">' + esc(m.displayLabel) + ' ';
+      if (!m.canWriteDates) {
+        block += '<span class="state-badge locked">already dated &mdash; will not be changed</span>';
+      }
+      block += '</span>';
+
+      var dis  = m.canWriteDates ? '' : ' disabled';
+      var note = noteByModule[i + 1];
+      // These inputs are not disabled when a note is present, so
+      // aria-describedby is reliable here.
+      var desc = note ? ' aria-describedby="note-' + i + '"' : '';
+
+      block += '<div class="date-row">' +
+               '<label class="date-label" for="start-' + i + '">Start</label>' +
+               '<input type="date" class="date-input" id="start-' + i + '"' +
+               ' aria-label="' + esc(m.displayLabel) + ' start date"' + desc + ' value="' +
+               (md.start ? toInputDate(md.start) : '') + '"' + dis + '></div>';
+
+      block += '<div class="date-row">' +
+               '<label class="date-label" for="end-' + i + '">End</label>' +
+               '<input type="date" class="date-input" id="end-' + i + '"' +
+               ' aria-label="' + esc(m.displayLabel) + ' end date"' + desc + ' value="' +
+               (md.end ? toInputDate(md.end) : '') + '"' + dis + '></div>';
+
+      if (note) {
+        block += '<div class="module-note" id="note-' + i + '">' + esc(note) + '</div>';
+      }
+
+      block += '</div>';
+      return block;
+    }).join('');
+
+    STATE.dates = true;
+    $('run-btn').disabled = false;
+    show('date-list-wrap');
+    focusEl('date-list');
+  }
+
+  // ── Run ────────────────────────────────────────────────────
+  $('run-btn').addEventListener('click', function () {
+    if (!STATE.dates) return;
+
+    var dates = {};
+    STATE.modules.forEach(function (m, i) {
+      if (!m.canWriteDates) return;
+      var s = $('start-' + i), e = $('end-' + i);
+      if (!s || !e) return;
+      var sm = fromInputDate(s.value), em = fromInputDate(e.value);
+      if (sm && em) dates[m.num] = { start: sm, end: em };
+    });
+
+    hide('main');
+    show('running');
+    // Focus lived on #run-btn, which is inside #main — hiding it would drop
+    // focus to <body> and lose the user's place.
+    focusEl('running');
+
+    // Writes cost more than reads in Apps Script, and this is the step that
+    // modifies the document — so a stall here is the most alarming. If it does
+    // die partway, the headings already written have lost their placeholders,
+    // so a re-run skips them and finishes the rest.
+    startTimer('running-text', 'Updating the Development tab…');
+
+    google.script.run
+      .withSuccessHandler(function (summary) {
+        stopTimer();
+        hide('running');
+        $('summary').textContent = summary;
+        show('done');
+        focusEl('done-heading');
+      })
+      .withFailureHandler(function (err) {
+        stopTimer();
+        hide('running');
+        $('summary').textContent = '⚠️ ' + (err.message || err);
+        show('done');
+        focusEl('done-heading');
+      })
+      .applyModuleDates8({ dates: dates });
+  });
+
+  // "Run again" re-runs. A second pass is genuinely useful: because writes
+  // skip anything already dated, the normal way to re-date a Blueprint after
+  // fixing a mistake is to run the tool twice.
+  $('again-btn').addEventListener('click', function () {
+    hide('done');
+
+    // Clear everything derived from the previous run. The document has changed,
+    // so any of it would now be stale.
+    $('alerts').innerHTML          = '';
+    $('alerts').removeAttribute('role');
+    $('calendar-status').innerHTML = '';
+    $('date-alerts').innerHTML     = '';
+    $('date-list').innerHTML       = '';
+    $('session').innerHTML         = '';
+    $('summary').textContent       = '';
+
+    hide('date-list-wrap');
+    hide('session-wrap');
+    hide('manual-wrap');
+
+    STATE.modules  = [];
+    STATE.dates    = null;
+    STATE.holidays = [];
+    STATE.sessions = [];
+    $('run-btn').disabled = true;
+
+    show('loading');
+    loadModules();
+  });
+</script>
+</body>
+</html>
