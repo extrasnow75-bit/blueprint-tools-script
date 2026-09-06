@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:04 MDT
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:20 MDT
 
      UI for the "Design Map → Dev Tab" tool (Code9.gs). The Module Titles panel
      is Sidebar7.html's, ported across unchanged — same radio-per-module group,
@@ -230,6 +230,68 @@
       text-decoration: underline;
     }
 
+    /* ── Per-module collapsible blocks ───────────────────────── */
+    .mod-block {
+      border: 1px solid #dde1ea;
+      border-radius: 3px;
+      margin-bottom: 6px;
+      background: #fff;
+    }
+
+    .mod-block[open] { border-color: #aab2c8; }
+
+    .mod-block > summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      list-style: none;          /* the default marker sits badly beside a checkbox */
+    }
+
+    .mod-block > summary::-webkit-details-marker { display: none; }
+
+    .mod-block > summary:focus-visible {
+      outline: 2px solid transparent;
+      outline-offset: -2px;
+      box-shadow: inset 0 0 0 2px rgba(0,51,160,.45);
+    }
+
+    /* Stands in for the removed marker, so open/closed is visible without it.
+       inline-block because transform does not apply to inline elements. */
+    .mod-caret {
+      display: inline-block;
+      flex-shrink: 0;
+      color: #555;
+      font-size: 10px;
+      width: 9px;
+      transition: transform .15s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .mod-caret { transition: none; }
+    }
+
+    .mod-block[open] .mod-caret { transform: rotate(90deg); }
+
+    .mod-name { font-weight: bold; color: #333; }
+
+    .mod-block > summary input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      cursor: pointer;
+      accent-color: #0033a0;
+    }
+
+    .mod-body {
+      padding: 2px 10px 8px 30px;
+      border-top: 1px solid #eef0f4;
+    }
+
+    .row-empty label { color: #6b6b6b; font-style: italic; }
+
     /* ── Match resolution ────────────────────────────────────── */
     .match-row {
       margin-bottom: 10px;
@@ -393,36 +455,28 @@
 
     <hr class="divider">
 
-    <!-- ── 2. MODULES TO PROCESS ─────────────────────────── -->
-    <h4 id="picker-heading">Modules to fill in</h4>
+    <!-- ── 2. WHAT TO COPY ───────────────────────────────── -->
+    <!-- One collapsible block per module, listing that module's OWN Course
+         Design Map rows. Not a single shared activity list: the Development
+         tab's activities come from the one Course Pattern Table and so are
+         identical everywhere, but the Design Map's rows differ module by
+         module, and the map rows are what actually gets copied. -->
+    <h4 id="picker-heading">What to copy</h4>
     <p class="section-hint">
-      Objectives and activity notes are copied only into the modules checked here.
-      Module titles above are written for every module regardless.
+      Each module lists its own rows from the Course Design Map. Open a module to
+      choose individual rows, or use its checkbox to take everything. Module
+      titles above are written regardless of what is checked here.
     </p>
     <div class="check-links">
       <button type="button" id="mod-all">Select all</button>
       &nbsp;&middot;&nbsp;
       <button type="button" id="mod-none">Deselect all</button>
-    </div>
-    <div role="group" aria-labelledby="picker-heading">
-      <ul id="module-picker" class="check-list"></ul>
-    </div>
-
-    <hr class="divider">
-
-    <!-- ── 3. ACTIVITIES TO PROCESS ──────────────────────── -->
-    <h4 id="acts-heading">Activities to fill in</h4>
-    <p class="section-hint">
-      Notes are pasted only under the activities checked here.
-    </p>
-    <div class="check-links">
-      <button type="button" id="act-all">Select all</button>
       &nbsp;&middot;&nbsp;
-      <button type="button" id="act-none">Deselect all</button>
+      <button type="button" id="mod-expand">Expand all</button>
+      &nbsp;&middot;&nbsp;
+      <button type="button" id="mod-collapse">Collapse all</button>
     </div>
-    <div role="group" aria-labelledby="acts-heading">
-      <ul id="activity-picker" class="check-list"></ul>
-    </div>
+    <div id="module-picker" role="group" aria-labelledby="picker-heading"></div>
 
     <!-- ── 4. UNMATCHED ROWS ─────────────────────────────── -->
     <div id="match-wrap" class="hidden">
@@ -512,8 +566,7 @@
 <script>
   var STATE = {
     modules:       [],   // title-half rows, in Development tab order
-    mapModules:    [],   // design-map payload, index-aligned with STATE.modules
-    devActivities: []
+    mapModules:    []    // design-map payload, index-aligned with STATE.modules
   };
 
   // ── Helpers ────────────────────────────────────────────────
@@ -632,13 +685,40 @@
     return out;
   }
 
-  function selectedModuleNums() {
-    var out = [];
+  // What the run will actually write, read straight off the picker.
+  //   rows       "num||label" → true, one per ticked Design Map note row
+  //   objectives module number → true
+  //   modules    every module with at least one of the above, for chunking
+  function collectSelection() {
+    var rows = {}, objectives = {}, modSet = {}, modules = [];
+
     Array.prototype.forEach.call(
-      document.querySelectorAll('#module-picker input[type="checkbox"]:checked'),
-      function (cb) { out.push(parseInt(cb.value, 10)); }
+      document.querySelectorAll('#module-picker .row-check:checked'),
+      function (cb) {
+        var key = cb.getAttribute('data-key');
+        rows[key] = true;
+        modSet[parseInt(key.split('||')[0], 10)] = true;
+      }
     );
-    return out;
+
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#module-picker .obj-check:checked'),
+      function (cb) {
+        var num = parseInt(cb.getAttribute('data-num'), 10);
+        objectives[num] = true;
+        modSet[num] = true;
+      }
+    );
+
+    // Document order, not the order the querySelectorAll results happened to
+    // arrive in, so the progress label counts up the way the sidebar reads.
+    STATE.mapModules.forEach(function (mm) { if (modSet[mm.num]) modules.push(mm.num); });
+
+    return { rows: rows, objectives: objectives, modules: modules };
+  }
+
+  function selectedModuleNums() {
+    return collectSelection().modules;
   }
 
   function updateRunEstimate() {
@@ -723,7 +803,6 @@
 
     STATE.modules       = data.modules       || [];
     STATE.mapModules    = data.mapModules    || [];
-    STATE.devActivities = data.devActivities || [];
 
     var alerts = '';
 
@@ -758,7 +837,6 @@
 
     renderModules();
     renderModulePicker();
-    renderActivityPicker();
     renderMatchList();
     renderOccupiedList();
     updateRunEstimate();
@@ -837,36 +915,114 @@
     );
   }
 
-  // ── 2. Module picker ───────────────────────────────────────
+  // ── 2. What to copy ────────────────────────────────────────
+  // One <details> per module. The summary carries a master checkbox that
+  // reflects and drives the rows inside it, so the common "all of this module"
+  // case is one click and the sidebar stays short with fifteen modules in it.
   function renderModulePicker() {
     $('module-picker').innerHTML = STATE.mapModules.map(function (mm, i) {
       var bits = [];
       if (mm.objectives.available) bits.push('objectives');
-      var noteCount = mm.rows.length;
-      if (noteCount > 0) bits.push(noteCount + ' note row' + (noteCount === 1 ? '' : 's'));
-      var tail = bits.length
-        ? ' <span class="state-badge">' + esc(bits.join(', ')) + '</span>'
-        : ' <span class="state-badge">nothing to copy</span>';
+      if (mm.rows.length) bits.push(mm.rows.length + ' note row' + (mm.rows.length === 1 ? '' : 's'));
+      var anything = bits.length > 0;
 
-      return '<li class="check-item">' +
-             '<input type="checkbox" id="mod-' + i + '" value="' + esc(mm.num) + '"' +
-             (bits.length ? ' checked' : '') + '>' +
-             '<label for="mod-' + i + '">' + esc(mm.displayLabel) + tail + '</label></li>';
+      var badge = anything
+        ? ' <span class="state-badge">' + esc(bits.join(', ')) + '</span>'
+        : ' <span class="state-badge">nothing in the Course Design Map</span>';
+
+      var html =
+        '<details class="mod-block"' + (anything ? '' : ' data-empty="1"') + '>' +
+        '<summary>' +
+        '<span class="mod-caret" aria-hidden="true">&#9654;</span>' +
+        '<input type="checkbox" class="mod-master" data-mod="' + i + '"' +
+        (anything ? ' checked' : ' disabled') +
+        ' aria-label="Copy everything for ' + esc(mm.displayLabel) + '">' +
+        '<span class="mod-name">' + esc(mm.displayLabel) + '</span>' + badge +
+        '</summary>';
+
+      if (anything) {
+        html += '<div class="mod-body"><ul class="check-list">';
+
+        if (mm.objectives.available) {
+          html += '<li class="check-item">' +
+                  '<input type="checkbox" class="obj-check" id="obj-' + i + '"' +
+                  ' data-mod="' + i + '" data-num="' + esc(mm.num) + '" checked>' +
+                  '<label for="obj-' + i + '">Module Overview objectives</label></li>';
+        }
+
+        mm.rows.forEach(function (row, j) {
+          html += '<li class="check-item">' +
+                  '<input type="checkbox" class="row-check" id="row-' + i + '-' + j + '"' +
+                  ' data-mod="' + i + '" data-key="' + esc(row.key) + '" checked>' +
+                  '<label for="row-' + i + '-' + j + '">' + esc(row.label) + '</label></li>';
+        });
+
+        // Listed but not offered — seeing the row and being told its Notes cell
+        // is empty beats wondering why the tool dropped it.
+        (mm.emptyRows || []).forEach(function (label, j) {
+          html += '<li class="check-item row-empty">' +
+                  '<input type="checkbox" id="empty-' + i + '-' + j + '" disabled>' +
+                  '<label for="empty-' + i + '-' + j + '">' + esc(label) +
+                  ' &mdash; no notes in the Design Map</label></li>';
+        });
+
+        html += '</ul></div>';
+      }
+
+      return html + '</details>';
     }).join('');
   }
 
-  // ── 3. Activity picker ─────────────────────────────────────
-  function renderActivityPicker() {
-    if (STATE.devActivities.length === 0) {
-      $('activity-picker').innerHTML =
-        '<li class="check-item"><label>No activity slots were found in the Development tab.</label></li>';
-      return;
+  // A module's master box drives its rows and reflects them: half-checked shows
+  // as indeterminate rather than silently reading as "none".
+  function syncMaster(modIdx) {
+    var master = document.querySelector('.mod-master[data-mod="' + modIdx + '"]');
+    if (!master || master.disabled) return;
+
+    var kids = document.querySelectorAll(
+      '.obj-check[data-mod="' + modIdx + '"], .row-check[data-mod="' + modIdx + '"]');
+    var on = 0;
+    Array.prototype.forEach.call(kids, function (cb) { if (cb.checked) on++; });
+
+    master.checked       = on > 0;
+    master.indeterminate = on > 0 && on < kids.length;
+  }
+
+  // Delegated: the blocks are rebuilt on every load and "Run again".
+  $('module-picker').addEventListener('change', function (e) {
+    var el = e.target;
+    if (!el || el.type !== 'checkbox') return;
+
+    if (el.className === 'mod-master') {
+      var kids = document.querySelectorAll(
+        '.obj-check[data-mod="' + el.getAttribute('data-mod') + '"], ' +
+        '.row-check[data-mod="' + el.getAttribute('data-mod') + '"]');
+      Array.prototype.forEach.call(kids, function (cb) { cb.checked = el.checked; });
+      el.indeterminate = false;
+    } else if (el.getAttribute('data-mod') !== null) {
+      syncMaster(el.getAttribute('data-mod'));
     }
-    $('activity-picker').innerHTML = STATE.devActivities.map(function (title, i) {
-      return '<li class="check-item">' +
-             '<input type="checkbox" id="act-' + i + '" value="' + esc(title) + '" checked>' +
-             '<label for="act-' + i + '">' + esc(title) + '</label></li>';
-    }).join('');
+    updateRunEstimate();
+  });
+
+  // A click on the master must not also open or close the block it sits in.
+  $('module-picker').addEventListener('click', function (e) {
+    if (e.target && e.target.className === 'mod-master') e.stopPropagation();
+  });
+
+  function setAllModules(on) {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#module-picker input[type="checkbox"]'),
+      function (cb) { if (!cb.disabled) { cb.checked = on; cb.indeterminate = false; } }
+    );
+    updateRunEstimate();
+  }
+
+  function setAllOpen(open) {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#module-picker details'),
+      function (d) { if (!d.getAttribute('data-empty')) d.open = open; }
+    );
   }
 
   // ── 4. Match resolution ────────────────────────────────────
@@ -942,22 +1098,11 @@
     show('occupied-wrap');
   }
 
-  // ── Select all / none ──────────────────────────────────────
-  function setAll(selector, on) {
-    Array.prototype.forEach.call(
-      document.querySelectorAll(selector),
-      function (cb) { if (!cb.disabled) cb.checked = on; }
-    );
-  }
-
-  $('mod-all').addEventListener('click',  function () { setAll('#module-picker input[type="checkbox"]', true);  updateRunEstimate(); });
-  $('mod-none').addEventListener('click', function () { setAll('#module-picker input[type="checkbox"]', false); updateRunEstimate(); });
-
-  // Delegated, because the checkboxes are rebuilt by renderModulePicker on every
-  // load and "Run again" — a listener bound to each one would be lost each time.
-  $('module-picker').addEventListener('change', updateRunEstimate);
-  $('act-all').addEventListener('click',  function () { setAll('#activity-picker input[type="checkbox"]', true);  });
-  $('act-none').addEventListener('click', function () { setAll('#activity-picker input[type="checkbox"]', false); });
+  // ── Select all / none, expand / collapse ───────────────────
+  $('mod-all').addEventListener('click',      function () { setAllModules(true);  });
+  $('mod-none').addEventListener('click',     function () { setAllModules(false); });
+  $('mod-expand').addEventListener('click',   function () { setAllOpen(true);  });
+  $('mod-collapse').addEventListener('click', function () { setAllOpen(false); });
 
   // ── Run ────────────────────────────────────────────────────
   // Driven from here rather than server-side, one titles call plus one call per
@@ -980,16 +1125,8 @@
       if (v) titles[m.num] = v;
     });
 
-    var modules = selectedModuleNums();
-
-    // Always sent as an explicit list, including when it is empty — the server
-    // reads [] as "none chosen", never as "all", so deselecting everything does
-    // what it says rather than the exact opposite.
-    var activities = [];
-    Array.prototype.forEach.call(
-      document.querySelectorAll('#activity-picker input[type="checkbox"]:checked'),
-      function (cb) { activities.push(cb.value); }
-    );
+    var sel     = collectSelection();
+    var modules = sel.modules;
 
     var resolutions = {};
     Array.prototype.forEach.call(
@@ -1023,7 +1160,8 @@
       titles:       { written: 0, skipped: [] },
       acc: { objectives: 0, notes: 0, objectivesSkipped: [], notesSkipped: [], unmatched: [] },
       opts: {
-        activities:  activities,
+        rows:        sel.rows,
+        objectives:  sel.objectives,
         resolutions: resolutions,
         pasteAnyway: pasteAnyway,
         highlight:   $('highlight').value === 'yes'
@@ -1077,7 +1215,8 @@
       .withFailureHandler(onRunError)
       .applyDesignMapModules9({
         modules:     group,
-        activities:  RUN.opts.activities,
+        rows:        RUN.opts.rows,
+        objectives:  RUN.opts.objectives,
         resolutions: RUN.opts.resolutions,
         pasteAnyway: RUN.opts.pasteAnyway,
         highlight:   RUN.opts.highlight
@@ -1169,7 +1308,6 @@
     $('alerts').removeAttribute('role');
     $('modules').innerHTML         = '';
     $('module-picker').innerHTML   = '';
-    $('activity-picker').innerHTML = '';
     $('match-list').innerHTML      = '';
     $('occupied-list').innerHTML   = '';
     $('summary').textContent       = '';
@@ -1183,7 +1321,6 @@
 
     STATE.modules       = [];
     STATE.mapModules    = [];
-    STATE.devActivities = [];
     $('run-btn').disabled = false;
 
     show('loading');

@@ -5,7 +5,7 @@
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 23:04 MDT
+// Last updated on 2026-09-05 at 23:20 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -757,7 +757,6 @@ function getDesignMapSidebarData9() {
     conflicts:       [],
     unmatchedDesign: [],
     mapModules:      [],   // design-map payload, aligned with .modules by num
-    devActivities:   [],   // union of activity titles, for the activity picker
     unmatchedRows:   0,
     error:           ''
   };
@@ -791,7 +790,6 @@ function getDesignMapSidebarData9() {
 
     var map  = parseDesignMap9_(designTab.body);
     var seen = {};
-    var devTitleSeen = {};
 
     for (var m = 0; m < devModules.length; m++) {
       var devMod = devModules[m];
@@ -834,19 +832,24 @@ function getDesignMapSidebarData9() {
       });
 
       // ── Design-map payload ──
+      // devTitles feeds the match-resolution dropdowns only. It is NOT the
+      // picker: the Development tab's activities all come from the one Course
+      // Pattern Table, so they are identical in every module, whereas the
+      // Course Design Map's rows vary module by module — and the map rows are
+      // what actually gets copied, so they are what the user chooses from.
       var devTitles = [];
       for (var a = 0; a < devMod.activities.length; a++) {
-        var slotTitle = devMod.activities[a].title;
-        devTitles.push(slotTitle);
-        if (slotTitle && !devTitleSeen[slotTitle.toLowerCase()]) {
-          devTitleSeen[slotTitle.toLowerCase()] = true;
-          result.devActivities.push(slotTitle);
-        }
+        devTitles.push(devMod.activities[a].title);
       }
 
-      var noteRows = [];
+      // Rows with an empty Notes cell are reported but not offered: there is
+      // nothing to copy, and silently omitting them would read as the tool
+      // having missed a row that is plainly in the map.
+      var noteRows  = [];
+      var emptyRows = [];
       for (var q = 0; q < design.activities.length; q++) {
         if (design.activities[q].hasNotes) noteRows.push(design.activities[q]);
+        else                               emptyRows.push(design.activities[q].label);
       }
 
       var matched = matchActivities9_(noteRows, devMod.activities);
@@ -881,7 +884,8 @@ function getDesignMapSidebarData9() {
           noRefLine: !!(ov && !ov.refPara),
           occupied:  !!(ov && ov.content.length > 0)
         },
-        rows: rows
+        rows:      rows,
+        emptyRows: emptyRows
       });
     }
 
@@ -1338,8 +1342,9 @@ function applyDesignMapTitles9(params) {
  *
  * @param {Object} params
  *   .modules     {number[]} module numbers in THIS chunk
- *   .activities  {string[]} Development-tab activity titles to include; [] means
- *                          none, and omitting the field means no filter at all
+ *   .rows        {Object}  "num||cdmLabel" → true for each Design Map note row
+ *                          to copy; anything absent is left alone
+ *   .objectives  {Object}  module number → true to write that Module Overview
  *   .resolutions {Object}  "num||cdmLabel" → chosen Dev activity title, '' to skip
  *   .pasteAnyway {Object}  "ov||num" / "act||num||cdmLabel" → true
  *   .highlight   {boolean} cyan-blue-highlight the pasted notes (default true)
@@ -1368,17 +1373,13 @@ function applyDesignMapModules9(params) {
   var moduleNums = params.modules || [];
   for (var w = 0; w < moduleNums.length; w++) wanted[parseInt(moduleNums[w], 10)] = true;
 
-  // An EMPTY array means "no activities chosen", not "all of them". The sidebar
-  // always sends the list it rendered (every box ticked by default), so a user
-  // who deliberately unticked all of them gets what they asked for rather than
-  // the exact opposite. Omitting the field entirely is what disables the filter.
-  var actFilter = null;
-  if (Object.prototype.toString.call(params.activities) === '[object Array]') {
-    actFilter = {};
-    for (var f = 0; f < params.activities.length; f++) {
-      actFilter[String(params.activities[f]).toLowerCase()] = true;
-    }
-  }
+  // Selection is per Course Design Map ROW, keyed "num||label", not per
+  // Development tab activity title. The dev tab's activities are one repeated
+  // Course Pattern Table, identical in every module; the map's rows differ
+  // module by module, and they are what gets copied. An absent key means
+  // unchecked — the sidebar always sends everything it offered.
+  var wantRow        = params.rows       || {};
+  var wantObjectives = params.objectives || {};
 
   var map        = parseDesignMap9_(designTab.body);
   var devModules = scanDevStructure9_(devBody);
@@ -1397,7 +1398,7 @@ function applyDesignMapModules9(params) {
     if (!design) continue;
 
     // ── Objectives → Module Overview ──
-    if (design.objectivesCell) {
+    if (design.objectivesCell && wantObjectives[devMod.num]) {
       var ov = devMod.overview;
       if (!ov || !ov.anchor) {
         objectivesSkipped.push(devMod.displayLabel + ' — no "Module ' + devMod.num +
@@ -1459,6 +1460,9 @@ function applyDesignMapModules9(params) {
       if (skipRow[k]) continue;
 
       var row     = noteRows[k];
+      var rowKey  = devMod.num + KEY_SEP_9 + row.label;
+      if (!wantRow[rowKey]) continue;                    // not ticked in the picker
+
       var rowName = devMod.displayLabel + ' / "' + row.label + '"';
       var slotIdx = targets[k];
 
@@ -1468,8 +1472,6 @@ function applyDesignMapModules9(params) {
       }
 
       var slot = devMod.activities[slotIdx];
-
-      if (actFilter && !actFilter[slot.title.toLowerCase()]) continue;  // not chosen
 
       if (slot.content.length > 0 &&
           // Keyed by the Course Design Map row, not by the destination activity:
