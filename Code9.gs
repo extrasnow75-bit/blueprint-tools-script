@@ -5,7 +5,7 @@
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 21:48 MDT
+// Last updated on 2026-09-05 at 23:04 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -527,27 +527,104 @@ function normBase9_(s) {
     .trim();
 }
 
+// Words that carry no signal about WHICH activity a row is. Deliberately short:
+// every word dropped here is a word the keyword pass can no longer match on,
+// and Blueprint activity names are only two or three words long to begin with.
+var STOPWORDS_9 = {
+  a: 1, an: 1, and: 1, the: 1, or: 1, of: 1, to: 1, in: 1, on: 1, at: 1,
+  for: 1, with: 1, from: 1, by: 1, this: 1, that: 1, is: 1, are: 1, as: 1,
+  into: 1, related: 1
+};
+
+/**
+ * Crude singulariser, enough for activity names: "Videos" and "Video",
+ * "Readings" and "Reading", "Replies" and "Reply" have to land on one token or
+ * the keyword pass misses the obvious matches it exists to catch.
+ */
+function stem9_(w) {
+  if (w.length > 4 && w.slice(-3) === 'ies') return w.slice(0, -3) + 'y';
+  if (w.length > 3 && w.slice(-1) === 's' && w.slice(-2) !== 'ss') return w.slice(0, -1);
+  return w;
+}
+
+/**
+ * Content words of a normalized title. Bare numbers are dropped along with the
+ * stopwords: the "1" in "Readings 1" is an index, not a keyword, and keeping it
+ * would let "Readings 1" match "Discussion 1".
+ */
+function words9_(norm) {
+  var parts = String(norm || '').split(' ');
+  var out   = [];
+  for (var i = 0; i < parts.length; i++) {
+    var w = parts[i];
+    if (!w || STOPWORDS_9[w] || /^\d+$/.test(w)) continue;
+    out.push(stem9_(w));
+  }
+  return out;
+}
+
+/**
+ * How strongly two titles share content words, 0 to 1.
+ *
+ * Divided by the SHORTER word list, not the union: a Course Design Map row is
+ * often a fragment of the activity it belongs to ("Videos 1" → "Watch Videos"),
+ * and a Jaccard score would punish that for the words the longer title adds.
+ */
+function keywordScore9_(a, b) {
+  if (!a.words.length || !b.words.length) return 0;
+
+  var seen = {};
+  for (var i = 0; i < a.words.length; i++) seen[a.words[i]] = true;
+
+  var shared = 0;
+  for (var j = 0; j < b.words.length; j++) {
+    if (seen[b.words[j]]) { shared++; seen[b.words[j]] = false; }  // count each word once
+  }
+  if (shared === 0) return 0;
+
+  return shared / Math.min(a.words.length, b.words.length);
+}
+
+// One whole content word in common with the shorter title. Below this the guess
+// is noise — and an unmatched row is a fine outcome, since it still reaches the
+// user as a dropdown either way.
+var KEYWORD_MIN_SCORE_9 = 0.5;
+
 /** Pre-computes every comparison form of one title, so the tiers stay cheap. */
 function matchKey9_(title) {
-  var raw = String(title || '').trim();
-  return { raw: raw, lower: raw.toLowerCase(), norm: normTitle9_(raw), base: normBase9_(raw) };
+  var raw  = String(title || '').trim();
+  var norm = normTitle9_(raw);
+  return {
+    raw:   raw,
+    lower: raw.toLowerCase(),
+    norm:  norm,
+    base:  normBase9_(raw),
+    words: words9_(norm)
+  };
 }
 
 // Ordered strongest → weakest. Each tier is tried across ALL still-unmatched
 // design-map rows before the next one is considered, so a weak match can never
 // steal a slot that a stronger one wants.
+// `weak` marks a tier whose result is a GUESS rather than a match. Weak results
+// are still applied, but the sidebar surfaces them for confirmation with the
+// guess pre-selected, so the user changes them by exception instead of picking
+// every row by hand.
 var MATCH_TIERS_9 = [
   { name: 'exact title',        fn: function (a, b) { return a.raw  === b.raw;  } },
   { name: 'ignoring case',      fn: function (a, b) { return a.lower === b.lower; } },
   { name: 'ignoring wording',   fn: function (a, b) { return !!a.norm && a.norm === b.norm; } },
   { name: 'ignoring numbering', fn: function (a, b) { return !!a.base && a.base === b.base; } },
-  { name: 'by leading words',   fn: function (a, b) {
+  { name: 'by leading words',   weak: true, note: 'matched on the opening words only',
+    fn: function (a, b) {
       // Word-boundaried on purpose: "read" must not claim "readings", and a
       // three-letter stem is too weak to be evidence of anything.
       if (!a.base || !b.base || a.base.length < 4 || b.base.length < 4) return false;
       return a.base.indexOf(b.base + ' ') === 0 || b.base.indexOf(a.base + ' ') === 0;
     } }
 ];
+
+var KEYWORD_NOTE_9 = 'matched on a shared keyword';
 
 /**
  * Pairs one module's Course Design Map rows with its Development tab activity
@@ -559,16 +636,19 @@ var MATCH_TIERS_9 = [
  *
  * @param {Array<{label: string}>} cdmRows
  * @param {Array<{title: string}>} devActivities
- * @returns {{ pairs: number[], tiers: string[] }} index-aligned with cdmRows
+ * @returns {{pairs: number[], tiers: string[], weak: boolean[], notes: string[]}}
+ *          all index-aligned with cdmRows
  */
 function matchActivities9_(cdmRows, devActivities) {
-  var cdm = [], dev = [], pairs = [], tiers = [];
+  var cdm = [], dev = [], pairs = [], tiers = [], weak = [], notes = [];
   var d, c, t;
 
   for (c = 0; c < cdmRows.length; c++) {
     cdm.push(matchKey9_(cdmRows[c].label));
     pairs.push(-1);
     tiers.push('');
+    weak.push(false);
+    notes.push('');
   }
   for (d = 0; d < devActivities.length; d++) dev.push(matchKey9_(devActivities[d].title));
 
@@ -583,13 +663,79 @@ function matchActivities9_(cdmRows, devActivities) {
         if (!tier.fn(cdm[c], dev[d])) continue;
         pairs[c] = d;
         tiers[c] = tier.name;
+        weak[c]  = !!tier.weak;
+        notes[c] = tier.note || '';
         taken[d] = true;
         break;
       }
     }
   }
 
-  return { pairs: pairs, tiers: tiers };
+  // ── Keyword pass ───────────────────────────────────────────
+  // Last resort for the rows the string tiers could not place: score every
+  // remaining pair on shared content words and take the best ones. "Videos 1"
+  // finds "Watch Videos" here — they share no prefix, so nothing above could
+  // see it, but the one word they do share is the whole of the shorter title.
+  //
+  // Scored globally and assigned best-first, NOT row by row. Walking the table
+  // in order would let an early mediocre pairing consume a slot that a later
+  // row matches outright.
+  var candidates = [];
+  for (c = 0; c < cdm.length; c++) {
+    if (pairs[c] !== -1) continue;
+    for (d = 0; d < dev.length; d++) {
+      if (taken[d]) continue;
+      var score = keywordScore9_(cdm[c], dev[d]);
+      if (score >= KEYWORD_MIN_SCORE_9) candidates.push({ c: c, d: d, score: score });
+    }
+  }
+
+  // Ties break by table order, so the same document always produces the same
+  // answer — which is what lets the apply pass re-derive the sidebar's preview.
+  candidates.sort(function (x, y) {
+    return (y.score - x.score) || (x.c - y.c) || (x.d - y.d);
+  });
+
+  for (var k = 0; k < candidates.length; k++) {
+    var cand = candidates[k];
+    if (pairs[cand.c] !== -1 || taken[cand.d]) continue;
+    pairs[cand.c]  = cand.d;
+    tiers[cand.c]  = 'by shared keywords';
+    weak[cand.c]   = true;
+    notes[cand.c]  = KEYWORD_NOTE_9;
+    taken[cand.d]  = true;
+  }
+
+  // ── Shared-slot pass ───────────────────────────────────────
+  // Everything above is one row per slot. That is right as a default — it makes
+  // genuinely distinct rows spread across distinct activities — but it strands
+  // the common case where a Course Design Map lists "Readings 1" AND "Readings
+  // 2" against a single "Readings" activity: the first claims it and the second
+  // reports no match at all, in every module.
+  //
+  // So rows still unplaced get one more look, this time at slots that are
+  // already spoken for. Always a guess, never silent: the sidebar surfaces it
+  // pre-selected, and two rows landing in one slot stack in table order.
+  for (c = 0; c < cdm.length; c++) {
+    if (pairs[c] !== -1) continue;
+
+    var bestD = -1;
+    var bestScore = 0;
+    for (d = 0; d < dev.length; d++) {
+      if (!taken[d]) continue;                 // free slots were already tried
+      var s = keywordScore9_(cdm[c], dev[d]);
+      if (s > bestScore) { bestScore = s; bestD = d; }
+    }
+
+    if (bestD !== -1 && bestScore >= KEYWORD_MIN_SCORE_9) {
+      pairs[c] = bestD;
+      tiers[c] = 'sharing an activity';
+      weak[c]  = true;
+      notes[c] = 'no activity of its own — this one already has notes from another row';
+    }
+  }
+
+  return { pairs: pairs, tiers: tiers, weak: weak, notes: notes };
 }
 
 
@@ -713,10 +859,13 @@ function getDesignMapSidebarData9() {
           label:         noteRows[k].label,
           key:           devMod.num + KEY_SEP_9 + noteRows[k].label,
           matchedTitle:  target ? target.title : '',
-          // Which tier claimed it. The sidebar leaves confident matches alone
-          // and only asks about the weakest one — surfacing a dozen certain
-          // matches for confirmation would bury the few that need a decision.
           matchedHow:    matched.tiers[k],
+          matchedNote:   matched.notes[k],
+          // Confident matches are not surfaced: a dozen certain pairings
+          // awaiting confirmation would bury the few that need a decision.
+          // A guess IS surfaced, pre-selected, so the user corrects by
+          // exception rather than choosing every row by hand.
+          needsDecision: !target || matched.weak[k],
           occupied:      !!target && target.content.length > 0
         });
       }
@@ -1035,11 +1184,13 @@ function writeObjectives9_(devBody, anchorEl, cell) {
  * deploy tools find their target by that exact string, so removing it would
  * quietly break "Deploy Activity Directions" for every slot this tool touched.
  *
- * @returns {number} elements written
+ * @returns {Array} the inserted elements, in document order. The caller needs
+ *   the last one as the anchor when a second Design Map row lands in the same
+ *   slot.
  */
 function insertNotes9_(devBody, anchorEl, cell, highlight) {
   var sources = noteSources9_(cell);
-  if (sources.length === 0) return 0;
+  if (sources.length === 0) return [];
 
   var NORMAL   = DocumentApp.ParagraphHeading.NORMAL;
   var at       = devBody.getChildIndex(anchorEl);
@@ -1085,7 +1236,7 @@ function insertNotes9_(devBody, anchorEl, cell, highlight) {
     for (var h = 0; h < inserted.length; h++) highlightElement9_(inserted[h]);
   }
 
-  return inserted.length;
+  return inserted;
 }
 
 
@@ -1272,43 +1423,37 @@ function applyDesignMapModules9(params) {
     }
     if (noteRows.length === 0) continue;
 
-    var matched    = matchActivities9_(noteRows, devMod.activities);
-    var targets    = [];
-    var skipRow    = {};
-    var overridden = {};
-    var reserved   = {};
+    var matched = matchActivities9_(noteRows, devMod.activities);
+    var targets = [];
+    var skipRow = {};
     var k, s;
 
-    // The user's dropdown picks are resolved FIRST and reserve their slot. A
-    // pick is an explicit decision, so it must never lose a slot to the
-    // matcher's guess for some row that happens to come earlier in the table.
+    // matchActivities9_ has already settled who gets which slot, including the
+    // rare case of two rows sharing one. All that is left is to honour the
+    // user's dropdown picks, which override the computed answer outright — an
+    // explicit choice is never second-guessed, and never blocked because some
+    // other row got there first.
     for (k = 0; k < noteRows.length; k++) {
       targets.push(matched.pairs[k]);
 
       var pick = resolutions[devMod.num + KEY_SEP_9 + noteRows[k].label];
       if (pick === undefined) continue;
 
-      overridden[k] = true;
-      targets[k]    = -1;
+      targets[k] = -1;
       if (String(pick) === '') { skipRow[k] = true; continue; }   // "Skip this row"
 
       for (s = 0; s < devMod.activities.length; s++) {
-        if (reserved[s]) continue;
         if (devMod.activities[s].title.toLowerCase() === String(pick).toLowerCase()) {
-          targets[k]  = s;
-          reserved[s] = true;
+          targets[k] = s;
           break;
         }
       }
     }
 
-    // The computed matches then take whatever the overrides did not claim. One
-    // slot, one row: a second claimant is reported rather than pasted twice.
-    for (k = 0; k < targets.length; k++) {
-      if (overridden[k] || targets[k] === -1) continue;
-      if (reserved[targets[k]]) { targets[k] = -1; continue; }
-      reserved[targets[k]] = true;
-    }
+    // Where a slot receives more than one row, each block is anchored after the
+    // one before it so they stack in table order instead of the later row
+    // landing on top of the earlier one.
+    var slotAnchor = {};
 
     for (k = 0; k < noteRows.length; k++) {
       if (skipRow[k]) continue;
@@ -1346,7 +1491,7 @@ function applyDesignMapModules9(params) {
       // Once Deploy has consumed the placeholder there is nothing left to
       // protect, so the tool line becomes the anchor and the notes land above
       // the directions.
-      var anchor = slot.placeholder || slot.lastPreamble;
+      var anchor = slotAnchor[slotIdx] || slot.placeholder || slot.lastPreamble;
       if (!anchor) {
         notesSkipped.push(rowName + ' → "' + slot.title +
                           '" — could not find a place to paste inside that slot');
@@ -1355,9 +1500,13 @@ function applyDesignMapModules9(params) {
 
       // One blank line between the anchor and the notes — "two hard returns",
       // which is one empty paragraph.
-      var spacer = appendSpacer9_(devBody, anchor);
+      var spacer   = appendSpacer9_(devBody, anchor);
+      var inserted = insertNotes9_(devBody, spacer, row.cell, highlight);
 
-      if (insertNotes9_(devBody, spacer, row.cell, highlight) > 0) notesWritten++;
+      if (inserted.length > 0) {
+        notesWritten++;
+        slotAnchor[slotIdx] = inserted[inserted.length - 1];
+      }
     }
   }
 

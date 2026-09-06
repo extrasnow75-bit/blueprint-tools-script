@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 21:48 MDT
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:04 MDT
 
      UI for the "Design Map → Dev Tab" tool (Code9.gs). The Module Titles panel
      is Sidebar7.html's, ported across unchanged — same radio-per-module group,
@@ -870,26 +870,25 @@
   }
 
   // ── 4. Match resolution ────────────────────────────────────
-  // A dropdown for every Course Design Map row the matcher could not place, plus
-  // the ones it placed on its weakest evidence (leading words only) — those are
-  // pre-selected, so confirming is doing nothing. Confident matches are left out
-  // entirely: a dozen of them awaiting confirmation would bury the handful that
-  // actually need a decision.
-  var WEAK_MATCH = 'by leading words';
-
+  // A dropdown for every row the server flagged as needing a decision: the ones
+  // it could not place at all, and the ones it placed on a guess. A guess comes
+  // through PRE-SELECTED, so confirming it is doing nothing and correcting it is
+  // one click — the user works by exception instead of choosing every row by
+  // hand. Confident matches are left out entirely; a dozen of them awaiting
+  // confirmation would bury the handful that actually matter.
   function renderMatchList() {
     var html = '';
     var n = 0;
 
     STATE.mapModules.forEach(function (mm) {
       mm.rows.forEach(function (row) {
-        var weak = row.matchedTitle && row.matchedHow === WEAK_MATCH;
-        if (row.matchedTitle && !weak) return;
+        if (!row.needsDecision) return;
 
-        var id = 'match-' + n;
-        var note = weak
+        var id    = 'match-' + n;
+        var guess = !!row.matchedTitle;
+        var note  = guess
           ? '<span class="match-note">Best guess: &ldquo;' + esc(row.matchedTitle) +
-            '&rdquo; &mdash; matched on the opening words only.</span>'
+            '&rdquo; &mdash; ' + esc(row.matchedNote || 'matched on a guess') + '.</span>'
           : '<span class="match-note">No activity in this module looks like a match.</span>';
 
         html += '<div class="match-row">' +
@@ -900,7 +899,7 @@
                 ' aria-labelledby="' + id + '-label">' +
                 '<option value="">Skip this row</option>' +
                 mm.devTitles.map(function (t) {
-                  var sel = (weak && t === row.matchedTitle) ? ' selected' : '';
+                  var sel = (guess && t === row.matchedTitle) ? ' selected' : '';
                   return '<option value="' + esc(t) + '"' + sel + '>' + esc(t) + '</option>';
                 }).join('') +
                 '</select></div>';
