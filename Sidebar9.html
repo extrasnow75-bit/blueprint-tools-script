@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:20 MDT
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:42 MDT
 
-     UI for the "Design Map → Dev Tab" tool (Code9.gs). The Module Titles panel
+     UI for the "Design Map → Dev Tab (Module Titles, Objectives, & More)" tool
+     (Code9.gs). The Module Titles panel
      is Sidebar7.html's, ported across unchanged — same radio-per-module group,
      same grey starter text, same "already titled" lock. Everything below it is
      new: the module and activity pickers, the per-row match resolution, and the
@@ -29,6 +30,11 @@
       font-size: 15px;
       font-weight: bold;
       margin-bottom: 10px;
+    }
+
+    .h3-sub {
+      font-size: 12px;
+      font-weight: normal;
     }
 
     h4 {
@@ -423,7 +429,10 @@
 </head>
 <body>
 
-  <h3>Design Map &rarr; Dev Tab</h3>
+  <!-- The parenthetical is a second line rather than a wrap, so the tool's
+       actual name stays scannable at the top of a sidebar this tall. -->
+  <h3>Design Map &rarr; Dev Tab<br>
+    <span class="h3-sub">(Module Titles, Objectives, &amp; More)</span></h3>
 
   <!-- ── LOADING ─────────────────────────────────────────── -->
   <!-- The ticking node is aria-hidden and a static line is announced instead.

@@ -1,11 +1,12 @@
 // ============================================================
 // Blueprint Tools — Code9.gs
-// Design Map → Dev Tab: copies the Design tab's Course Design Map into the
+// Design Map → Dev Tab (Module Titles, Objectives, & More)
+// Copies the Design tab's Course Design Map into the
 // Development tab — module titles into the H2 headings, the CLO/MLO row into
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 23:20 MDT
+// Last updated on 2026-09-05 at 23:42 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -109,7 +110,11 @@ var KEY_SEP_9 = '||';
 
 function showDesignMapSidebar9() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar9')
-    .setTitle('Design Map → Dev Tab')
+    // Apps Script truncates the sidebar's own title bar at this width, so the
+    // full name will clip there. Kept identical to the menu entry anyway — a
+    // panel that calls itself something shorter than the menu item that opened
+    // it is worse than a clipped one.
+    .setTitle('Design Map → Dev Tab (Module Titles, Objectives, & More)')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }
