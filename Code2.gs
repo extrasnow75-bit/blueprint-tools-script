@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-09-04 at 09:44 MDT
+// Last updated on 2026-09-06 at 00:09 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -1074,6 +1074,12 @@ function freshListId_(body, runItems) {
 // HELPERS
 // -----------------------------------------------------------
 
+// Precomposed Unicode fractions a designer can type into a time estimate.
+// Same set parseTimeToMinutes3 (Code3.gs) already normalizes to decimals —
+// deliberately identical, so the two cannot drift into disagreeing about what
+// counts as a time.
+var FRACTION_CHARS = '¼½¾⅓⅔⅛⅜⅝⅞';
+
 /**
  * Strips the number prefix (e.g. "1.01 ") and the time estimate suffix
  * (e.g. " (30 min)") from an H4 activity heading, returning just the title.
@@ -1081,6 +1087,13 @@ function freshListId_(body, runItems) {
  * Examples:
  *   "1.01 Readings and Multimedia (30 min)"  →  "Readings and Multimedia"
  *   "2.03 Module Quiz (20 min)"              →  "Module Quiz"
+ *   "1.07 Weekly reflection (½ hr)"          →  "Weekly reflection"
+ *
+ * The fraction case is not cosmetic. This function is how applyDirectionsFromModel
+ * pairs a model module's activities with the target modules', so while "(½ hr)"
+ * went unstripped and "(30 min)" did not, the same activity written both ways
+ * across two modules did not match and the slot was silently reported as having
+ * no counterpart.
  *
  * @param {string} raw
  * @returns {string}
@@ -1088,8 +1101,15 @@ function freshListId_(body, runItems) {
 function stripActivityHeading(raw) {
   // Remove leading number prefix like "1.01 " or "10.03 ".
   var stripped = raw.replace(/^\d+\.\d+\s+/, '');
-  // Remove trailing time estimate like " (30 min)" or " (1 hr)".
-  stripped = stripped.replace(/\s*\(\s*(?:TBD|\d[\d\w\s./]*(?:min|mins|hr|hrs|hour|hours)?)\s*\)\s*$/i, '');
+
+  // Remove trailing time estimate like " (30 min)", " (1 hr)", " (½ hr)",
+  // " (1½ hr)" or " (TBD)". A fraction is accepted both as the opening
+  // character and inside the run, so a mixed number works either way round.
+  var timeSuffix = new RegExp(
+    '\\s*\\(\\s*(?:TBD|[\\d' + FRACTION_CHARS + '][\\d\\w\\s./' + FRACTION_CHARS + ']*' +
+    '(?:min|mins|hr|hrs|hour|hours)?)\\s*\\)\\s*$', 'i');
+
+  stripped = stripped.replace(timeSuffix, '');
   return stripped.trim();
 }
 
