@@ -5,7 +5,7 @@
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 00:47 MDT
+// Last updated on 2026-09-05 at 21:48 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -26,11 +26,16 @@
 //
 // Relies on shared helpers defined elsewhere in that same namespace — do NOT
 // redefine any of these here:
-//   collectTabs, zeroIndent_, RIGHT_INDENT                    (Code.gs)
+//   collectTabs, zeroIndent_, _fmt-era constants
+//     FONT / BLACK / RED, RIGHT_INDENT                        (Code.gs)
 //   getDevelopmentTabBody, stripActivityHeading,
-//   DIRECTIONS_PLACEHOLDER_TEXT, restartCopiedListNumbering_,
-//   freshListId_                                              (Code2.gs)
+//   DIRECTIONS_PLACEHOLDER_TEXT, restartCopiedListNumbering_  (Code2.gs)
 //   START_PLACEHOLDER_7, END_PLACEHOLDER_7                    (Code8.gs)
+//
+// freshListId_ (Code2.gs) is deliberately NOT used any more. Objectives were
+// real Docs numbered lists until 2026-09-05; they are unnumbered paragraphs
+// now, so this file mints no list IDs. The helper stays in Code2.gs for the
+// deploy tools, which still need it.
 // ============================================================
 
 
@@ -65,13 +70,31 @@ var MODULE_PREFIX_RE_7 = /^(module|week)\s+(0*)(\d+)\s*:?\s*/i;
 var CDM_MODULE_RE_9 =
   /^(module|week)\s+(0*)(\d+)\s*([:–—-])?\s*([\s\S]*)$/i;
 
-// Typed list markers at the head of a plain paragraph in the CLO/MLO cell
-// ("1. ", "2) ", "• ", "– "). Real Docs list items never carry one; when the
-// designer typed the numbers by hand, the glyph this tool adds would otherwise
-// render as "1. 1. Explain …".
+// Typed list markers at the head of a line in the CLO/MLO cell ("1. ", "2) ",
+// "• ", "– "). Objectives are written UNNUMBERED (user, 2026-09-05), so a
+// hand-typed numeral would be the only number on the page and would read as a
+// leftover. Real Docs list items carry their number as a glyph, not as text,
+// so they arrive here already clean.
 var CDM_TYPED_MARKER_RE_9 = /^\s*(?:\d+\s*[.)\]]|[•●▪–—-])\s+/;
 
-// Cyan, the IDC convention for "this is a note to myself, delete before
+// The objectives block. Rather than hardcoding one header, the cell's OWN
+// header lines are detected and reformatted — a Course Design Map cell holds
+// MLOs, or CLOs, or both, and mirroring what it says keeps all three correct.
+// DEFAULT_OBJECTIVES_HEADER_9 is the fallback for a cell that is a bare list of
+// objectives with no header at all.
+var OBJECTIVES_HEADER_RE_9      = /^\s*(?:course|module)\s+learning\s+objectives\b/i;
+var DEFAULT_OBJECTIVES_HEADER_9 = 'Module Learning Objectives (MLOs)';
+
+// The Blueprint's convention for "make this an H2 in Canvas": the marker is
+// bold red text on an otherwise Normal paragraph, NOT a real Docs heading —
+// same as "Required Readings (H2)" in the deployed directions.
+var H2_MARKER_9 = '(H2)';
+
+// A heading marker the cell already carries, so "… (MLOs) (H2)" does not come
+// out as "… (MLOs) (H2) (H2)".
+var TRAILING_MARKER_RE_9 = /\s*\((?:H[1-6])\)\s*:?\s*$/i;
+
+// Cyan blue, the IDC convention for "this is a note to myself, delete before
 // hand-off". Applied to pasted ACTIVITY NOTES only — the objectives are real
 // course content that stays, so highlighting them would invert the signal.
 var NOTE_HIGHLIGHT_9 = '#00ffff';
@@ -412,6 +435,10 @@ function scanDevStructure9_(devBody) {
         title:       stripActivityHeading(trimmed),
         h4:          para,
         placeholder: null,
+        // Last of the slot's preamble lines (H4 → "Estimated time:" → tool
+        // line). Notes anchor here when the placeholder is gone, which is how
+        // they land ABOVE directions that were already deployed.
+        lastPreamble: para,
         content:     []
       };
       current.activities.push(slot);
@@ -435,9 +462,11 @@ function scanDevStructure9_(devBody) {
     if (slot) {
       // Slot preamble, never content. Same two tests readModuleContent_
       // (Code2.gs) uses, and for the same reason: "Estimated time:" precedes
-      // the tool line and matches neither a blank nor a heading.
-      if (/^estimated time/i.test(trimmed))       continue;
-      if (/link to settings tab$/i.test(trimmed)) continue;
+      // the tool line and matches neither a blank nor a heading. Tracked rather
+      // than merely skipped, because the last of them is the notes anchor in a
+      // slot whose placeholder has already been consumed by Deploy.
+      if (/^estimated time/i.test(trimmed))       { slot.lastPreamble = para; continue; }
+      if (/link to settings tab$/i.test(trimmed)) { slot.lastPreamble = para; continue; }
       if (trimmed === '')                         continue;
 
       if (!slot.placeholder &&
@@ -803,11 +832,14 @@ function copyRuns9_(srcText, destEl) {
 
 
 /**
- * Reads the CLO/MLO cell into one entry per objective.
+ * Reads the CLO/MLO cell into one entry per line, flagging which lines are
+ * section headers ("Module Learning Objectives (MLOs)", "Course Learning
+ * Objectives (CLOs)") rather than objectives.
  *
- * Both shapes occur in the wild: a real Docs list, and plain paragraphs with
- * the numbers typed by hand. `typed` records which, because only the second
- * needs its "1. " stripped before a real glyph is added.
+ * Both cell shapes occur in the wild — a real Docs list, and plain paragraphs —
+ * and both are read the same way now that objectives are written unnumbered.
+ * A real list item carries its number as a glyph, so its text is already clean;
+ * a hand-typed "1. " is stripped on write.
  */
 function objectiveSources9_(cell) {
   var out = [];
@@ -816,18 +848,50 @@ function objectiveSources9_(cell) {
   for (var i = 0; i < n; i++) {
     var el   = cell.getChild(i);
     var type = el.getType();
+    var textEl;
 
-    if (type === DocumentApp.ElementType.LIST_ITEM) {
-      var li = el.asListItem();
-      if (!li.getText().trim()) continue;
-      out.push({ text: li.editAsText(), level: li.getNestingLevel(), typed: false });
-    } else if (type === DocumentApp.ElementType.PARAGRAPH) {
-      var p = el.asParagraph();
-      if (!p.getText().trim()) continue;
-      out.push({ text: p.editAsText(), level: 0, typed: true });
-    }
+    if      (type === DocumentApp.ElementType.LIST_ITEM) textEl = el.asListItem().editAsText();
+    else if (type === DocumentApp.ElementType.PARAGRAPH) textEl = el.asParagraph().editAsText();
+    else continue;
+
+    var raw = textEl.getText();
+    if (!raw.trim()) continue;
+
+    out.push({
+      text:     textEl,
+      isHeader: OBJECTIVES_HEADER_RE_9.test(raw),
+      // The header's own wording is kept — a cell that says "Course Learning
+      // Objectives (CLOs)" must not be relabelled as MLOs — minus any heading
+      // marker it already carries.
+      label:    raw.trim().replace(TRAILING_MARKER_RE_9, '').trim()
+    });
   }
   return out;
+}
+
+
+/**
+ * Writes one objectives section header into an existing empty paragraph:
+ * the label in bold black, then the "(H2)" marker in bold red.
+ *
+ * The paragraph stays Normal style. "(H2)" is the Blueprint's instruction to
+ * whoever builds the Canvas page, not a Docs heading — making it a real
+ * Heading 2 would render it at 17pt and, worse, would look like a module
+ * boundary to every other tool in the suite that walks headings.
+ */
+function writeObjectivesHeader9_(para, label) {
+  var text = para.editAsText();
+  text.appendText(label + ' ' + H2_MARKER_9);
+
+  var redStart = label.length + 1;
+  var end      = redStart + H2_MARKER_9.length - 1;
+
+  text.setFontFamily(0, end, FONT);
+  text.setFontSize(0, end, 11);
+  text.setBold(0, end, true);
+  text.setForegroundColor(0, redStart - 1, BLACK);
+  text.setForegroundColor(redStart, end, RED);
+  return para;
 }
 
 
@@ -895,68 +959,72 @@ function highlightElement9_(el) {
 // ── WRITING ──────────────────────────────────────────────────
 
 /**
- * Writes one module's objectives into its Module Overview as a REAL Docs
- * numbered list, immediately after the anchor: one blank paragraph, then the
- * list. (Decided 2026-09-04: real lists, not typed "1)" text — they match the
- * Course Design Map exactly and the mechanism already exists.)
+ * Writes one module's objectives into its Module Overview, immediately after
+ * the anchor: one blank paragraph, then a bold section header, then one plain
+ * paragraph per objective.
  *
- * ORDER OF OPERATIONS IS LOAD-BEARING. Adopting a list ID — and setGlyphType /
- * setNestingLevel with it — pulls in the list preset's 18pt/36pt indents, so
- * the indents have to be zeroed AFTER setListId. Zeroing first is silently
- * undone and the whole list comes out indented.
+ * PLAIN PARAGRAPHS, NOT A DOCS LIST (user, 2026-09-05 — reversing the
+ * 2026-09-04 "keep real numbered lists" call, and the "MLO 3.1:" prefix scheme
+ * that briefly replaced it). Objectives carry no numbering at all now. That
+ * retires freshListId_, setGlyphType/setNestingLevel and the whole
+ * zero-the-indents-AFTER-setListId trap from this path.
  *
- * @returns {number} objectives written
+ * Section headers come from the cell itself, so a cell holding CLOs, or MLOs,
+ * or both gets the right header on each block. Only a cell with no header of
+ * its own gets DEFAULT_OBJECTIVES_HEADER_9 written for it.
+ *
+ * @returns {number} paragraphs written, header included
  */
 function writeObjectives9_(devBody, anchorEl, cell) {
   var sources = objectiveSources9_(cell);
   if (sources.length === 0) return 0;
 
-  var at    = devBody.getChildIndex(anchorEl);
-  var items = [];
+  var NORMAL  = DocumentApp.ParagraphHeading.NORMAL;
+  var at      = devBody.getChildIndex(anchorEl);
+  var written = 0;
+  var hasOwnHeader = false;
+
+  for (var s = 0; s < sources.length; s++) {
+    if (sources[s].isHeader) { hasOwnHeader = true; break; }
+  }
 
   // Inserted in REVERSE at a fixed index so the forward order comes out right —
   // the same trick replaceWithCopiedElements (Code2.gs:970) uses.
   for (var k = sources.length - 1; k >= 0; k--) {
-    var item = devBody.insertListItem(at + 1, '');
-    copyRuns9_(sources[k].text, item);
+    var para = devBody.insertParagraph(at + 1, '');
+    para.setHeading(NORMAL);
+    zeroIndent_(para);
 
-    if (sources[k].typed) {
-      var textEl = item.editAsText();
+    if (sources[k].isHeader) {
+      writeObjectivesHeader9_(para, sources[k].label);
+    } else {
+      copyRuns9_(sources[k].text, para);
+
+      var textEl = para.editAsText();
       var full   = textEl.getText();
       var marker = full.match(CDM_TYPED_MARKER_RE_9);
       // Never delete the whole line: a cell holding only "1." is malformed, but
-      // an empty list item is worse than a redundant numeral.
+      // an empty paragraph is worse than a stray numeral.
       if (marker && marker[0].length < full.length) textEl.deleteText(0, marker[0].length - 1);
     }
-    items.unshift(item);
+    written++;
+  }
+
+  if (!hasOwnHeader) {
+    var head = devBody.insertParagraph(at + 1, '');
+    head.setHeading(NORMAL);
+    zeroIndent_(head);
+    writeObjectivesHeader9_(head, DEFAULT_OBJECTIVES_HEADER_9);
+    written++;
   }
 
   // "…objectives go in the SECOND, leaving one blank line" — the blank sits
-  // between the refer-to line and the list.
+  // between the refer-to line and the header.
   var blank = devBody.insertParagraph(at + 1, '');
-  blank.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+  blank.setHeading(NORMAL);
   zeroIndent_(blank);
 
-  for (var g = 0; g < items.length; g++) {
-    items[g].setGlyphType(DocumentApp.GlyphType.NUMBER);
-    items[g].setNestingLevel(sources[g].level);
-  }
-
-  // One fresh list ID per module, so numbering restarts at 1 in each Overview.
-  // A blank paragraph does NOT end a list — continuity is by list ID, not
-  // adjacency — which is why this is required rather than cosmetic.
-  freshListId_(devBody, items);
-
-  for (var z = 0; z < items.length; z++) {
-    if (items[z].getNestingLevel() === 0) {
-      items[z].setIndentFirstLine(0);
-      items[z].setIndentStart(0);
-    }
-    // Level 2+ keeps the preset indent on purpose: zeroing it would flatten the
-    // hierarchy into an unreadable single column.
-  }
-
-  return items.length;
+  return written;
 }
 
 
@@ -1037,56 +1105,45 @@ function appendSpacer9_(devBody, lastEl) {
 
 // ── APPLY ────────────────────────────────────────────────────
 
+// The run is split into a titles call plus one call per chunk of modules, so
+// the sidebar can show a progress fraction that actually advances — a single
+// blocking google.script.run call can report nothing until it returns.
+//
+// CHUNKED, not one call per module. Every call re-reads the document (parse the
+// Course Design Map, scan the Development tab), and that fixed cost is the bulk
+// of the work; paying it fifteen times instead of three would make the run
+// slower than the version with no progress bar at all.
+//
+// Nothing in either function trusts the sidebar's view of the document. The
+// parse, the scan and the match are redone from scratch; the parameters carry
+// only the user's DECISIONS (which modules, which activities, which title, how
+// to resolve an ambiguous row, whether to paste into an occupied slot).
+// Matching is deterministic, so the preview and the write agree — and a
+// document edited between the two is re-read rather than written from stale
+// indices.
+
 /**
- * Sidebar-callable. Writes the chosen titles, objectives and activity notes
- * into the Development tab.
+ * Sidebar-callable, step 1 of the run. Writes the chosen module titles.
  *
- * Nothing here trusts the sidebar's view of the document. The parse, the scan
- * and the match are all redone from scratch; the parameters carry only the
- * user's DECISIONS (which modules, which activities, which title, how to
- * resolve an ambiguous row, whether to paste into an occupied slot). Matching
- * is deterministic, so the preview and the write agree — and a document edited
- * between the two is re-read rather than written from stale indices.
+ * Separate from the module pass and always run FIRST, because replaceText does
+ * not change the child count — any structural insert would invalidate
+ * scanDevelopmentHeadings7_'s childIndex values if it ran the other way round.
  *
- * Never overwrites. A destination that already has content is skipped and
- * reported unless the user explicitly ticked "paste anyway" for it, and the
- * "Directions go here…" placeholder is always preserved.
+ * Never overwrites: a heading whose "Title" placeholder is already gone is
+ * skipped and reported.
  *
- * @param {Object} params
- *   .titles      {Object}  module number → chosen title text
- *   .modules     {number[]} module numbers to process
- *   .activities  {string[]} Development-tab activity titles to include; [] means
- *                          none, and omitting the field means no filter at all
- *   .resolutions {Object}  "num||cdmLabel" → chosen Dev activity title, '' to skip
- *   .pasteAnyway {Object}  "ov||num" / "act||num||cdmLabel" → true
- *   .highlight   {boolean} cyan-highlight the pasted notes (default true)
- * @returns {string} plain-text summary for the sidebar
+ * @param {Object} params  .titles {Object} module number → chosen title text
+ * @returns {{written: number, skipped: string[]}}
  */
-function applyDesignMapToDevTab9(params) {
+function applyDesignMapTitles9(params) {
   params = params || {};
-  var titles      = params.titles      || {};
-  var resolutions = params.resolutions || {};
-  var pasteAnyway = params.pasteAnyway || {};
-  var highlight   = params.highlight !== false;
+  var titles = params.titles || {};
 
-  var doc = DocumentApp.getActiveDocument();
-
-  var devBody = getDevelopmentTabBody(doc);
+  var devBody = getDevelopmentTabBody(DocumentApp.getActiveDocument());
   if (!devBody) throw new Error('Could not find a "Development" tab in this document.');
 
-  var tabs = collectTabs(doc);
-  var designTab = null;
-  for (var i = 0; i < tabs.length; i++) {
-    if (/\bdesign\b/i.test(tabs[i].title)) { designTab = tabs[i]; break; }
-  }
-  if (!designTab) throw new Error('Could not find a "Design" tab in this document.');
-
-  // ── 1. Titles ──────────────────────────────────────────────
-  // First, because replaceText does not change the child count — every
-  // structural insert below would invalidate scanDevelopmentHeadings7_'s
-  // childIndex values if it ran the other way round.
-  var titlesWritten = 0;
-  var titlesSkipped = [];
+  var written = 0;
+  var skipped = [];
   var H2 = DocumentApp.ParagraphHeading.HEADING2;
 
   var headings = scanDevelopmentHeadings7_(devBody);
@@ -1108,13 +1165,54 @@ function applyDesignMapToDevTab9(params) {
       // Arial 17 bold all survive untouched. Word-bounded so it cannot match
       // inside a longer word.
       para.replaceText('\\b' + TITLE_PLACEHOLDER_7 + '\\b', chosenTitle);
-      titlesWritten++;
+      written++;
     } else {
-      titlesSkipped.push(info.displayLabel + ' — already reads "' + info.titlePart + '"');
+      skipped.push(info.displayLabel + ' — already reads "' + info.titlePart + '"');
     }
   }
 
-  // ── 2. Objectives and notes ────────────────────────────────
+  Logger.log('applyDesignMapTitles9: %s written, %s skipped.', written, skipped.length);
+  return { written: written, skipped: skipped };
+}
+
+
+/**
+ * Sidebar-callable, step 2 of the run, called once per chunk of modules.
+ * Writes each chosen module's objectives into its Module Overview and its
+ * Course Design Map notes into the matching activity slots.
+ *
+ * Never overwrites. A destination that already has content is skipped and
+ * reported unless the user explicitly ticked "paste anyway" for it, and the
+ * "Directions go here…" placeholder is always preserved.
+ *
+ * @param {Object} params
+ *   .modules     {number[]} module numbers in THIS chunk
+ *   .activities  {string[]} Development-tab activity titles to include; [] means
+ *                          none, and omitting the field means no filter at all
+ *   .resolutions {Object}  "num||cdmLabel" → chosen Dev activity title, '' to skip
+ *   .pasteAnyway {Object}  "ov||num" / "act||num||cdmLabel" → true
+ *   .highlight   {boolean} cyan-blue-highlight the pasted notes (default true)
+ * @returns {{objectives: number, notes: number, objectivesSkipped: string[],
+ *            notesSkipped: string[], unmatched: string[]}}
+ */
+function applyDesignMapModules9(params) {
+  params = params || {};
+  var resolutions = params.resolutions || {};
+  var pasteAnyway = params.pasteAnyway || {};
+  var highlight   = params.highlight !== false;
+
+  var doc = DocumentApp.getActiveDocument();
+
+  var devBody = getDevelopmentTabBody(doc);
+  if (!devBody) throw new Error('Could not find a "Development" tab in this document.');
+
+  var tabs = collectTabs(doc);
+  var designTab = null;
+  for (var i = 0; i < tabs.length; i++) {
+    if (/\bdesign\b/i.test(tabs[i].title)) { designTab = tabs[i]; break; }
+  }
+  if (!designTab) throw new Error('Could not find a "Design" tab in this document.');
+
   var wanted = {};
   var moduleNums = params.modules || [];
   for (var w = 0; w < moduleNums.length; w++) wanted[parseInt(moduleNums[w], 10)] = true;
@@ -1228,68 +1326,53 @@ function applyDesignMapToDevTab9(params) {
 
       if (actFilter && !actFilter[slot.title.toLowerCase()]) continue;  // not chosen
 
-      if (!slot.placeholder && slot.content.length === 0) {
+      if (slot.content.length > 0 &&
+          // Keyed by the Course Design Map row, not by the destination activity:
+          // the row is what the sidebar lists, and a resolution override can move
+          // it to a different slot after the user has ticked the box.
+          !pasteAnyway['act' + KEY_SEP_9 + devMod.num + KEY_SEP_9 + row.label]) {
         notesSkipped.push(rowName + ' → "' + slot.title +
-                          '" — no "Directions go here…" line to paste under');
+                          '" — that slot already has directions, so nothing was overwritten');
         continue;
       }
 
-      var anchor;
-      if (slot.content.length > 0) {
-        // Keyed by the Course Design Map row, not by the destination activity:
-        // the row is what the sidebar lists, and a resolution override can move
-        // it to a different slot after the user has ticked the box.
-        if (!pasteAnyway['act' + KEY_SEP_9 + devMod.num + KEY_SEP_9 + row.label]) {
-          notesSkipped.push(rowName + ' → "' + slot.title +
-                            '" — that slot already has directions, so nothing was overwritten');
-          continue;
-        }
-        anchor = appendSpacer9_(devBody, slot.content[slot.content.length - 1]);
-      } else {
-        anchor = slot.placeholder;
+      // TOP of the slot, above any directions already there (user, 2026-09-05).
+      //
+      // The anchor is the placeholder when one survives, NOT the tool line, and
+      // that is a hard constraint rather than a preference: findDirectionsPlaceholder
+      // (Code2.gs:933) only scans 11 children past the H4, so a note block
+      // inserted ABOVE the placeholder can push it out of that window — after
+      // which "Deploy Activity Directions" silently stops finding the slot.
+      // Once Deploy has consumed the placeholder there is nothing left to
+      // protect, so the tool line becomes the anchor and the notes land above
+      // the directions.
+      var anchor = slot.placeholder || slot.lastPreamble;
+      if (!anchor) {
+        notesSkipped.push(rowName + ' → "' + slot.title +
+                          '" — could not find a place to paste inside that slot');
+        continue;
       }
 
-      if (insertNotes9_(devBody, anchor, row.cell, highlight) > 0) notesWritten++;
+      // One blank line between the anchor and the notes — "two hard returns",
+      // which is one empty paragraph.
+      var spacer = appendSpacer9_(devBody, anchor);
+
+      if (insertNotes9_(devBody, spacer, row.cell, highlight) > 0) notesWritten++;
     }
   }
 
-  Logger.log('applyDesignMapToDevTab9: %s title(s), %s overview(s), %s note block(s) written; ' +
-             '%s title(s) / %s overview(s) / %s note(s) skipped, %s row(s) unmatched.',
-             titlesWritten, objectivesWritten, notesWritten,
-             titlesSkipped.length, objectivesSkipped.length, notesSkipped.length,
-             unmatched.length);
+  Logger.log('applyDesignMapModules9: %s module(s) in chunk; %s overview(s), %s note block(s) ' +
+             'written; %s overview(s) / %s note(s) skipped, %s row(s) unmatched.',
+             moduleNums.length, objectivesWritten, notesWritten,
+             objectivesSkipped.length, notesSkipped.length, unmatched.length);
 
-  // ── 3. Summary ─────────────────────────────────────────────
-  var lines = ['✅ Development tab updated.', ''];
-  lines.push('Module titles written: ' + titlesWritten);
-  lines.push('Module Overviews filled: ' + objectivesWritten);
-  lines.push('Activity note blocks pasted: ' + notesWritten);
-
-  if (highlight && notesWritten > 0) {
-    lines.push('', 'Pasted notes are highlighted cyan. Delete them before the ' +
-                   'Blueprint goes to the SME.');
-  }
-
-  if (titlesSkipped.length > 0) {
-    lines.push('', 'Titles left alone (' + titlesSkipped.length + ') — these headings ' +
-                   'no longer have the "Title" placeholder:');
-    for (var t1 = 0; t1 < titlesSkipped.length; t1++) lines.push('  • ' + titlesSkipped[t1]);
-  }
-
-  if (objectivesSkipped.length > 0) {
-    lines.push('', 'Module Overviews left alone (' + objectivesSkipped.length + '):');
-    for (var t2 = 0; t2 < objectivesSkipped.length; t2++) lines.push('  • ' + objectivesSkipped[t2]);
-  }
-
-  if (notesSkipped.length > 0) {
-    lines.push('', 'Activity notes left alone (' + notesSkipped.length + '):');
-    for (var t3 = 0; t3 < notesSkipped.length; t3++) lines.push('  • ' + notesSkipped[t3]);
-  }
-
-  if (unmatched.length > 0) {
-    lines.push('', 'Course Design Map rows with nowhere to go (' + unmatched.length + '):');
-    for (var t4 = 0; t4 < unmatched.length; t4++) lines.push('  • ' + unmatched[t4]);
-  }
-
-  return lines.join('\n');
+  // Structured counts rather than prose: the sidebar calls this once per chunk
+  // and accumulates across the whole run before rendering one summary.
+  return {
+    objectives:        objectivesWritten,
+    notes:             notesWritten,
+    objectivesSkipped: objectivesSkipped,
+    notesSkipped:      notesSkipped,
+    unmatched:         unmatched
+  };
 }

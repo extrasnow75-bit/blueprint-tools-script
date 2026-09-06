@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 00:47 MDT
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 21:48 MDT
 
      UI for the "Design Map → Dev Tab" tool (Code9.gs). The Module Titles panel
      is Sidebar7.html's, ported across unchanged — same radio-per-module group,
@@ -60,9 +60,11 @@
     }
 
     /* ── Divider ─────────────────────────────────────────────── */
+    /* #dde1ea at 1px was nearly invisible against the sidebar's own white,
+       so sections ran together. Matches Sidebar8's darkened value. */
     .divider {
       border: none;
-      border-top: 1px solid #dde1ea;
+      border-top: 2px solid #aab2c8;
       margin: 14px 0;
     }
 
@@ -315,6 +317,33 @@
 
     .spinner-text { font-size: 12px; color: #333; }
 
+    /* ── Progress ────────────────────────────────────────────── */
+    .progress-track {
+      height: 8px;
+      background: #dde1ea;
+      border: 1px solid #aab2c8;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: #0033a0;
+      transition: width .25s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .progress-fill { transition: none; }
+    }
+
+    .progress-meta {
+      font-size: 12px;
+      color: #555;
+      margin-top: 6px;
+    }
+
     /* ── Summary ─────────────────────────────────────────────── */
     .summary {
       white-space: pre-wrap;
@@ -413,8 +442,9 @@
       <h4 id="occupied-heading">Already has content</h4>
       <p class="section-hint">
         These destinations are not empty, so they are skipped by default and
-        nothing is overwritten. Tick one to append the Design Map content below
-        what is already there.
+        nothing is overwritten. Tick a box to paste the matching Design Map
+        content into that Dev tab activity slot, above the directions already
+        there.
       </p>
       <div role="group" aria-labelledby="occupied-heading">
         <ul id="occupied-list" class="check-list"></ul>
@@ -426,16 +456,21 @@
     <!-- ── 6. HIGHLIGHT ──────────────────────────────────── -->
     <h4 id="highlight-heading">Highlight the pasted notes?</h4>
     <p class="section-hint">
-      Cyan is the IDC convention for &ldquo;note to self, delete before this goes
-      to the SME&rdquo;. It makes the copied Design Map notes easy to find and
-      strip out once the directions are written. The module objectives are never
-      highlighted &mdash; those are real course content that stays.
+      Cyan blue is the IDC convention for &ldquo;note to self, delete before this
+      goes to the SME&rdquo;. It makes the copied Design Map notes easy to find
+      and strip out once the directions are written. The module objectives are
+      never highlighted &mdash; those are real course content that stays.
     </p>
     <label class="sr-only" for="highlight">Highlight the pasted notes</label>
     <select id="highlight" class="select-input">
-      <option value="yes">Yes &mdash; highlight pasted notes cyan</option>
+      <option value="yes">Yes &mdash; highlight pasted notes cyan blue</option>
       <option value="no">No &mdash; paste with no highlight</option>
     </select>
+
+    <!-- Set the expectation BEFORE the run, not only during it. The load pass
+         already knows exactly how many modules have work, so the wait can be
+         named while the user still has a choice about starting it. -->
+    <p id="run-estimate" class="section-hint"></p>
 
     <div class="btn-row">
       <button id="run-btn" class="run-btn" type="button">Run Script</button>
@@ -443,10 +478,27 @@
   </div>
 
   <!-- ── RUNNING ─────────────────────────────────────────── -->
-  <div id="running" class="hidden spinner-wrap" role="status" aria-live="polite" tabindex="-1">
-    <div class="spinner" aria-hidden="true"></div>
-    <span class="sr-only">Updating the Development tab, please wait&hellip;</span>
-    <div class="spinner-text" id="running-text" aria-hidden="true">Updating the Development tab&hellip;</div>
+  <!-- The bar and the ticking clock are aria-hidden; the step label is the one
+       thing announced, and only when it changes. A live region carrying a
+       once-a-second clock would re-read the whole panel every second. -->
+  <div id="running" class="hidden" tabindex="-1">
+    <div class="spinner-wrap">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="spinner-text" id="running-text">Updating the Development tab&hellip;</div>
+    </div>
+
+    <div class="progress-track" role="progressbar" id="progress-bar"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+         aria-labelledby="running-text">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <p class="progress-meta" aria-hidden="true">
+      Elapsed: <strong><span id="elapsed-time">0:00</span></strong>
+      <span id="remaining-wrap" class="hidden">
+        &nbsp;&middot;&nbsp; About <strong><span id="remaining-time">&hellip;</span></strong> left
+      </span>
+    </p>
   </div>
 
   <!-- ── DONE ────────────────────────────────────────────── -->
@@ -531,6 +583,107 @@
     if (TIMER.id) { clearInterval(TIMER.id); TIMER.id = null; }
   }
 
+  // ── Run pacing ─────────────────────────────────────────────
+  // Modules are written a chunk at a time rather than one per call: every call
+  // re-reads the document, and that fixed scan is most of the cost, so
+  // per-module calls would make the run slower than the version with no
+  // progress bar. Five is small enough that the bar moves often and large
+  // enough that the scan is amortised.
+  var CHUNK_SIZE_9 = 5;
+
+  // Seeded from ONE measured run (15 modules scanned, 7 written, ~35 s), so
+  // this is an order of magnitude rather than a measurement. It only feeds the
+  // sentence shown before the run starts; once the first chunk returns, the
+  // "about X left" readout switches to real observed timing.
+  var RUN_FIXED_SECONDS_9      = 8;   // document scan, paid once per call
+  var RUN_PER_MODULE_SECONDS_9 = 4;
+
+  var RUN = null;
+
+  function fmtClock(secs) {
+    var m = Math.floor(secs / 60);
+    var s = secs % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  // Deliberately vague. A run this variable cannot honestly promise "47
+  // seconds", and a wrong precise number is worse than a right vague one.
+  function coarseTime(secs) {
+    if (secs < 45)  return 'half a minute';
+    if (secs < 90)  return 'about a minute';
+    if (secs < 150) return 'a minute or two';
+    return 'about ' + Math.round(secs / 60) + ' minutes';
+  }
+
+  // Even groups rather than full-size runs plus a stub: 7 modules at a max of 5
+  // splits 4/3, not 5/2, so the bar steps in similar increments instead of
+  // lurching to 75% and then sitting there.
+  function chunkList(list, maxSize) {
+    var groups = Math.ceil(list.length / maxSize);
+    if (groups <= 1) return list.length ? [list.slice()] : [];
+
+    var out   = [];
+    var start = 0;
+    for (var g = 0; g < groups; g++) {
+      var size = Math.ceil((list.length - start) / (groups - g));
+      out.push(list.slice(start, start + size));
+      start += size;
+    }
+    return out;
+  }
+
+  function selectedModuleNums() {
+    var out = [];
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#module-picker input[type="checkbox"]:checked'),
+      function (cb) { out.push(parseInt(cb.value, 10)); }
+    );
+    return out;
+  }
+
+  function updateRunEstimate() {
+    var n  = selectedModuleNums().length;
+    var el = $('run-estimate');
+    if (!el) return;
+
+    if (n === 0) {
+      el.textContent = 'No modules are checked, so only the module titles above will be written.';
+      return;
+    }
+    var calls = Math.ceil(n / CHUNK_SIZE_9) + 1;   // + the titles call
+    var secs  = RUN_FIXED_SECONDS_9 * calls + RUN_PER_MODULE_SECONDS_9 * n;
+    el.textContent = 'This will write ' + n + ' module' + (n === 1 ? '' : 's') +
+                     ' — usually ' + coarseTime(secs) + '.';
+  }
+
+  function setProgress(fraction, label) {
+    var pct = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+    $('progress-fill').style.width = pct + '%';
+    $('progress-bar').setAttribute('aria-valuenow', String(pct));
+    if (label) $('running-text').textContent = label;
+  }
+
+  function startClock() {
+    stopClock();
+    RUN.clock = setInterval(function () {
+      var secs = Math.floor((Date.now() - RUN.start) / 1000);
+      $('elapsed-time').textContent = fmtClock(secs);
+
+      // Real timing, not the seed: once any unit has completed we know what a
+      // unit costs in THIS document, on THIS connection.
+      if (RUN.doneUnits > 0) {
+        var perUnit = (Date.now() - RUN.start) / RUN.doneUnits;
+        var left    = Math.round(perUnit * (RUN.totalUnits - RUN.doneUnits) / 1000);
+        $('remaining-time').textContent = fmtClock(Math.max(0, left));
+        show('remaining-wrap');
+      }
+    }, 1000);
+  }
+
+  function stopClock() {
+    if (RUN && RUN.clock) { clearInterval(RUN.clock); RUN.clock = null; }
+  }
+
   // ── Load ───────────────────────────────────────────────────
   // Used for the first load and for "Run again" — the second pass has to re-read
   // the document, since the run just changed which destinations are still empty.
@@ -580,7 +733,7 @@
                esc(c.header) + '&rdquo;, Title row says &ldquo;' + esc(c.row) + '&rdquo;</li>';
       }).join('');
       alerts += notice('warn',
-        '<strong>Conflicting titles found.</strong> Pick one below, or type your own. ' +
+        '<strong>Conflicting module titles found.</strong> Pick one below, or type your own. ' +
         'The Design tab is never changed by this tool.<ul>' + items + '</ul>');
     }
 
@@ -608,6 +761,7 @@
     renderActivityPicker();
     renderMatchList();
     renderOccupiedList();
+    updateRunEstimate();
   }
 
   // ── 1. Titles ──────────────────────────────────────────────
@@ -797,12 +951,19 @@
     );
   }
 
-  $('mod-all').addEventListener('click',  function () { setAll('#module-picker input[type="checkbox"]', true);  });
-  $('mod-none').addEventListener('click', function () { setAll('#module-picker input[type="checkbox"]', false); });
+  $('mod-all').addEventListener('click',  function () { setAll('#module-picker input[type="checkbox"]', true);  updateRunEstimate(); });
+  $('mod-none').addEventListener('click', function () { setAll('#module-picker input[type="checkbox"]', false); updateRunEstimate(); });
+
+  // Delegated, because the checkboxes are rebuilt by renderModulePicker on every
+  // load and "Run again" — a listener bound to each one would be lost each time.
+  $('module-picker').addEventListener('change', updateRunEstimate);
   $('act-all').addEventListener('click',  function () { setAll('#activity-picker input[type="checkbox"]', true);  });
   $('act-none').addEventListener('click', function () { setAll('#activity-picker input[type="checkbox"]', false); });
 
   // ── Run ────────────────────────────────────────────────────
+  // Driven from here rather than server-side, one titles call plus one call per
+  // chunk of modules, so the bar reflects work that has actually finished. A
+  // single google.script.run call can report nothing until it returns.
   $('run-btn').addEventListener('click', function () {
     var titles = {};
     STATE.modules.forEach(function (m, i) {
@@ -820,11 +981,7 @@
       if (v) titles[m.num] = v;
     });
 
-    var modules = [];
-    Array.prototype.forEach.call(
-      document.querySelectorAll('#module-picker input[type="checkbox"]:checked'),
-      function (cb) { modules.push(parseInt(cb.value, 10)); }
-    );
+    var modules = selectedModuleNums();
 
     // Always sent as an explicit list, including when it is empty — the server
     // reads [] as "none chosen", never as "all", so deselecting everything does
@@ -847,42 +1004,159 @@
       function (cb) { pasteAnyway[cb.getAttribute('data-key')] = true; }
     );
 
+    // No titles chosen means no titles call: applyDesignMapTitles9 would scan
+    // every heading in the document only to skip all of them.
+    var hasTitles = false;
+    for (var key in titles) { hasTitles = true; break; }
+
+    RUN = {
+      start:        Date.now(),
+      clock:        null,
+      chunks:       chunkList(modules, CHUNK_SIZE_9),
+      idx:          0,
+      modulesDone:  0,
+      modulesTotal: modules.length,
+      // The titles pass counts as one unit alongside each module, so the bar
+      // never sits at zero through the first call. Floored at 1 so a run with
+      // nothing selected at all divides by a real number.
+      doneUnits:    0,
+      totalUnits:   Math.max(1, (hasTitles ? 1 : 0) + modules.length),
+      titles:       { written: 0, skipped: [] },
+      acc: { objectives: 0, notes: 0, objectivesSkipped: [], notesSkipped: [], unmatched: [] },
+      opts: {
+        activities:  activities,
+        resolutions: resolutions,
+        pasteAnyway: pasteAnyway,
+        highlight:   $('highlight').value === 'yes'
+      }
+    };
+
     hide('main');
     show('running');
     // Focus lived on #run-btn, which is inside #main — hiding it would drop
     // focus to <body> and lose the user's place.
     focusEl('running');
 
-    // Writes cost more than reads in Apps Script, and this is the step that
-    // modifies the document — so a stall here is the most alarming. If it does
-    // die partway, the destinations already written are no longer empty, so a
-    // re-run skips them and finishes the rest.
-    startTimer('running-text', 'Updating the Development tab…');
+    hide('remaining-wrap');
+    $('elapsed-time').textContent = '0:00';
+    startClock();
+
+    if (hasTitles) {
+      setProgress(0, 'Writing module titles…');
+      google.script.run
+        .withSuccessHandler(onTitlesDone)
+        .withFailureHandler(onRunError)
+        .applyDesignMapTitles9({ titles: titles });
+    } else {
+      setProgress(0, 'Reading the Development tab…');
+      runNextChunk();
+    }
+  });
+
+  function onTitlesDone(res) {
+    RUN.titles    = res || { written: 0, skipped: [] };
+    RUN.doneUnits = 1;
+    runNextChunk();
+  }
+
+  function runNextChunk() {
+    if (RUN.idx >= RUN.chunks.length) { finishRun(); return; }
+
+    var group = RUN.chunks[RUN.idx];
+    var from  = RUN.modulesDone + 1;
+    var to    = RUN.modulesDone + group.length;
+
+    setProgress(
+      RUN.doneUnits / RUN.totalUnits,
+      RUN.modulesTotal === 1
+        ? 'Writing 1 module…'
+        : 'Writing modules ' + from + '–' + to + ' of ' + RUN.modulesTotal + '…'
+    );
 
     google.script.run
-      .withSuccessHandler(function (summary) {
-        stopTimer();
-        hide('running');
-        $('summary').textContent = summary;
-        show('done');
-        focusEl('done-heading');
-      })
-      .withFailureHandler(function (err) {
-        stopTimer();
-        hide('running');
-        $('summary').textContent = '⚠️ ' + (err.message || err);
-        show('done');
-        focusEl('done-heading');
-      })
-      .applyDesignMapToDevTab9({
-        titles:      titles,
-        modules:     modules,
-        activities:  activities,
-        resolutions: resolutions,
-        pasteAnyway: pasteAnyway,
-        highlight:   $('highlight').value === 'yes'
+      .withSuccessHandler(onChunkDone)
+      .withFailureHandler(onRunError)
+      .applyDesignMapModules9({
+        modules:     group,
+        activities:  RUN.opts.activities,
+        resolutions: RUN.opts.resolutions,
+        pasteAnyway: RUN.opts.pasteAnyway,
+        highlight:   RUN.opts.highlight
       });
-  });
+  }
+
+  function onChunkDone(res) {
+    var group = RUN.chunks[RUN.idx];
+
+    if (res) {
+      RUN.acc.objectives += (res.objectives || 0);
+      RUN.acc.notes      += (res.notes      || 0);
+      RUN.acc.objectivesSkipped = RUN.acc.objectivesSkipped.concat(res.objectivesSkipped || []);
+      RUN.acc.notesSkipped      = RUN.acc.notesSkipped.concat(res.notesSkipped || []);
+      RUN.acc.unmatched         = RUN.acc.unmatched.concat(res.unmatched || []);
+    }
+
+    RUN.modulesDone += group.length;
+    RUN.doneUnits   += group.length;
+    RUN.idx++;
+    runNextChunk();
+  }
+
+  function onRunError(err) {
+    stopClock();
+    hide('running');
+    // Say how far it got. A run that dies partway has already written some
+    // destinations, and those are no longer empty — so a re-run skips them and
+    // finishes the rest rather than doubling anything.
+    var partial = (RUN && RUN.modulesDone > 0)
+      ? '\n\n' + RUN.modulesDone + ' of ' + RUN.modulesTotal +
+        ' module(s) were written before this failed. Running again will skip ' +
+        'those and carry on.'
+      : '';
+    $('summary').textContent = '⚠️ ' + (err.message || err) + partial;
+    show('done');
+    focusEl('done-heading');
+  }
+
+  function finishRun() {
+    stopClock();
+    setProgress(1, 'Finished');
+    hide('running');
+    $('summary').textContent = buildSummary();
+    show('done');
+    focusEl('done-heading');
+  }
+
+  // Built here rather than server-side: the run is several calls, and only the
+  // sidebar sees all of their results.
+  function buildSummary() {
+    var t = RUN.titles;
+    var a = RUN.acc;
+
+    var lines = ['✅ Development tab updated.', ''];
+    lines.push('Module titles written: ' + t.written);
+    lines.push('Module Overviews filled: ' + a.objectives);
+    lines.push('Activity note blocks pasted: ' + a.notes);
+
+    if (RUN.opts.highlight && a.notes > 0) {
+      lines.push('', 'Pasted notes are highlighted cyan blue. Delete them before the ' +
+                     'Blueprint goes to the SME.');
+    }
+
+    function section(heading, items) {
+      if (!items || items.length === 0) return;
+      lines.push('', heading.replace('%n', items.length));
+      items.forEach(function (s) { lines.push('  • ' + s); });
+    }
+
+    section('Titles left alone (%n) — these headings no longer have the "Title" placeholder:',
+            t.skipped);
+    section('Module Overviews left alone (%n):', a.objectivesSkipped);
+    section('Activity notes left alone (%n):',   a.notesSkipped);
+    section('Course Design Map rows with nowhere to go (%n):', a.unmatched);
+
+    return lines.join('\n');
+  }
 
   // "Run again" re-runs rather than closing the sidebar. A second pass is
   // genuinely useful: because writes skip anything already filled in, the normal
@@ -900,9 +1174,13 @@
     $('match-list').innerHTML      = '';
     $('occupied-list').innerHTML   = '';
     $('summary').textContent       = '';
+    $('run-estimate').textContent  = '';
 
     hide('match-wrap');
     hide('occupied-wrap');
+    hide('remaining-wrap');
+    setProgress(0, 'Updating the Development tab…');
+    RUN = null;
 
     STATE.modules       = [];
     STATE.mapModules    = [];
