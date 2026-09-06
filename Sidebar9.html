@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:42 MDT
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:53 MDT
 
      UI for the "Design Map → Dev Tab (Module Titles, Objectives, & More)" tool
      (Code9.gs). The Module Titles panel
@@ -56,6 +56,52 @@
       color: #555;
       margin: -4px 0 10px;
     }
+
+    /* Sub-heading inside a section. A <p>, not an <h5>: these label groups
+       within a section rather than starting one, and promoting them to real
+       headings would clutter a screen reader's heading list. */
+    .sub-head {
+      font-weight: bold;
+      font-size: 12px;
+      color: #333;
+      margin: 12px 0 4px;
+    }
+
+    /* ── Section nav ─────────────────────────────────────────── */
+    /* Sticky so it is reachable from anywhere in a sidebar this tall. The
+       background is opaque for the same reason — content scrolls under it. */
+    .section-nav {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #fff;
+      padding: 6px 0;
+      margin-bottom: 2px;
+      font-size: 12px;
+      color: #555;
+      border-bottom: 1px solid #dde1ea;
+    }
+
+    .section-nav button {
+      background: none;
+      border: none;
+      padding: 0 1px;
+      color: #0033a0;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .section-nav button:hover { color: #002080; }
+
+    .section-nav button:focus-visible {
+      outline: 2px solid #0033a0;
+      outline-offset: 2px;
+    }
+
+    /* Keeps a jumped-to heading clear of the sticky nav overlapping it. */
+    section > h4 { scroll-margin-top: 38px; }
 
     /* ── Field labels ───────────────────────────────────────── */
     .field-label {
@@ -457,87 +503,139 @@
 
     <div id="alerts" role="status" aria-live="polite"></div>
 
-    <!-- ── 1. TITLES (ported from Sidebar7.html unchanged) ── -->
-    <h4 id="main-heading" tabindex="-1">Module Titles</h4>
-    <p class="section-hint">Choose one of the module titles below or create a new one.</p>
-    <div id="modules"></div>
+    <!-- ── SECTION NAV ───────────────────────────────────── -->
+    <!-- Buttons, not <a href="#id">. This document sets <base target="_top">,
+         so a bare in-page anchor would try to navigate the HOST Docs page
+         rather than scroll this iframe. scrollIntoView sidesteps the question
+         entirely, and lets focus move to the heading as well as the scroll —
+         a keyboard user who "jumps" needs their focus to arrive too. -->
+    <nav class="section-nav" aria-label="Jump to a section">
+      <button type="button" data-target="main-heading">Module&nbsp;Titles</button>
+      <span aria-hidden="true">&middot;</span>
+      <button type="button" data-target="objectives-heading">Objectives</button>
+      <span aria-hidden="true">&middot;</span>
+      <button type="button" data-target="notes-heading">Notes</button>
+      <span aria-hidden="true">&middot;</span>
+      <button type="button" data-target="highlight-heading">Highlight</button>
+    </nav>
 
     <hr class="divider">
 
-    <!-- ── 2. WHAT TO COPY ───────────────────────────────── -->
+    <!-- ── 1. MODULE TITLES ──────────────────────────────── -->
+    <section id="sec-titles">
+      <h4 id="main-heading" tabindex="-1">1. Module Titles</h4>
+      <p class="section-hint">Choose one of the module titles below or create a new one.</p>
+      <div id="modules"></div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ── 2. OBJECTIVES ─────────────────────────────────── -->
+    <!-- One checkbox per module: the CLO/MLO row is a single destination, so a
+         collapsible would be a wrapper around one item. -->
+    <section id="sec-objectives">
+      <h4 id="objectives-heading" tabindex="-1">2. Objectives</h4>
+      <p class="section-hint">
+        The Course Design Map&rsquo;s &ldquo;CLOs, MLOs&rdquo; row goes into each
+        Module Overview, under the &ldquo;[Refer to the Template&hellip;]&rdquo; line.
+      </p>
+      <div class="check-links">
+        <button type="button" id="obj-all">Select all</button>
+        &nbsp;&middot;&nbsp;
+        <button type="button" id="obj-none">Deselect all</button>
+      </div>
+      <div role="group" aria-labelledby="objectives-heading">
+        <ul id="objectives-picker" class="check-list"></ul>
+      </div>
+
+      <div id="obj-occupied-wrap" class="hidden">
+        <p class="sub-head" id="obj-occupied-heading">Module Overviews that already have content</p>
+        <p class="section-hint">
+          Skipped by default so nothing is overwritten. Tick one to add the
+          objectives below what is already there.
+        </p>
+        <div role="group" aria-labelledby="obj-occupied-heading">
+          <ul id="obj-occupied-list" class="check-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ── 3. NOTES ──────────────────────────────────────── -->
     <!-- One collapsible block per module, listing that module's OWN Course
          Design Map rows. Not a single shared activity list: the Development
          tab's activities come from the one Course Pattern Table and so are
          identical everywhere, but the Design Map's rows differ module by
          module, and the map rows are what actually gets copied. -->
-    <h4 id="picker-heading">What to copy</h4>
-    <p class="section-hint">
-      Each module lists its own rows from the Course Design Map. Open a module to
-      choose individual rows, or use its checkbox to take everything. Module
-      titles above are written regardless of what is checked here.
-    </p>
-    <div class="check-links">
-      <button type="button" id="mod-all">Select all</button>
-      &nbsp;&middot;&nbsp;
-      <button type="button" id="mod-none">Deselect all</button>
-      &nbsp;&middot;&nbsp;
-      <button type="button" id="mod-expand">Expand all</button>
-      &nbsp;&middot;&nbsp;
-      <button type="button" id="mod-collapse">Collapse all</button>
-    </div>
-    <div id="module-picker" role="group" aria-labelledby="picker-heading"></div>
-
-    <!-- ── 4. UNMATCHED ROWS ─────────────────────────────── -->
-    <div id="match-wrap" class="hidden">
-      <hr class="divider">
-      <h4 id="match-heading">Rows that need a decision</h4>
+    <section id="sec-notes">
+      <h4 id="notes-heading" tabindex="-1">3. Notes About Other Content</h4>
       <p class="section-hint">
-        These Course Design Map rows either have no obvious activity in the
-        Development tab, or were matched on a guess. Pick where each one belongs,
-        or leave it skipped. Rows matched confidently are not listed.
+        Every other Design Map row&rsquo;s notes go under that activity&rsquo;s
+        &ldquo;Directions go here&hellip;&rdquo; line. Open a module to choose
+        individual rows, or use its checkbox to take everything.
       </p>
-      <div id="match-list"></div>
-    </div>
-
-    <!-- ── 5. ALREADY-POPULATED DESTINATIONS ─────────────── -->
-    <div id="occupied-wrap" class="hidden">
-      <hr class="divider">
-      <h4 id="occupied-heading">Already has content</h4>
-      <p class="section-hint">
-        These destinations are not empty, so they are skipped by default and
-        nothing is overwritten. Tick a box to paste the matching Design Map
-        content into that Dev tab activity slot, above the directions already
-        there.
-      </p>
-      <div role="group" aria-labelledby="occupied-heading">
-        <ul id="occupied-list" class="check-list"></ul>
+      <div class="check-links">
+        <button type="button" id="mod-all">Select all</button>
+        &nbsp;&middot;&nbsp;
+        <button type="button" id="mod-none">Deselect all</button>
+        &nbsp;&middot;&nbsp;
+        <button type="button" id="mod-expand">Expand all</button>
+        &nbsp;&middot;&nbsp;
+        <button type="button" id="mod-collapse">Collapse all</button>
       </div>
-    </div>
+      <div id="module-picker" role="group" aria-labelledby="notes-heading"></div>
+
+      <div id="match-wrap" class="hidden">
+        <p class="sub-head" id="match-heading">Rows that need a decision</p>
+        <p class="section-hint">
+          These rows either have no obvious activity in the Development tab, or
+          were matched on a guess. Pick where each one belongs, or leave it
+          skipped. Rows matched confidently are not listed, and unticking a row
+          above removes it from here.
+        </p>
+        <div id="match-list"></div>
+      </div>
+
+      <div id="occupied-wrap" class="hidden">
+        <p class="sub-head" id="occupied-heading">Activities that already have directions</p>
+        <p class="section-hint">
+          Skipped by default so nothing is overwritten. Tick a box to paste the
+          matching Design Map content into that Dev tab activity slot, above the
+          directions already there.
+        </p>
+        <div role="group" aria-labelledby="occupied-heading">
+          <ul id="occupied-list" class="check-list"></ul>
+        </div>
+      </div>
+    </section>
 
     <hr class="divider">
 
-    <!-- ── 6. HIGHLIGHT ──────────────────────────────────── -->
-    <h4 id="highlight-heading">Highlight the pasted notes?</h4>
-    <p class="section-hint">
-      Cyan blue is the IDC convention for &ldquo;note to self, delete before this
-      goes to the SME&rdquo;. It makes the copied Design Map notes easy to find
-      and strip out once the directions are written. The module objectives are
-      never highlighted &mdash; those are real course content that stays.
-    </p>
-    <label class="sr-only" for="highlight">Highlight the pasted notes</label>
-    <select id="highlight" class="select-input">
-      <option value="yes">Yes &mdash; highlight pasted notes cyan blue</option>
-      <option value="no">No &mdash; paste with no highlight</option>
-    </select>
+    <!-- ── 4. HIGHLIGHT ──────────────────────────────────── -->
+    <section id="sec-highlight">
+      <h4 id="highlight-heading" tabindex="-1">4. Highlight the pasted notes?</h4>
+      <p class="section-hint">
+        Cyan blue is the IDC convention for &ldquo;note to self, delete before this
+        goes to the SME&rdquo;. It makes the copied Design Map notes easy to find
+        and strip out once the directions are written. The module objectives are
+        never highlighted &mdash; those are real course content that stays.
+      </p>
+      <label class="sr-only" for="highlight">Highlight the pasted notes</label>
+      <select id="highlight" class="select-input">
+        <option value="yes">Yes &mdash; highlight pasted notes cyan blue</option>
+        <option value="no">No &mdash; paste with no highlight</option>
+      </select>
 
-    <!-- Set the expectation BEFORE the run, not only during it. The load pass
-         already knows exactly how many modules have work, so the wait can be
-         named while the user still has a choice about starting it. -->
-    <p id="run-estimate" class="section-hint"></p>
+      <!-- Set the expectation BEFORE the run, not only during it. The load pass
+           already knows exactly how many modules have work, so the wait can be
+           named while the user still has a choice about starting it. -->
+      <p id="run-estimate" class="section-hint"></p>
 
-    <div class="btn-row">
-      <button id="run-btn" class="run-btn" type="button">Run Script</button>
-    </div>
+      <div class="btn-row">
+        <button id="run-btn" class="run-btn" type="button">Run Script</button>
+      </div>
+    </section>
   </div>
 
   <!-- ── RUNNING ─────────────────────────────────────────── -->
@@ -711,7 +809,7 @@
     );
 
     Array.prototype.forEach.call(
-      document.querySelectorAll('#module-picker .obj-check:checked'),
+      document.querySelectorAll('#objectives-picker .obj-check:checked'),
       function (cb) {
         var num = parseInt(cb.getAttribute('data-num'), 10);
         objectives[num] = true;
@@ -845,11 +943,26 @@
     $('alerts').innerHTML = alerts;
 
     renderModules();
+    renderObjectivesPicker();
     renderModulePicker();
     renderMatchList();
-    renderOccupiedList();
+    renderOccupiedLists();
+    syncMatchVisibility();
     updateRunEstimate();
   }
+
+  // ── Section nav ────────────────────────────────────────────
+  // Scroll AND focus. Scrolling alone leaves a keyboard or screen-reader user
+  // where they were, so the next Tab would resume from the nav rather than
+  // from the section they asked for. Every target has tabindex="-1".
+  document.querySelector('.section-nav').addEventListener('click', function (e) {
+    var btn = e.target;
+    if (!btn || btn.tagName !== 'BUTTON') return;
+    var target = $(btn.getAttribute('data-target'));
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.focus();
+  });
 
   // ── 1. Titles ──────────────────────────────────────────────
   // Ported from Sidebar7.html with no behavioral change.
@@ -924,7 +1037,44 @@
     );
   }
 
-  // ── 2. What to copy ────────────────────────────────────────
+  // ── 2. Objectives ──────────────────────────────────────────
+  function renderObjectivesPicker() {
+    var any = false;
+
+    $('objectives-picker').innerHTML = STATE.mapModules.map(function (mm, i) {
+      var has = mm.objectives.available;
+      if (has) any = true;
+
+      var badge = has
+        ? ''
+        : ' <span class="state-badge">no CLO/MLO row in the Course Design Map</span>';
+
+      return '<li class="check-item">' +
+             '<input type="checkbox" class="obj-check" id="obj-' + i + '"' +
+             ' data-num="' + esc(mm.num) + '"' + (has ? ' checked' : ' disabled') + '>' +
+             '<label for="obj-' + i + '">' + esc(mm.displayLabel) + badge + '</label></li>';
+    }).join('');
+
+    if (!any) {
+      $('objectives-picker').innerHTML =
+        '<li class="check-item"><label>No CLO/MLO rows were found in the Course Design Map.</label></li>';
+    }
+  }
+
+  $('objectives-picker').addEventListener('change', updateRunEstimate);
+
+  $('obj-all').addEventListener('click',  function () { setAllIn('objectives-picker', true);  });
+  $('obj-none').addEventListener('click', function () { setAllIn('objectives-picker', false); });
+
+  function setAllIn(containerId, on) {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#' + containerId + ' input[type="checkbox"]'),
+      function (cb) { if (!cb.disabled) { cb.checked = on; cb.indeterminate = false; } }
+    );
+    updateRunEstimate();
+  }
+
+  // ── 3. Notes ───────────────────────────────────────────────
   // One <details> per module. The summary carries a master checkbox that
   // reflects and drives the rows inside it, so the common "all of this module"
   // case is one click and the sidebar stays short with fifteen modules in it.
@@ -951,13 +1101,6 @@
 
       if (anything) {
         html += '<div class="mod-body"><ul class="check-list">';
-
-        if (mm.objectives.available) {
-          html += '<li class="check-item">' +
-                  '<input type="checkbox" class="obj-check" id="obj-' + i + '"' +
-                  ' data-mod="' + i + '" data-num="' + esc(mm.num) + '" checked>' +
-                  '<label for="obj-' + i + '">Module Overview objectives</label></li>';
-        }
 
         mm.rows.forEach(function (row, j) {
           html += '<li class="check-item">' +
@@ -988,8 +1131,7 @@
     var master = document.querySelector('.mod-master[data-mod="' + modIdx + '"]');
     if (!master || master.disabled) return;
 
-    var kids = document.querySelectorAll(
-      '.obj-check[data-mod="' + modIdx + '"], .row-check[data-mod="' + modIdx + '"]');
+    var kids = document.querySelectorAll('.row-check[data-mod="' + modIdx + '"]');
     var on = 0;
     Array.prototype.forEach.call(kids, function (cb) { if (cb.checked) on++; });
 
@@ -1003,14 +1145,13 @@
     if (!el || el.type !== 'checkbox') return;
 
     if (el.className === 'mod-master') {
-      var kids = document.querySelectorAll(
-        '.obj-check[data-mod="' + el.getAttribute('data-mod') + '"], ' +
-        '.row-check[data-mod="' + el.getAttribute('data-mod') + '"]');
+      var kids = document.querySelectorAll('.row-check[data-mod="' + el.getAttribute('data-mod') + '"]');
       Array.prototype.forEach.call(kids, function (cb) { cb.checked = el.checked; });
       el.indeterminate = false;
     } else if (el.getAttribute('data-mod') !== null) {
       syncMaster(el.getAttribute('data-mod'));
     }
+    syncMatchVisibility();
     updateRunEstimate();
   });
 
@@ -1020,11 +1161,8 @@
   });
 
   function setAllModules(on) {
-    Array.prototype.forEach.call(
-      document.querySelectorAll('#module-picker input[type="checkbox"]'),
-      function (cb) { if (!cb.disabled) { cb.checked = on; cb.indeterminate = false; } }
-    );
-    updateRunEstimate();
+    setAllIn('module-picker', on);
+    syncMatchVisibility();
   }
 
   function setAllOpen(open) {
@@ -1056,7 +1194,7 @@
             '&rdquo; &mdash; ' + esc(row.matchedNote || 'matched on a guess') + '.</span>'
           : '<span class="match-note">No activity in this module looks like a match.</span>';
 
-        html += '<div class="match-row">' +
+        html += '<div class="match-row" data-key="' + esc(row.key) + '">' +
                 '<span class="match-label" id="' + id + '-label">' +
                 esc(mm.displayLabel) + ' &mdash; &ldquo;' + esc(row.label) + '&rdquo;</span>' +
                 note +
@@ -1077,34 +1215,67 @@
     show('match-wrap');
   }
 
-  // ── 5. Already-populated destinations ──────────────────────
-  function renderOccupiedList() {
-    var html = '';
-    var n = 0;
+  // A row the user has unticked is not going to be written, so asking where it
+  // belongs is noise. Matched by a lookup table rather than an attribute
+  // selector — a Design Map label can contain quotes, which would break the
+  // selector and silently match nothing.
+  function syncMatchVisibility() {
+    var checked = {};
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#module-picker .row-check'),
+      function (cb) { checked[cb.getAttribute('data-key')] = cb.checked; }
+    );
+
+    var visible = 0;
+    Array.prototype.forEach.call(
+      document.querySelectorAll('#match-list .match-row'),
+      function (rowEl) {
+        var on = checked[rowEl.getAttribute('data-key')] !== false;
+        rowEl.classList[on ? 'remove' : 'add']('hidden');
+        // The <select> is hidden but still in the DOM, so it would keep sending
+        // a resolution for a row nobody asked for. Disabled inputs are skipped
+        // by the :checked / value sweep at run time.
+        var sel = rowEl.querySelector('select');
+        if (sel) sel.disabled = !on;
+        if (on) visible++;
+      }
+    );
+
+    if ($('match-list').innerHTML === '') return;   // nothing rendered at all
+    if (visible === 0) hide('match-wrap'); else show('match-wrap');
+  }
+
+  // ── Already-populated destinations ─────────────────────────
+  // Split by kind so each lands in the section it belongs to — Module Overviews
+  // under Objectives, activity slots under Notes.
+  function renderOccupiedLists() {
+    var objHtml = '', actHtml = '', objN = 0, actN = 0;
 
     STATE.mapModules.forEach(function (mm) {
       if (mm.objectives.available && mm.objectives.occupied) {
-        html += '<li class="check-item">' +
-                '<input type="checkbox" id="occ-' + n + '" data-key="ov||' + esc(mm.num) + '">' +
-                '<label for="occ-' + n + '">' + esc(mm.displayLabel) +
-                ' Module Overview &mdash; already has content</label></li>';
-        n++;
+        objHtml += '<li class="check-item">' +
+                   '<input type="checkbox" id="occ-ov-' + objN + '" data-key="ov||' + esc(mm.num) + '">' +
+                   '<label for="occ-ov-' + objN + '">' + esc(mm.displayLabel) +
+                   ' Module Overview &mdash; already has content</label></li>';
+        objN++;
       }
       mm.rows.forEach(function (row) {
         if (!row.occupied) return;
-        html += '<li class="check-item">' +
-                '<input type="checkbox" id="occ-' + n + '" data-key="act||' + esc(mm.num) +
-                '||' + esc(row.label) + '">' +
-                '<label for="occ-' + n + '">' + esc(mm.displayLabel) + ' &mdash; &ldquo;' +
-                esc(row.label) + '&rdquo; &rarr; &ldquo;' + esc(row.matchedTitle) +
-                '&rdquo; already has directions</label></li>';
-        n++;
+        actHtml += '<li class="check-item">' +
+                   '<input type="checkbox" id="occ-act-' + actN + '" data-key="act||' + esc(mm.num) +
+                   '||' + esc(row.label) + '">' +
+                   '<label for="occ-act-' + actN + '">' + esc(mm.displayLabel) + ' &mdash; &ldquo;' +
+                   esc(row.label) + '&rdquo; &rarr; &ldquo;' + esc(row.matchedTitle) +
+                   '&rdquo; already has directions</label></li>';
+        actN++;
       });
     });
 
-    if (n === 0) { hide('occupied-wrap'); return; }
-    $('occupied-list').innerHTML = html;
-    show('occupied-wrap');
+    $('obj-occupied-list').innerHTML = objHtml;
+    $('occupied-list').innerHTML     = actHtml;
+
+    if (objN === 0) hide('obj-occupied-wrap'); else show('obj-occupied-wrap');
+    if (actN === 0) hide('occupied-wrap');     else show('occupied-wrap');
   }
 
   // ── Select all / none, expand / collapse ───────────────────
@@ -1137,15 +1308,18 @@
     var sel     = collectSelection();
     var modules = sel.modules;
 
+    // Disabled selects belong to rows the user unticked, so their resolution is
+    // not sent — syncMatchVisibility disables them alongside hiding them.
     var resolutions = {};
     Array.prototype.forEach.call(
       document.querySelectorAll('#match-list select'),
-      function (sel) { resolutions[sel.getAttribute('data-key')] = sel.value; }
+      function (sel) { if (!sel.disabled) resolutions[sel.getAttribute('data-key')] = sel.value; }
     );
 
     var pasteAnyway = {};
     Array.prototype.forEach.call(
-      document.querySelectorAll('#occupied-list input[type="checkbox"]:checked'),
+      document.querySelectorAll('#obj-occupied-list input[type="checkbox"]:checked, ' +
+                                '#occupied-list input[type="checkbox"]:checked'),
       function (cb) { pasteAnyway[cb.getAttribute('data-key')] = true; }
     );
 
@@ -1316,14 +1490,17 @@
     $('alerts').innerHTML          = '';
     $('alerts').removeAttribute('role');
     $('modules').innerHTML         = '';
-    $('module-picker').innerHTML   = '';
-    $('match-list').innerHTML      = '';
-    $('occupied-list').innerHTML   = '';
-    $('summary').textContent       = '';
-    $('run-estimate').textContent  = '';
+    $('module-picker').innerHTML     = '';
+    $('objectives-picker').innerHTML = '';
+    $('match-list').innerHTML        = '';
+    $('occupied-list').innerHTML     = '';
+    $('obj-occupied-list').innerHTML = '';
+    $('summary').textContent         = '';
+    $('run-estimate').textContent    = '';
 
     hide('match-wrap');
     hide('occupied-wrap');
+    hide('obj-occupied-wrap');
     hide('remaining-wrap');
     setProgress(0, 'Updating the Development tab…');
     RUN = null;
