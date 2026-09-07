@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-09-06 at 22:47 MDT -->
+<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-09-07 at 13:35 MDT -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -99,6 +99,74 @@
     .tool-fix-cell  { font-weight: bold; font-size: 12px; color: #333; }
     .tool-fix-used  { font-size: 11px; color: #555; margin: 2px 0 0; line-height: 1.4; }
     .tool-fix-row select { margin-top: 4px; }
+    /* Section heads. Ranked BELOW the dialog's own title bar, which already
+       shows the tool name — so these are black and smaller rather than another
+       line of blue at the same weight as the title. */
+    .sec-head {
+      color: #000;
+      font-size: 13px;
+      font-weight: bold;
+      margin: 0 0 6px;
+    }
+    .sec-head + .sec-head { margin-top: 18px; }
+    .body-text { font-size: 12px; color: #555; line-height: 1.45; margin: 0 0 10px; }
+    .body-list { font-size: 12px; color: #555; line-height: 1.45; margin: 0 0 10px; padding-left: 20px; }
+    /* Customize: collapsed by default at the user's request. The summary line
+       reports how many items are on, so a non-default selection is visible
+       WITHOUT expanding it — otherwise an unticked box is invisible from the
+       outside and the run does less than the reader expects. */
+    #customize {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+    #customize > summary {
+      font-size: 13px;
+      font-weight: bold;
+      color: #000;
+      cursor: pointer;
+      list-style: revert;
+    }
+    #customize > summary:focus-visible { outline: 2px solid #0033a0; outline-offset: 2px; }
+    #cz-count { font-weight: normal; color: #555; font-size: 12px; }
+    .cz-intro { font-size: 12px; color: #555; line-height: 1.45; margin: 8px 0 6px; }
+    .cz-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; }
+    .cz-row input[type="checkbox"] {
+      width: auto;
+      margin: 2px 0 0;
+      padding: 0;
+      flex: 0 0 auto;
+    }
+    .cz-row label {
+      margin: 0;
+      font-weight: normal;
+      font-size: 12px;
+      color: #333;
+      line-height: 1.4;
+    }
+    /* Shown under a select whose master checkbox is off. Not .sr-only: a
+       greyed-out control with no stated reason reads as a bug. */
+    .off-hint {
+      font-size: 11px;
+      color: #8a6100;
+      line-height: 1.4;
+      margin: 4px 0 0;
+    }
+    select:disabled { background: #eee; color: #666; cursor: not-allowed; }
+    .run-btn:disabled { background: #9aa5bd; cursor: not-allowed; }
+    .warn-note {
+      margin-top: 16px;
+      background: #fdf6e3;
+      border: 1px solid #e0c98a;
+      border-left: 3px solid #8a6100;
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #4a4a4a;
+      line-height: 1.5;
+    }
+    .warn-note strong { color: #8a6100; }
     .sr-only {
       position: absolute;
       width: 1px; height: 1px;
@@ -111,41 +179,60 @@
 <body>
 <!-- FORM -->
 <div id="form">
-  <h3>Add Activity Titles, Tools, Due Date Headers, &amp; Times</h3>
-
-  <h3>What Does This Tool Do?</h3>
-  <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 10px;">
-    Run this tool first.
-  </p>
-  <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 6px;">
+  <h2 class="sec-head">What does this tool do?</h2>
+  <p class="body-text">
     It reads the Course Pattern Table in your Design tab and adds the following
     to the Development tab in proper Blueprint formatting:
   </p>
-  <ul style="font-size:12px; color:#555; line-height:1.45; margin:0 0 14px; padding-left:20px;">
+  <ul class="body-list">
     <li>activity titles</li>
     <li>Canvas tools (Page, Assignment, Discussion, etc.)</li>
     <li>time estimates</li>
-    <li>&ldquo;due by markers&rdquo;</li>
+    <li>&ldquo;Due by&hellip;&rdquo; markers</li>
+    <li>extra modules past Module 7 (if requested)</li>
   </ul>
+  <p class="body-text">
+    The Blueprint template ships with seven modules. Enter a larger number below
+    and this tool builds the rest.
+  </p>
+
+  <h2 class="sec-head">When should I run this?</h2>
+  <p class="body-text">
+    Run this tool first, after you&rsquo;ve filled out the Course Pattern Table
+    in the Design tab.
+  </p>
 
   <label for="numModules">How many modules will this course contain?</label>
   <input type="number" id="numModules" min="1" max="52" placeholder="e.g. 15">
   <label for="numbered">Should Activity Titles be numbered?</label>
-  <select id="numbered">
+  <select id="numbered" aria-describedby="numbered-off">
     <option value="yes">Yes</option>
     <option value="no">No</option>
   </select>
+  <!-- Not disabled, unlike the other two. With "activity titles" unticked this
+       control still governs any slot the run has to CREATE, so switching it off
+       would leave a new slot unnumbered among numbered neighbours. -->
+  <p id="numbered-off" class="off-hint" style="display:none;">
+    &ldquo;activity titles&rdquo; is unticked in Customize below, so this applies
+    only to activity slots that have to be created.
+  </p>
   <label for="timeEstimates">Should time estimates be included in Activity Titles?</label>
-  <select id="timeEstimates">
+  <select id="timeEstimates" aria-describedby="timeEstimates-off">
     <option value="yes">Yes</option>
     <option value="no">No</option>
   </select>
+  <p id="timeEstimates-off" class="off-hint" style="display:none;">
+    Not in use &mdash; &ldquo;time estimates&rdquo; is unticked in Customize below.
+  </p>
   <label for="canvasOption">Which of the following is correct for this course?</label>
-  <select id="canvasOption">
+  <select id="canvasOption" aria-describedby="canvasOption-off">
     <option value="display">Display Due Date Text Header in Canvas</option>
     <option value="doNotBuild">Do not build Due Date Text Header in Canvas</option>
     <option value="unpublished">Build Unpublished Due Day Text Header in Canvas</option>
   </select>
+  <p id="canvasOption-off" class="off-hint" style="display:none;">
+    Not in use &mdash; &ldquo;Due by&hellip;&rdquo; markers is unticked in Customize below.
+  </p>
   <!-- Pre-flight: Canvas Tool cells the script couldn't interpret. Populated on
        load by scanCoursePatternTools(); stays hidden when everything parses.
        The panel is injected by an async callback AFTER the form has rendered,
@@ -166,7 +253,44 @@
     </div>
   </div>
 
-  <button class="run-btn" onclick="runScript()"><span aria-hidden="true">▶</span> Run Script</button>
+  <!-- Customize. Every box ships ticked, so the default run is exactly what it
+       was before this panel existed. Unticking is the ONLY way to preserve the
+       template's dropdown chips (Select Day / Display header as / Select Tool),
+       which Apps Script cannot recreate once they are gone. -->
+  <details id="customize">
+    <summary>Customize <span id="cz-count"></span></summary>
+    <p class="cz-intro">The following items will be added/modified:</p>
+    <div id="cz-rows" role="group" aria-labelledby="cz-legend">
+      <p id="cz-legend" class="sr-only">Items this tool will add or modify</p>
+      <div class="cz-row">
+        <input type="checkbox" id="cz-titles" checked>
+        <label for="cz-titles">activity titles</label>
+      </div>
+      <div class="cz-row">
+        <input type="checkbox" id="cz-tools" checked>
+        <label for="cz-tools">Canvas tools (Page, Assignment, Discussion, etc.)</label>
+      </div>
+      <div class="cz-row">
+        <input type="checkbox" id="cz-times" checked>
+        <label for="cz-times">time estimates</label>
+      </div>
+      <div class="cz-row">
+        <input type="checkbox" id="cz-due" checked>
+        <label for="cz-due">&ldquo;Due by&hellip;&rdquo; markers</label>
+      </div>
+    </div>
+  </details>
+
+  <p class="warn-note">
+    <strong>Note:</strong> to add &ldquo;Due by&hellip;&rdquo; markers or Canvas
+    tools, this tool deletes the template&rsquo;s original dropdown menus
+    (<em>Select Day</em>, <em>Display header as</em>, and <em>Select Tool</em>).
+    Apps Script cannot recreate those &mdash; to get them back, copy them from the
+    Blueprint template document. To keep them, untick those items in the
+    Customize menu.
+  </p>
+
+  <button class="run-btn" id="run-btn" onclick="runScript()"><span aria-hidden="true">▶</span> Run Script</button>
   <div id="form-error" class="error-msg" style="display:none; margin-top:8px;" role="alert"></div>
 </div>
 <!-- PROGRESS -->
@@ -208,6 +332,53 @@
     return Math.floor(totalSeconds / 60) + ':' +
            String(totalSeconds % 60).padStart(2, '0');
   }
+  // ── Customize ───────────────────────────────────────────────────────────
+  // Each entry pairs a checkbox with the select that says HOW that item is
+  // written. The checkbox is the master switch; the select only answers "how",
+  // which is why an unticked box disables its select rather than the two
+  // fighting over the outcome. processBlueprint enforces the same precedence
+  // server-side — google.script.run is callable directly, so the client cannot
+  // be the only place this holds.
+  // hintOnly: show the explanation but leave the control usable. Only
+  // "numbered" is hint-only — see the comment on #numbered-off above.
+  var CZ_ITEMS = [
+    { box: 'cz-titles', select: 'numbered',      hintOnly: true },
+    { box: 'cz-tools',  select: null                            },
+    { box: 'cz-times',  select: 'timeEstimates'                 },
+    { box: 'cz-due',    select: 'canvasOption'                  }
+  ];
+  function czBoxes() {
+    return CZ_ITEMS.map(function(it) { return document.getElementById(it.box); });
+  }
+  function syncCustomize() {
+    var on = 0;
+    CZ_ITEMS.forEach(function(it) {
+      var box = document.getElementById(it.box);
+      if (box.checked) on++;
+      if (!it.select) return;
+      var sel  = document.getElementById(it.select);
+      var hint = document.getElementById(it.select + '-off');
+      sel.disabled = !it.hintOnly && !box.checked;
+      hint.style.display = box.checked ? 'none' : 'block';
+    });
+    // Reported on the collapsed summary line so an unticked box is visible
+    // without opening the panel.
+    document.getElementById('cz-count').textContent =
+      on === CZ_ITEMS.length ? '(all ' + on + ' items on)' : '(' + on + ' of ' + CZ_ITEMS.length + ' items on)';
+    // The tool-mapping pre-flight only matters if tools are actually written.
+    var toolsOn = document.getElementById('cz-tools').checked;
+    var fix = document.getElementById('tool-fix');
+    if (fix) fix.style.display = (toolsOn && fix.getAttribute('data-has-rows') === '1') ? 'block' : 'none';
+    // Nothing ticked means nothing to do; block the run rather than reporting
+    // an empty summary after a full document scan.
+    var btn = document.getElementById('run-btn');
+    btn.disabled = (on === 0);
+    btn.title    = (on === 0) ? 'Tick at least one item in Customize.' : '';
+  }
+  window.addEventListener('load', function() {
+    czBoxes().forEach(function(b) { b.addEventListener('change', syncCustomize); });
+    syncCustomize();
+  });
   // ── Pre-flight: unrecognized Canvas Tool cells ──────────────────────────
   // Scan on load so the user resolves bad tool cells BEFORE running, rather
   // than finding untagged activities in the Development tab afterwards.
@@ -281,7 +452,12 @@
 
       rows.appendChild(row);
     });
-    document.getElementById('tool-fix').style.display = 'block';
+    // Record that rows exist, then let syncCustomize decide visibility: this
+    // callback lands asynchronously and must not override an unticked
+    // "Canvas tools" box that the user set while the scan was still running.
+    document.getElementById('tool-fix').setAttribute('data-has-rows', '1');
+    syncCustomize();
+    if (!document.getElementById('cz-tools').checked) return;
     // Announce only after the panel is built and visible, so the screen reader
     // reads a complete panel rather than a half-populated one.
     var n = data.unrecognized.length;
@@ -318,12 +494,22 @@
       return;
     }
     document.getElementById('form-error').style.display = 'none';
+    const doTitles = document.getElementById('cz-titles').checked;
+    const doTools  = document.getElementById('cz-tools').checked;
+    const doTimes  = document.getElementById('cz-times').checked;
+    const doDue    = document.getElementById('cz-due').checked;
     const params = {
       numModules:    n,
+      doTitles:      doTitles,
+      doTools:       doTools,
+      doTimes:       doTimes,
+      doDueHeaders:  doDue,
       numbered:      document.getElementById('numbered').value === 'yes',
       timeEstimates: document.getElementById('timeEstimates').value === 'yes',
       canvasOption:  document.getElementById('canvasOption').value,
-      toolOverrides: collectToolOverrides()
+      // Skipped entirely when tools are off, so a stale mapping cannot ride
+      // along on a run that is not supposed to touch the tool lines.
+      toolOverrides: doTools ? collectToolOverrides() : {}
     };
     document.getElementById('form').style.display     = 'none';
     document.getElementById('progress').style.display = 'block';
@@ -367,6 +553,7 @@
   function reset() {
     document.getElementById('result').style.display = 'none';
     document.getElementById('form').style.display   = 'block';
+    syncCustomize();
     // Move focus back into the form — the Run button was inside the now-hidden
     // result view, so without this keyboard/SR focus falls to <body>.
     document.getElementById('numModules').focus();

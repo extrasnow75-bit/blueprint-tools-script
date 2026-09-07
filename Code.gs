@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-05 at 23:42 MDT
+ * Last updated on 2026-09-07 at 13:35 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -102,7 +102,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Time Estimator',                         'showTimeEstimatorSidebar')
     .addSeparator()
-    .addItem('Specialty Tool: Add Module Dates',       'showModuleDatesSidebar8')
+    .addItem('Specialty Tool: Add Module Dates &/or Holiday Modules',
+                                                       'showModuleDatesSidebar8')
     .addSeparator()
     .addItem('KB Article',                             'showKbArticle')
     .addToUi();
@@ -148,7 +149,33 @@ function processBlueprint(params) {
   const devTab    = tabs.find(t => /\bdevelopment\b/i.test(t.title));
   if (!designTab || !devTab)
     throw new Error('Could not find "Design" and/or "Development" tabs.');
-  const activities = parseCoursePattern(designTab.body, params.toolOverrides);
+  // Customize flags. Absent means ON, so an older caller (or a direct
+  // google.script.run call) behaves exactly as it did before this panel
+  // existed. Coerced with !== false rather than a truthy test so a literal
+  // false is the only thing that switches an item off.
+  const doTitles = params.doTitles     !== false;
+  const doTools  = params.doTools      !== false;
+  const doTimes  = params.doTimes      !== false;
+  const doDue    = params.doDueHeaders !== false;
+  if (!doTitles && !doTools && !doTimes && !doDue)
+    throw new Error('Nothing to do — tick at least one item in the Customize menu.');
+  // The checkbox is the master switch and the dropdown only says HOW, so an
+  // unticked box wins over its select. The sidebar disables the select to match,
+  // but google.script.run is callable directly, so the rule has to hold here too.
+  if (!doTimes) params.timeEstimates = false;
+  // params.numbered is deliberately NOT forced off with doTitles. Unticking
+  // "activity titles" means "do not rewrite a title that already exists"; a
+  // slot this run has to CREATE has no existing text to preserve and still
+  // needs to match its numbered neighbours. Its select stays enabled to match.
+  params.doTitles = doTitles;
+  params.doTools  = doTools;
+  params.doTimes  = doTimes;
+  params.doDueHeaders = doDue;
+
+  // A tool mapping on a run that is not writing tools would be silently
+  // ignored downstream; drop it here so parseCoursePattern reports the raw
+  // cells as unrecognized and the summary says so.
+  const activities = parseCoursePattern(designTab.body, doTools ? params.toolOverrides : null);
   if (activities.length === 0)
     throw new Error('No activities found in the course pattern table.');
   const stats      = { created: 0, deleted: 0, filled: 0, tools: 0, slotsDeleted: 0,
@@ -174,7 +201,12 @@ function processBlueprint(params) {
   // us border all headers uniformly without tracking which are new.
   // Must be last: it persists the document (saveAndClose) so the Docs API can
   // read the freshly inserted headers.
-  applyDueHeaderBorders(doc, devTab.title);
+  //
+  // Gated on doDue for two reasons. It is the only part of this tool that needs
+  // the Docs ADVANCED SERVICE, which is unavailable on some accounts — so a run
+  // with due headers switched off now completes there instead of erroring at
+  // the very end. And with no headers inserted there is nothing new to border.
+  if (doDue) applyDueHeaderBorders(doc, devTab.title);
   return buildSummary(stats, params, activities, numModules);
 }
 // ── COLLECT TABS ──────────────────────────────────────────────────
@@ -480,7 +512,12 @@ function processModule(body, modNum, activities, params, stats) {
       slotParas.push(result.h4Para);
     }
   }
-  stats.headers += placeDueHeaders(body, slotParas, activities, params, stats);
+  // Gated here rather than inside placeDueHeaders so the collect/remove pass
+  // never runs either: with the box unticked the module's original markers —
+  // and their Select Day / Display header as chips — are left untouched.
+  if (params.doDueHeaders !== false) {
+    stats.headers += placeDueHeaders(body, slotParas, activities, params, stats);
+  }
 }
 // ── GET INDEX AFTER LAST SLOT ─────────────────────────────────────
 function getIndexAfterSlots(body, modNum, slots) {
@@ -555,7 +592,11 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, insertIdx, 
   zeroIndent_(dPara);
   dPara.setIndentEnd(RIGHT_INDENT);
   _fmt(dPara.editAsText(), { font: FONT, size: 11 });
-  if (activity.tool && setNearbyTool(body, aPara, activity.tool)) stats.tools++;
+  // Not gated on doTitles: a slot that did not exist before this run has no
+  // designer text to protect, and an H4 IS the slot — creating it untitled
+  // would leave an unusable blank heading behind.
+  if (params.doTools !== false && activity.tool &&
+      setNearbyTool(body, aPara, activity.tool)) stats.tools++;
   return { idx, h4Para: aPara };
 }
 // ── GET SLOTS IN MODULE ───────────────────────────────────────────
@@ -581,21 +622,31 @@ function getSlotsInModule(body, modNum) {
 }
 // ── FILL ONE SLOT ─────────────────────────────────────────────────
 function fillSlot(body, headingPara, modNum, slotNum, activity, params, stats) {
-  let title = activity.name;
-  if (params.timeEstimates && activity.time) title += ` (${activity.time})`;
-  const prefix   = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
-  const fullText = prefix + title;
-  headingPara.setText(fullText);
-  zeroIndent_(headingPara);
-  // Normalize to the between-activities value. placeDueHeaders drops this to
-  // TITLE_SPACE_AFTER_HEADER on whichever titles end up under a due header, and
-  // it runs after every slot is filled - so a title that STOPS being the first
-  // one under a header on a later run is corrected back to 35pt here.
-  headingPara.setSpacingBefore(TITLE_SPACE_BEFORE);
-  _fmt(headingPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
-  stats.filled++;
-  if (activity.tool && setNearbyTool(body, headingPara, activity.tool)) stats.tools++;
-  setNearbyEstimate(body, headingPara, activity.time, params.timeEstimates);
+  // doTitles off: leave this heading exactly as the designer left it — text,
+  // spacing and character formatting alike. This is the whole point of the
+  // switch, so it must not "just" re-normalize the spacing either; a title
+  // someone deliberately restyled would come back changed and the checkbox
+  // would look broken.
+  if (params.doTitles !== false) {
+    let title = activity.name;
+    if (params.timeEstimates && activity.time) title += ` (${activity.time})`;
+    const prefix   = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
+    const fullText = prefix + title;
+    headingPara.setText(fullText);
+    zeroIndent_(headingPara);
+    // Normalize to the between-activities value. placeDueHeaders drops this to
+    // TITLE_SPACE_AFTER_HEADER on whichever titles end up under a due header, and
+    // it runs after every slot is filled - so a title that STOPS being the first
+    // one under a header on a later run is corrected back to 35pt here.
+    headingPara.setSpacingBefore(TITLE_SPACE_BEFORE);
+    _fmt(headingPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
+    stats.filled++;
+  }
+  if (params.doTools !== false && activity.tool &&
+      setNearbyTool(body, headingPara, activity.tool)) stats.tools++;
+  if (params.doTimes !== false) {
+    setNearbyEstimate(body, headingPara, activity.time, params.timeEstimates);
+  }
 }
 // ── SET TOOL WITH FORMATTING ──────────────────────────────────────
 function setNearbyTool(body, headingPara, toolValue) {
@@ -1064,10 +1115,29 @@ function buildSummary(stats, params, activities, numModules) {
     if (act.tool || !act.rawTool) continue;
     if (unknownTools.indexOf(act.rawTool) === -1) unknownTools.push(act.rawTool);
   }
-  const unknownNote = unknownTools.length === 0 ? null :
+  const doTitles = params.doTitles     !== false;
+  const doTools  = params.doTools      !== false;
+  const doTimes  = params.doTimes      !== false;
+  const doDue    = params.doDueHeaders !== false;
+
+  // Only worth raising when tools were actually being written. On a run with
+  // that box unticked the tool lines were not touched at all, so an
+  // "unrecognized tool" warning would describe work that never happened.
+  const unknownNote = (!doTools || unknownTools.length === 0) ? null :
     '\n⚠ Unrecognized Canvas Tool, still "Select Tool": ' +
     unknownTools.map(t => `"${t}"`).join(', ') +
     '\n   Correct these in the Course Pattern Table to fix them permanently.';
+
+  // Name what was switched off. A shorter-than-expected summary otherwise
+  // reads as a partial failure rather than as the run the user asked for.
+  const off = [];
+  if (!doTitles) off.push('activity titles');
+  if (!doTools)  off.push('Canvas tools');
+  if (!doTimes)  off.push('time estimates');
+  if (!doDue)    off.push('"Due by…" markers');
+  const offNote = off.length === 0 ? null :
+    '\nSkipped (unticked in Customize): ' + off.join(', ') +
+    (doDue ? '' : '\n   The original "Due by…" markers and their dropdown menus were left in place.');
 
   return [
     '✅ Blueprint Development Tab Updated!',
@@ -1075,15 +1145,19 @@ function buildSummary(stats, params, activities, numModules) {
     `Modules: ${numModules} total`,
     stats.created      > 0 ? `  + ${stats.created} new module(s) created`  : null,
     stats.deleted      > 0 ? `  − ${stats.deleted} module(s) removed`       : null,
-    `Activities set: ${stats.filled}`,
-    `Tools assigned: ${stats.tools}`,
+    doTitles ? `Activities set: ${stats.filled}` : 'Activity titles: left unchanged',
+    doTools  ? `Tools assigned: ${stats.tools}`  : 'Canvas tools: left unchanged',
     stats.slotsDeleted > 0 ? `Extra slots removed: ${stats.slotsDeleted}`   : null,
-    `Due-day headers inserted: ${stats.headers}`,
-    stats.headersRemoved > 0 ? `  − ${stats.headersRemoved} old due-date marker(s) replaced` : null,
+    doDue ? `Due-day headers inserted: ${stats.headers}` : 'Due-day headers: left unchanged',
+    (doDue && stats.headersRemoved > 0)
+      ? `  − ${stats.headersRemoved} old due-date marker(s) replaced` : null,
     '',
     `Numbered: ${params.numbered ? 'Yes' : 'No'}`,
-    `Time estimates: ${params.timeEstimates ? 'Yes' : 'No'}`,
-    `Canvas option: ${params.canvasOption}`,
+    `Time estimates: ${doTimes
+        ? (params.timeEstimates ? 'Yes, in activity titles' : 'Yes, on the "Estimated time" line')
+        : 'Not written'}`,
+    doDue ? `Canvas option: ${params.canvasOption}` : null,
+    offNote,
     unknownNote
   ].filter(l => l !== null).join('\n');
 }

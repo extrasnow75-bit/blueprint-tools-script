@@ -1,10 +1,11 @@
 // ============================================================
 // Blueprint Tools — Code8.gs
-// Specialty Tool: Add Module Dates. Fills in module start/end dates on the
-// Development tab's H2 headings from the Boise State registrar's
-// academic calendar.
+// Specialty Tool: Add Module Dates &/or Holiday Modules. Fills in module
+// start/end dates on the Development tab's H2 headings from the Boise State
+// registrar's academic calendar, and optionally inserts unnumbered Spring
+// Break / Thanksgiving Break modules.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 00:47 MDT
+// Last updated on 2026-09-07 at 13:35 MDT
 // ------------------------------------------------------------
 //
 // Split out of the "Add Module Titles & Module Dates (Beta)" tool — see project
@@ -52,12 +53,65 @@ var MONTH_LOOKUP_7 = {
 var CALENDAR_BASE_7 = 'https://www.boisestate.edu/registrar/';
 var FIVE_YEAR_URL_7 = CALENDAR_BASE_7 + 'boise-state-academic-calendars/5-year-academic-calendar/';
 
+// The separator inside a module heading's "(start – end)". An EN DASH, because
+// it spans a range. The Blueprint template ships a hyphen; every heading this
+// tool writes normalises to the en dash, placeholder branch included, so a
+// document does not end up with both.
+var DATE_RANGE_SEP_8 = '–';
+
+
+// ── HOLIDAY MODULES ──────────────────────────────────────────
+// Optional, unnumbered modules for a full-week break. They are NOT numbered on
+// purpose: an unnumbered H2 is invisible to MODULE_PREFIX_RE_7, to Code.gs's
+// countExistingModules/deleteModule, and to this file's own scan — so adding
+// one cannot disturb any module counting elsewhere in the suite, and a later
+// re-run of the first tool will not try to fill it with activity slots.
+//
+// buildModuleDates7 already DROPS a full-week break from the week pool before
+// dividing weeks among modules, so a holiday module only makes visible a week
+// the schedule was already skipping. It does not shift any module's dates.
+var HOLIDAY_SPECS_8 = {
+  spring: {
+    name:  'Spring Break',
+    // U+1F60E SMILING FACE WITH SUNGLASSES, hard against the word, exactly as
+    // it appears in the Blueprint template.
+    emoji: '😎',
+    // Matches the scraped break's name, which the registrar spells various ways.
+    match: /spring\s*break/i,
+    // Where it goes when no calendar dates are available: the middle of the
+    // course. ceil(n/2) gives "after Module 4" in a 7-module course and
+    // "after Module 8" in a 15-module one.
+    fallback: function (n) { return Math.ceil(n / 2); }
+  },
+  thanksgiving: {
+    name:  'Thanksgiving Break',
+    emoji: '😎',
+    match: /thanksgiving/i,
+    // A 15-week fall course puts Thanksgiving near the end; a second-7-week
+    // fall session starts mid-October and hits it two modules in. Module count
+    // is the only signal available here, so it is the one used.
+    fallback: function (n) { return n >= 12 ? 11 : 2; }
+  }
+};
+
+// The developer instruction that rides under a holiday module's heading. The
+// lead is bold red — it is a note TO the course developer, not course content —
+// and the quoted sentence is the text they are being asked to place.
+var HOLIDAY_NOTE_LEAD_8 = 'Add a text header that reads,';
+var HOLIDAY_NOTE_BODY_8 = ' “Nothing is due this week. Enjoy your time off!”';
+
+// What a holiday heading carries when the user asked for no dates, or none
+// could be found. Deliberately the template's own placeholder wording, so a
+// later run of this tool with a calendar in hand fills it in like any other.
+var HOLIDAY_DATE_PLACEHOLDER_8 =
+  START_PLACEHOLDER_7 + ' ' + DATE_RANGE_SEP_8 + ' ' + END_PLACEHOLDER_7;
+
 
 // ── SIDEBAR OPENER ───────────────────────────────────────────
 
 function showModuleDatesSidebar8() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar8')
-    .setTitle('Specialty Tool: Add Module Dates')
+    .setTitle('Specialty Tool: Add Module Dates &/or Holiday Modules')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }
@@ -74,7 +128,7 @@ function showModuleDatesSidebar8() {
  * from adding dates at all.
  */
 function getModuleDatesSidebarData8() {
-  var result = { modules: [], error: '' };
+  var result = { modules: [], existingHolidays: [], error: '' };
 
   try {
     var doc     = DocumentApp.getActiveDocument();
@@ -108,7 +162,17 @@ function getModuleDatesSidebarData8() {
       });
     }
 
-    Logger.log('getModuleDatesSidebarData8: %s heading(s).', result.modules.length);
+    // Which holiday modules are already in the document. The sidebar uses this
+    // to pre-tick and disable those boxes, so the user is told up front rather
+    // than finding out from the summary that the run skipped them.
+    result.existingHolidays = [];
+    for (var key in HOLIDAY_SPECS_8) {
+      if (!Object.prototype.hasOwnProperty.call(HOLIDAY_SPECS_8, key)) continue;
+      if (hasHolidayModule8_(devBody, HOLIDAY_SPECS_8[key])) result.existingHolidays.push(key);
+    }
+
+    Logger.log('getModuleDatesSidebarData8: %s heading(s), %s holiday module(s) already present.',
+               result.modules.length, result.existingHolidays.length);
 
   } catch (e) {
     Logger.log('getModuleDatesSidebarData8 error: ' + e.message);
@@ -791,6 +855,137 @@ function formatModuleDate7(ms) {
  *                        no trailing "(...)" at all, which can never be)
  * @returns {string} plain-text summary for the sidebar
  */
+/** "Aug 24 – Sept 6" from a {start, end} pair. One place, so the separator
+ *  cannot drift between the placeholder and overwrite branches again. */
+function moduleRange8_(d) {
+  return formatModuleDate7(d.start) + ' ' + DATE_RANGE_SEP_8 + ' ' + formatModuleDate7(d.end);
+}
+
+
+/**
+ * True when the Development tab already carries a holiday module for `spec`.
+ *
+ * Checked against H2 headings only. A "Spring Break" mentioned in someone's
+ * directions paragraph is not a module and must not suppress the insert.
+ */
+function hasHolidayModule8_(devBody, spec) {
+  var H2    = DocumentApp.ParagraphHeading.HEADING2;
+  var paras = devBody.getParagraphs();
+  for (var i = 0; i < paras.length; i++) {
+    if (paras[i].getHeading() !== H2) continue;
+    if (spec.match.test(paras[i].getText())) return true;
+  }
+  return false;
+}
+
+
+/**
+ * Inserts the requested holiday modules into the Development tab.
+ *
+ * @param {Body}  devBody
+ * @param {Array} headings   scanDevelopmentHeadings7_ output, captured BEFORE
+ *                           any insert — used only for its element references
+ *                           and module numbers, never its childIndex values,
+ *                           which go stale the moment anything is inserted.
+ * @param {Array} requests   [{key, start, end, afterModule}] from the sidebar.
+ *                           start/end may be null, meaning "leave the
+ *                           (start date – end date) placeholder in".
+ * @returns {{added: string[], skipped: string[]}}
+ */
+function insertHolidayModules8_(devBody, headings, requests) {
+  var out = { added: [], skipped: [] };
+  if (!requests || !requests.length) return out;
+
+  var H2     = DocumentApp.ParagraphHeading.HEADING2;
+  var NORMAL = DocumentApp.ParagraphHeading.NORMAL;
+
+  // Element references, not indices: these survive the inserts below, whereas
+  // every childIndex captured now is invalidated by the first one.
+  var anchors = {};   // module number → the H2 element of that module
+  var refPara = null; // any module heading, used as the formatting model
+  for (var h = 0; h < headings.length; h++) {
+    var el = devBody.getChild(headings[h].childIndex);
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    anchors[headings[h].num] = el.asParagraph();
+    if (!refPara) refPara = el.asParagraph();
+  }
+  if (!refPara) return out;
+
+  var maxModule = 0;
+  for (var m = 0; m < headings.length; m++) {
+    if (headings[m].num > maxModule) maxModule = headings[m].num;
+  }
+
+  // Copied wholesale from a real module heading rather than hardcoded: the
+  // template's H2 look (font, size, colour, spacing) is not documented
+  // anywhere, and a hand-built approximation would be visibly off beside it.
+  var refAttrs = refPara.getAttributes();
+
+  for (var r = 0; r < requests.length; r++) {
+    var req  = requests[r] || {};
+    var spec = HOLIDAY_SPECS_8[req.key];
+    if (!spec) continue;
+
+    if (hasHolidayModule8_(devBody, spec)) {
+      out.skipped.push(spec.name);
+      continue;
+    }
+
+    // Where it goes. The sidebar computes afterModule from the real calendar
+    // when it has one; the spec's fallback covers a run with no dates.
+    var after = parseInt(req.afterModule, 10);
+    if (!after || after < 1 || after > maxModule) after = spec.fallback(maxModule);
+    if (after > maxModule) after = maxModule;
+
+    // Insert BEFORE the following module's heading. The last module has no
+    // follower, so the block goes at the end of the tab.
+    var next = anchors[after + 1];
+    var at   = next ? devBody.getChildIndex(next) : devBody.getNumChildren();
+
+    var range = (req.start && req.end)
+      ? moduleRange8_({ start: req.start, end: req.end })
+      : HOLIDAY_DATE_PLACEHOLDER_8;
+
+    // Built last-first at a FIXED index so they land in reading order: heading,
+    // note, then a blank paragraph separating this block from what follows.
+    var spacer = devBody.insertParagraph(at, '');
+    spacer.setHeading(NORMAL);
+    zeroIndent_(spacer);
+
+    var note = devBody.insertParagraph(at, HOLIDAY_NOTE_LEAD_8 + HOLIDAY_NOTE_BODY_8);
+    note.setHeading(NORMAL);
+    zeroIndent_(note);
+    var noteText = note.editAsText();
+    noteText.setFontFamily(FONT);
+    noteText.setFontSize(11);
+    noteText.setBold(false);
+    noteText.setItalic(false);
+    noteText.setForegroundColor(BLACK);
+    // The lead is an instruction to the course developer, not course content —
+    // same bold-red convention the tool suite uses everywhere else for that.
+    noteText.setBold(0, HOLIDAY_NOTE_LEAD_8.length - 1, true);
+    noteText.setForegroundColor(0, HOLIDAY_NOTE_LEAD_8.length - 1, RED);
+
+    var head = devBody.insertParagraph(at, spec.name + spec.emoji + ' (' + range + ')');
+    // setAttributes carries HEADING across with everything else, but it is set
+    // explicitly first so the paragraph is a real H2 even if the reference
+    // heading somehow is not.
+    head.setHeading(H2);
+    head.setAttributes(refAttrs);
+    // Deliberately NOT zeroIndent_'d, unlike the two lines above it. The
+    // indents just copied from a real module heading ARE the template's, and
+    // forcing them to zero would leave this heading sitting differently from
+    // every numbered module around it.
+
+    out.added.push(spec.name + ' (' + range + ') — after Module ' + after);
+    Logger.log('insertHolidayModules8_: added %s after module %s at index %s.',
+               spec.name, after, at);
+  }
+
+  return out;
+}
+
+
 function applyModuleDates8(params) {
   var dates     = (params && params.dates)     || {};
   var overwrite = (params && params.overwrite) || {};
@@ -820,8 +1015,13 @@ function applyModuleDates8(params) {
 
     if (info.dateIsPlaceholder) {
       if (!moduleDates || !moduleDates.start || !moduleDates.end) continue;
-      para.replaceText('\\b' + START_PLACEHOLDER_7 + '\\b', formatModuleDate7(moduleDates.start));
-      para.replaceText('\\b' + END_PLACEHOLDER_7   + '\\b', formatModuleDate7(moduleDates.end));
+      // Replaces the trailing "(...)" whole rather than swapping the two words
+      // in place. The surgical version left the TEMPLATE's hyphen behind, so a
+      // filled-in placeholder read "Aug 24 - Sept 6" while an overwritten
+      // heading read "Aug 24 – Sept 6" — two separators in one document.
+      // dateIsPlaceholder guarantees the parenthetical is the placeholder, so
+      // there is nothing here worth preserving.
+      para.replaceText('\\([^()]*\\)\\s*$', '(' + moduleRange8_(moduleDates) + ')');
       filledIn++;
       continue;
     }
@@ -836,7 +1036,7 @@ function applyModuleDates8(params) {
       continue;
     }
 
-    var newRange = formatModuleDate7(moduleDates.start) + ' - ' + formatModuleDate7(moduleDates.end);
+    var newRange = moduleRange8_(moduleDates);
     // Replaces the trailing "(...)" as a whole, whatever it currently holds —
     // unlike the placeholder branch above, there is no fixed word ("start
     // date") to target once a real date range is already sitting there.
@@ -844,12 +1044,30 @@ function applyModuleDates8(params) {
     overwritten++;
   }
 
-  Logger.log('applyModuleDates8: %s filled in, %s overwritten, %s preserved, %s unsupported.',
-             filledIn, overwritten, preserved.length, unsupported.length);
+  // Holiday modules go in AFTER the dates pass. Inserting first would shift
+  // every childIndex in `headings`, which was captured before this loop began —
+  // and those indices are what the loop above walks.
+  var holidayResult = insertHolidayModules8_(devBody, headings, params && params.holidays);
+
+  Logger.log('applyModuleDates8: %s filled in, %s overwritten, %s preserved, %s unsupported, ' +
+             '%s holiday module(s) added.',
+             filledIn, overwritten, preserved.length, unsupported.length,
+             holidayResult.added.length);
 
   var lines = ['✅ Development tab updated.', ''];
   lines.push('Newly filled in: ' + filledIn);
   lines.push('Overwritten with new dates: ' + overwritten);
+
+  if (holidayResult.added.length > 0) {
+    lines.push('', 'Holiday modules added (' + holidayResult.added.length + '):');
+    for (var a = 0; a < holidayResult.added.length; a++) lines.push('  • ' + holidayResult.added[a]);
+    lines.push('  Drag one to a different spot if it did not land where you expected.');
+  }
+  if (holidayResult.skipped.length > 0) {
+    lines.push('', 'Holiday modules already present, left alone (' +
+                   holidayResult.skipped.length + '):');
+    for (var k = 0; k < holidayResult.skipped.length; k++) lines.push('  • ' + holidayResult.skipped[k]);
+  }
 
   if (preserved.length > 0) {
     lines.push('', 'Kept as-is (' + preserved.length + ') — you chose to preserve these:');

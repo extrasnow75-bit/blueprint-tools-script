@@ -6,7 +6,7 @@
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-05 at 23:42 MDT
+// Last updated on 2026-09-07 at 13:35 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -82,9 +82,12 @@ var CDM_TYPED_MARKER_RE_9 = /^\s*(?:\d+\s*[.)\]]|[•●▪–—-])\s+/;
 // header lines are detected and reformatted — a Course Design Map cell holds
 // MLOs, or CLOs, or both, and mirroring what it says keeps all three correct.
 // DEFAULT_OBJECTIVES_HEADER_9 is the fallback for a cell that is a bare list of
-// objectives with no header at all.
+// objectives with no header at all. It is deliberately just "Objectives": the
+// cell may hold MLOs, CLOs or both, and a bare list gives no way to tell which
+// — so the one header that is correct in all three cases is the unqualified
+// one. A cell that DOES name its own header still wins over this.
 var OBJECTIVES_HEADER_RE_9      = /^\s*(?:course|module)\s+learning\s+objectives\b/i;
-var DEFAULT_OBJECTIVES_HEADER_9 = 'Module Learning Objectives (MLOs)';
+var DEFAULT_OBJECTIVES_HEADER_9 = 'Objectives';
 
 // The Blueprint's convention for "make this an H2 in Canvas": the marker is
 // bold red text on an otherwise Normal paragraph, NOT a real Docs heading —
