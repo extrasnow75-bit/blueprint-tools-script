@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-09-04 at 09:44 MDT -->
+<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-09-06 at 22:47 MDT -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -114,17 +114,19 @@
   <h3>Add Activity Titles, Tools, Due Date Headers, &amp; Times</h3>
 
   <h3>What Does This Tool Do?</h3>
-  <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 14px;">
-    It reads the Course Pattern Table in your Design tab and builds out the Development tab from it. Using proper Blueprint formatting, this tool inserts the activity titles in each module, tags each one with its Canvas tool (Page, Assignment, Discussion, etc.), and adds a time estimate. Run this first &mdash; the other tools build on the structure it creates.
+  <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 10px;">
+    Run this tool first.
   </p>
-
-  <!-- This tool deletes as well as inserts, so say so before the run rather than
-       only in the summary afterwards. The placeholder chips it removes cannot be
-       recreated by script (Apps Script cannot build a Google Docs dropdown), so
-       the deletion is not undoable from inside the tool. -->
-  <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 14px;">
-    In each module it builds, this tool replaces the existing &ldquo;Due by &hellip;&rdquo; markers &mdash; including the template&rsquo;s <em>Select Day</em> and <em>Display header as</em> dropdown chips &mdash; with its own due date headers. Those chips cannot be put back by the tool, so work on a copy if you are unsure. Modules beyond the number you enter below are left untouched.
+  <p style="font-size:12px; color:#555; line-height:1.45; margin:0 0 6px;">
+    It reads the Course Pattern Table in your Design tab and adds the following
+    to the Development tab in proper Blueprint formatting:
   </p>
+  <ul style="font-size:12px; color:#555; line-height:1.45; margin:0 0 14px; padding-left:20px;">
+    <li>activity titles</li>
+    <li>Canvas tools (Page, Assignment, Discussion, etc.)</li>
+    <li>time estimates</li>
+    <li>&ldquo;due by markers&rdquo;</li>
+  </ul>
 
   <label for="numModules">How many modules will this course contain?</label>
   <input type="number" id="numModules" min="1" max="52" placeholder="e.g. 15">
