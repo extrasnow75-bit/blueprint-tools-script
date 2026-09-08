@@ -6,7 +6,7 @@
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-08 at 00:32 MDT
+// Last updated on 2026-09-08 at 01:19 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -475,14 +475,19 @@ function scanDevStructure9_(devBody) {
       // slot whose placeholder has already been consumed by Deploy.
       if (/^estimated time/i.test(trimmed))       { slot.lastPreamble = para; continue; }
       if (/link to settings tab$/i.test(trimmed)) { slot.lastPreamble = para; continue; }
+      // The marker is as distinctive as either test above — no genuine notes
+      // paragraph would ever contain "⏺" — so it is just as safe here. Needed
+      // because Page's tool line carries the marker with no "Link to settings
+      // tab" text after it at all.
+      if (trimmed.indexOf(TOOL_MARKER) !== -1)    { slot.lastPreamble = para; continue; }
 
-      // A resolved Page line carries no suffix at all — it is just the bare
-      // word "Page" — so neither test above catches it. Unlike those two,
-      // this one is NOT safe to run once real content may have started:
-      // "Page", "Discussion", etc. are short enough that a genuine notes
-      // paragraph could say one verbatim. Gating it on "nothing captured yet"
-      // confines it to before real content begins, where the tool line always
-      // sits by construction.
+      // Briefly (one commit), a resolved Page line carried no marker and no
+      // suffix at all — just the bare word "Page" — so nothing above catches
+      // that interim form. Unlike the checks above, this one is NOT safe to
+      // run once real content may have started: "Page", "Discussion", etc.
+      // are short enough that a genuine notes paragraph could say one
+      // verbatim. Gating it on "nothing captured yet" confines it to before
+      // real content begins, where the tool line always sits by construction.
       if (!slot.placeholder && slot.content.length === 0 &&
           CANVAS_TOOL_OPTIONS.indexOf(trimmed) !== -1) { slot.lastPreamble = para; continue; }
       if (trimmed === '')                              continue;

@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-09-08 at 00:32 MDT
+// Last updated on 2026-09-08 at 01:19 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -335,15 +335,21 @@ function readModuleContent_(body, moduleTitle) {
       // already had their own pair, duplicating them.
       if (/^estimated time/i.test(text))       continue;
       if (/link to settings tab$/i.test(text)) continue;
+      // The marker is as distinctive as either phrase above — no real
+      // directions text would ever contain "⏺" — so it is just as safe to
+      // skip anywhere in the slot. Needed because Page's tool line carries
+      // the marker with no "Link to settings tab" text after it at all.
+      if (text.indexOf(TOOL_MARKER) !== -1)    continue;
 
-      // A resolved Page line carries no suffix at all — it is just the bare
-      // word "Page" — so nothing above catches it. Unlike those two, this
-      // check is NOT safe to run "anywhere in the slot": "Page", "Discussion",
-      // etc. are short enough that real directions text could plausibly say
-      // one verbatim as its own paragraph. Gating it on !pastPreamble confines
-      // it to before any real content has been seen — where the tool line
-      // always sits by construction — so a same-named paragraph deep in
-      // genuine content is never mistaken for it.
+      // Briefly (one commit), a resolved Page line carried no marker and no
+      // suffix at all — just the bare word "Page" — so nothing above catches
+      // that interim form. Unlike the checks above, this one is NOT safe to
+      // run "anywhere in the slot": "Page", "Discussion", etc. are short
+      // enough that real directions text could plausibly say one verbatim as
+      // its own paragraph. Gating it on !pastPreamble confines it to before
+      // any real content has been seen — where the tool line always sits by
+      // construction — so a same-named paragraph deep in genuine content is
+      // never mistaken for it.
       if (!pastPreamble && CANVAS_TOOL_OPTIONS.indexOf(text) !== -1) continue;
 
       // Skip leading blank lines only.
@@ -672,13 +678,17 @@ function getActivityPattern(moduleTitle) {
 
 /**
  * Given the body and an H4 paragraph (activity heading), returns the tool type
- * found in the "Tool ⏺; Link to settings tab" line immediately following the
- * heading (or "Tool; Link to settings tab" on pre-marker Blueprints; or just
- * "Tool" with no suffix at all, which is how a resolved Page reads, since
- * Page has no Settings tab to link to).
+ * found in the tool line immediately following the heading:
+ *   "<Tool> ⏺; Link to settings tab"  — current format, every tool but Page
+ *   "Page ⏺"                          — current format, Page (no Settings
+ *                                        tab in Canvas to link to)
+ *   "<Tool>; Link to settings tab"    — legacy, built before the marker landed
+ *   "Page"                            — bare, briefly how a resolved Page
+ *                                        line read for one commit before the
+ *                                        marker started applying to it too
  *
- * The tool type is the text before the separator, trimmed — or the whole
- * line, trimmed, when there is no separator to find.
+ * The tool type is the text before the marker (or, lacking a marker, before
+ * the semicolon), trimmed — or the whole line, trimmed, in the bare case.
  *
  * @param {GoogleAppsScript.Document.Body} body
  * @param {GoogleAppsScript.Document.Paragraph} headingPara
@@ -703,11 +713,21 @@ function getToolTypeForSlot(body, headingPara, knownIndex) {
     var text    = para.getText();
     var trimmed = text.trim();
 
-    // Page has no Settings tab to link to, so a resolved Page line carries no
-    // suffix at all — it is just the bare word "Page". Catch that case before
-    // the "link to settings tab" check below, which a bare line can never pass.
-    // trimmed is already an exact CANVAS_TOOL_OPTIONS member here, i.e. already
-    // canonical, so there is nothing for normalizeToolName to do.
+    // The marker alone identifies a resolved current-format line, Page
+    // included — it precedes whatever follows it (real suffix text, or
+    // nothing for Page). TOOL_MARKER comes from Code.gs: Apps Script gives
+    // every .gs file one shared global namespace, so this is the same
+    // constant, not a copy of it.
+    var markerIdx = text.indexOf(TOOL_MARKER);
+    if (markerIdx !== -1) {
+      var toolType = text.substring(0, markerIdx).trim();
+      if (!toolType) return null;
+      return normalizeToolName(toolType) || toolType;
+    }
+
+    // No marker: either the bare-Page interim form, or a legacy line from
+    // before the marker existed. A bare, exact match against one of the six
+    // known tool names catches the former.
     if (CANVAS_TOOL_OPTIONS.indexOf(trimmed) !== -1) return trimmed;
 
     // Confirm this is actually the tool line BEFORE looking for a separator.
@@ -718,24 +738,16 @@ function getToolTypeForSlot(body, headingPara, knownIndex) {
     // the same predicate setNearbyTool keys on in Code.gs.
     if (!/link to settings tab/i.test(text)) continue;
 
-    // "<Tool> ⏺; Link to settings tab" on Blueprints built since the marker
-    // replaced the grey highlight, "<Tool>; Link to settings tab" on older ones.
-    // Split on whichever separator is present — dropping the semicolon path
-    // would break every Blueprint made before the change. TOOL_MARKER and
-    // TOOL_SUFFIX_LEGACY come from Code.gs: Apps Script gives every .gs file one
-    // shared global namespace, so this is the same constant, not a copy of it.
-    var markerIdx = text.indexOf(TOOL_MARKER);
-    var sepIdx    = (markerIdx !== -1) ? markerIdx : text.indexOf(';');
-
+    var sepIdx = text.indexOf(';');
     if (sepIdx !== -1) {
-      var toolType = text.substring(0, sepIdx).trim();
-      if (!toolType) return null;
+      var toolType2 = text.substring(0, sepIdx).trim();
+      if (!toolType2) return null;
       // Normalize the same way the Course Pattern Table is read, so a line
       // hand-typed in the Development tab as "Assignment (Ungraded)" resolves
       // to the canonical "Assignment (Not Graded)" and finds its DIRECTION_OPTIONS
       // entry. Fall back to the raw text when nothing matches (e.g. the
       // "Select Tool" placeholder), which is what callers expect.
-      return normalizeToolName(toolType) || toolType;
+      return normalizeToolName(toolType2) || toolType2;
     }
   }
 

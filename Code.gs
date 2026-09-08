@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-07 at 23:24 MDT
+ * Last updated on 2026-09-08 at 01:19 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -47,7 +47,9 @@ const DUE_MARKER_RE = /^\s*due by\b[^.]{0,20}?\bat 11:59 p\.m\. mountain time\b.
 const DISPLAY_AS_RE = /display header as/i;
 // The Canvas-tool line reads "<Tool> ⏺; Link to settings tab" — except for
 // Page, which has no Settings tab in Canvas to link to, so it reads just
-// "Page" with no marker and no suffix at all.
+// "Page ⏺" with no text after the marker. The marker itself still appears on
+// every tool, Page included: it is a structural "this line tags a Canvas
+// tool" mark, independent of whatever link text does or doesn't follow it.
 //
 // The circle replaced a grey background highlight on the tool name. QA marks
 // text light green once it is ready to go into Canvas, and a background colour
@@ -59,7 +61,8 @@ const TOOL_MARKER = '⏺';   // ⏺ BLACK CIRCLE FOR RECORD
 // tags a Canvas tool", not part of the tool's name. Keeping it out of the red
 // also stops it reading as punctuation belonging to the words on either side.
 const TOOL_MARKER_COLOR = BLACK;
-const TOOL_SUFFIX = ' ' + TOOL_MARKER + '; Link to settings tab';
+const TOOL_SUFFIX      = ' ' + TOOL_MARKER + '; Link to settings tab';
+const TOOL_SUFFIX_PAGE = ' ' + TOOL_MARKER;
 // Blueprints built before the marker landed still read "<Tool>; Link to settings
 // tab". Both forms must be recognised: on a re-run over an old document here,
 // and by getToolTypeForSlot in Code2.gs, which reads this line to decide which
@@ -687,36 +690,38 @@ function setNearbyTool(body, headingPara, toolValue) {
     if (h === H2 || h === H3 || h === H4) break;
     const text          = para.getText();
     const hasSelectTool = text.includes(TOOL_PLACEHOLDER);
-    // Match on the wording, not the separator. A Blueprint built before the
-    // marker landed reads "<Tool>; Link to settings tab"; one this tool has
-    // already touched reads "<Tool> ⏺; Link to settings tab". Keying on the
-    // semicolon alone would silently stop finding the line on a second run.
+    // The marker alone is enough to identify a resolved line, Page included —
+    // it now precedes whatever follows it (real suffix text, or nothing).
+    const hasMarker     = text.includes(TOOL_MARKER);
+    // Match on the wording too, not just the separator: a Blueprint built
+    // before the marker landed reads "<Tool>; Link to settings tab" with no
+    // marker at all.
     const hasSuffix     = text.includes('Link to settings tab');
-    // A Page line carries no suffix at all once resolved, so neither check
-    // above finds it on a later run — it would look like plain body text and
-    // get skipped, leaving a since-changed tool stuck reading "Page" forever.
-    // A bare, exact match against one of the six known tool names is what
-    // catches that line back.
+    // Briefly (one commit), a resolved Page line carried no marker and no
+    // suffix at all — just the bare word "Page" — so none of the checks above
+    // find it. A bare, exact match against one of the six known tool names
+    // catches that interim form back.
     const isBareTool    = CANVAS_TOOL_OPTIONS.includes(text.trim());
-    if (!hasSelectTool && !hasSuffix && !isBareTool) continue;
-    // Page has no Settings tab in Canvas to link to, so it gets no suffix at
-    // all — just the bare tool name.
-    const suffix = toolValue === 'Page' ? '' : TOOL_SUFFIX;
+    if (!hasSelectTool && !hasMarker && !hasSuffix && !isBareTool) continue;
+    // Page has no Settings tab in Canvas to link to, so nothing follows the
+    // marker for it — but the marker itself still applies, same as every
+    // other tool.
+    const suffix = toolValue === 'Page' ? TOOL_SUFFIX_PAGE : TOOL_SUFFIX;
     try {
       if (hasSelectTool) {
         para.replaceText(TOOL_PLACEHOLDER, toolValue);
-        if (text.includes(TOOL_MARKER)) {
+        if (hasMarker) {
           // A slot createModule/insertActivitySlot just built carries the
-          // current-format suffix already, written before the tool was known.
-          // Only Page needs correcting — strip what was assumed by default.
-          if (suffix === '') para.replaceText(TOOL_SUFFIX, '');
+          // full non-Page suffix already, written before the tool was known.
+          // Only Page needs correcting — trim it down to marker-only.
+          if (toolValue === 'Page') para.replaceText(TOOL_SUFFIX, suffix);
         } else {
           // Legacy line, built before the marker landed: upgrade it directly
-          // to whatever this tool needs, marker-and-semicolon or nothing.
+          // to whatever this tool needs.
           para.replaceText(TOOL_SUFFIX_LEGACY, suffix);
         }
         _fmtToolLine(para);
-      } else if (hasSuffix || isBareTool) {
+      } else if (hasMarker || hasSuffix || isBareTool) {
         // Only rewrite the text when it is actually wrong. setText() replaces
         // the whole run and resets every character attribute with it —
         // background colour included — so an unconditional rewrite would strip
