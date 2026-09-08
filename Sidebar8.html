@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-07 at 13:35 MDT -->
+<!-- Blueprint Tools — Sidebar8.html | Last updated on 2026-09-07 at 19:51 MDT -->
 <!-- Sidebar for "Specialty Tool: Add Module Dates &/or Holiday Modules". Split out of
      the retired "Add Module Titles & Module Dates (Beta)" sidebar — see project
      memory project_blueprint_designmap_dev_tab.md, Phase 2. This is that
@@ -318,7 +318,7 @@
 </head>
 <body>
 
-  <h3>Specialty Tool: Add Module Dates</h3>
+  <h3>Specialty Tool: Add Module Dates &amp;/or Holiday Modules</h3>
 
   <!-- ── LOADING ─────────────────────────────────────────── -->
   <!-- The ticking node is aria-hidden and a static line is announced instead.
@@ -444,14 +444,14 @@
         <label for="hol-spring">Spring Break</label>
       </div>
       <div id="hol-spring-present" class="section-hint hidden" style="margin:0 0 6px 24px;">
-        Already in this document &mdash; it will be left alone.
+        Already in this document.
       </div>
       <div class="cz-row">
         <input type="checkbox" id="hol-thanksgiving">
         <label for="hol-thanksgiving">Thanksgiving Break</label>
       </div>
       <div id="hol-thanksgiving-present" class="section-hint hidden" style="margin:0 0 6px 24px;">
-        Already in this document &mdash; it will be left alone.
+        Already in this document.
       </div>
     </div>
 
@@ -494,7 +494,10 @@
     modules:  [],
     dates:    null,   // { moduleNum: {start, end} } once generated
     holidays: [],
-    sessions: []
+    sessions: [],
+    // Break modules the document already has. They stay in the payload so a
+    // later run can write dates into one that was added without any.
+    existingHolidays: []
   };
 
   // ── Helpers ────────────────────────────────────────────────
@@ -667,9 +670,11 @@
 
     $('alerts').innerHTML = alerts;
 
-    // A holiday module already in the document cannot be added twice, so say so
-    // here rather than letting the run report it as skipped afterwards.
-    (data.existingHolidays || []).forEach(function (key) {
+    // A holiday module already in the document cannot be added twice, so the box
+    // is ticked and locked. It stays in the payload, though — if it was added
+    // without dates, generating dates here fills them in.
+    STATE.existingHolidays = data.existingHolidays || [];
+    STATE.existingHolidays.forEach(function (key) {
       var box = $('hol-' + key);
       var msg = $('hol-' + key + '-present');
       if (!box || !msg) return;
@@ -690,13 +695,43 @@
     thanksgiving: /thanksgiving/i
   };
 
+  // "Regular" on the registrar's table says nothing about how long the session
+  // runs, which is the one thing you need in order to choose between it and
+  // "First 7 Weeks". Only fall and spring get the label: their regular session
+  // is the 15-week course everyone means by it. A summer "Regular" is nothing
+  // like 15 weeks, and the 7-week names already say their own length, so both
+  // are left exactly as the registrar wrote them.
+  function sessionLabel(s) {
+    var name = s.session || '';
+    var sem  = $('semester').value;
+    if ((sem === 'fall' || sem === 'spring') && /^\s*regular\b/i.test(name)) {
+      return name + ' (15 weeks)';
+    }
+    return name;
+  }
+
+  function holidayIsExisting(key) {
+    return STATE.existingHolidays.indexOf(key) !== -1;
+  }
+
+  // Everything ticked, including the locked boxes for breaks already in the
+  // document — the server needs those in the payload to date them.
   function holidayChecked(key) {
     var box = $('hol-' + key);
-    return !!(box && box.checked && !box.disabled);
+    return !!(box && box.checked);
   }
 
   function anyHolidayChecked() {
     return HOLIDAY_KEYS_8.some(holidayChecked);
+  }
+
+  // Only the ones this run would actually insert. Run is enabled off this, not
+  // off anyHolidayChecked: a break that is already there is not, by itself,
+  // work to do — dating it requires the calendar half of the sidebar anyway.
+  function anyNewHolidayChecked() {
+    return HOLIDAY_KEYS_8.some(function (key) {
+      return holidayChecked(key) && !holidayIsExisting(key);
+    });
   }
 
   // The scraped full-week break matching this holiday, if the calendar lookup
@@ -730,24 +765,37 @@
 
     // Run is enabled by EITHER half of this sidebar. A master course has no
     // dates to generate but still wants the break modules.
-    $('run-btn').disabled = !STATE.dates && !any;
+    $('run-btn').disabled = !STATE.dates && !anyNewHolidayChecked();
+
+    var wantDates = $('hol-dates').value === 'yes';
+
+    // The locked boxes say what this particular run will do to a break that is
+    // already in the document, which depends on whether dates exist for it.
+    HOLIDAY_KEYS_8.forEach(function (key) {
+      var msg = $('hol-' + key + '-present');
+      if (!msg || !holidayIsExisting(key)) return;
+      msg.textContent = (wantDates && scrapedBreak(key))
+        ? 'Already in this document — its dates will be filled in.'
+        : 'Already in this document — it will be left alone.';
+    });
 
     if (!any) { $('hol-status').innerHTML = ''; return; }
 
-    var wantDates = $('hol-dates').value === 'yes';
     var html = '';
     HOLIDAY_KEYS_8.forEach(function (key) {
       if (!holidayChecked(key)) return;
       var label = key === 'spring' ? 'Spring Break' : 'Thanksgiving Break';
       var brk   = scrapedBreak(key);
-      if (wantDates && !brk) {
+      var verb  = holidayIsExisting(key) ? 'dated' : 'added and dated';
+      if (wantDates && !brk && !holidayIsExisting(key)) {
         html += notice('warn', '<strong>' + label + ':</strong> no dates found for this term. ' +
           'Look up the academic calendar above, or the module will be added with ' +
           '&ldquo;(start date &ndash; end date)&rdquo; left in.');
-      } else if (wantDates) {
+      } else if (wantDates && brk) {
         var after = holidayAfterModule(key);
-        html += notice('info', '<strong>' + label + ':</strong> dated from the academic calendar' +
-          (after ? ', placed after Module ' + after : '') + '.');
+        html += notice('info', '<strong>' + label + ':</strong> ' + verb +
+          ' from the academic calendar' +
+          (!holidayIsExisting(key) && after ? ', placed after Module ' + after : '') + '.');
       }
     });
     $('hol-status').innerHTML = html;
@@ -840,7 +888,7 @@
 
     $('session').innerHTML = '<option value="">Choose a session&hellip;</option>' +
       STATE.sessions.map(function (s, i) {
-        return '<option value="' + i + '">' + esc(s.session) + '</option>';
+        return '<option value="' + i + '">' + esc(sessionLabel(s)) + '</option>';
       }).join('');
 
     show('session-wrap');
@@ -1034,7 +1082,7 @@
   $('run-btn').addEventListener('click', function () {
     // Either half is enough to have something to do. A dates-free run that
     // only adds holiday modules is the master-course case.
-    if (!STATE.dates && !anyHolidayChecked()) return;
+    if (!STATE.dates && !anyNewHolidayChecked()) return;
 
     // Built before the date loop so a dates-free run still collects them.
     var wantHolidayDates = $('hol-dates').value === 'yes';
@@ -1130,6 +1178,7 @@
     STATE.dates    = null;
     STATE.holidays = [];
     STATE.sessions = [];
+    STATE.existingHolidays = [];
     $('run-btn').disabled = true;
 
     // A holiday module added by the run just finished now exists in the

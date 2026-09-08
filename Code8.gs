@@ -5,7 +5,7 @@
 // registrar's academic calendar, and optionally inserts unnumbered Spring
 // Break / Thanksgiving Break modules.
 // ------------------------------------------------------------
-// Last updated on 2026-09-07 at 13:35 MDT
+// Last updated on 2026-09-07 at 19:51 MDT
 // ------------------------------------------------------------
 //
 // Split out of the "Add Module Titles & Module Dates (Beta)" tool — see project
@@ -869,13 +869,39 @@ function moduleRange8_(d) {
  * directions paragraph is not a module and must not suppress the insert.
  */
 function hasHolidayModule8_(devBody, spec) {
+  return findHolidayModule8_(devBody, spec) !== null;
+}
+
+
+/**
+ * The H2 paragraph of an existing holiday module for `spec`, or null.
+ *
+ * Split out of hasHolidayModule8_ so a second run can write dates INTO a
+ * holiday module added by an earlier one — a master course gets its breaks
+ * with the "(start date – end date)" placeholder left in, and the dates only
+ * arrive once the course is scheduled and the calendar is looked up.
+ */
+function findHolidayModule8_(devBody, spec) {
   var H2    = DocumentApp.ParagraphHeading.HEADING2;
   var paras = devBody.getParagraphs();
   for (var i = 0; i < paras.length; i++) {
     if (paras[i].getHeading() !== H2) continue;
-    if (spec.match.test(paras[i].getText())) return true;
+    if (spec.match.test(paras[i].getText())) return paras[i];
   }
-  return false;
+  return null;
+}
+
+
+/**
+ * True when this heading's trailing "(...)" is still the untouched placeholder.
+ *
+ * Matches on START_PLACEHOLDER_7 rather than on the whole placeholder string so
+ * that a heading someone pasted from the template — whose separator is the
+ * template's hyphen, not this tool's en dash — is still recognised.
+ */
+function holidayDateIsPlaceholder8_(text) {
+  var m = String(text).match(/\(([^()]*)\)\s*$/);
+  return !!m && m[1].toLowerCase().indexOf(START_PLACEHOLDER_7) !== -1;
 }
 
 
@@ -890,10 +916,14 @@ function hasHolidayModule8_(devBody, spec) {
  * @param {Array} requests   [{key, start, end, afterModule}] from the sidebar.
  *                           start/end may be null, meaning "leave the
  *                           (start date – end date) placeholder in".
- * @returns {{added: string[], skipped: string[]}}
+ * @param {boolean} overwriting  true when the run is overwriting the numbered
+ *                           modules' dates. A holiday module whose dates are
+ *                           already real is only rewritten on such a run;
+ *                           one still showing the placeholder is always filled.
+ * @returns {{added: string[], updated: string[], skipped: string[]}}
  */
-function insertHolidayModules8_(devBody, headings, requests) {
-  var out = { added: [], skipped: [] };
+function insertHolidayModules8_(devBody, headings, requests, overwriting) {
+  var out = { added: [], updated: [], skipped: [] };
   if (!requests || !requests.length) return out;
 
   var H2     = DocumentApp.ParagraphHeading.HEADING2;
@@ -926,8 +956,29 @@ function insertHolidayModules8_(devBody, headings, requests) {
     var spec = HOLIDAY_SPECS_8[req.key];
     if (!spec) continue;
 
-    if (hasHolidayModule8_(devBody, spec)) {
-      out.skipped.push(spec.name);
+    var hasDates = !!(req.start && req.end);
+    var range = hasDates
+      ? moduleRange8_({ start: req.start, end: req.end })
+      : HOLIDAY_DATE_PLACEHOLDER_8;
+
+    // Already in the document? Then this run either writes dates into it or
+    // leaves it alone — it never adds a second one.
+    var existing = findHolidayModule8_(devBody, spec);
+    if (existing) {
+      if (!hasDates) {
+        out.skipped.push(spec.name + ' — no dates to add');
+      } else if (holidayDateIsPlaceholder8_(existing.getText())) {
+        // The case this whole branch exists for: added dateless on an earlier
+        // run, dated now that the academic calendar has been looked up.
+        existing.replaceText('\\([^()]*\\)\\s*$', '(' + range + ')');
+        out.updated.push(spec.name + ' — dates filled in (' + range + ')');
+      } else if (overwriting) {
+        existing.replaceText('\\([^()]*\\)\\s*$', '(' + range + ')');
+        out.updated.push(spec.name + ' — dates overwritten (' + range + ')');
+      } else {
+        out.skipped.push(spec.name + ' — already dated, kept as-is');
+      }
+      Logger.log('insertHolidayModules8_: %s already present (hasDates=%s).', spec.name, hasDates);
       continue;
     }
 
@@ -941,10 +992,6 @@ function insertHolidayModules8_(devBody, headings, requests) {
     // follower, so the block goes at the end of the tab.
     var next = anchors[after + 1];
     var at   = next ? devBody.getChildIndex(next) : devBody.getNumChildren();
-
-    var range = (req.start && req.end)
-      ? moduleRange8_({ start: req.start, end: req.end })
-      : HOLIDAY_DATE_PLACEHOLDER_8;
 
     // Built last-first at a FIXED index so they land in reading order: heading,
     // note, then a blank paragraph separating this block from what follows.
@@ -1047,12 +1094,20 @@ function applyModuleDates8(params) {
   // Holiday modules go in AFTER the dates pass. Inserting first would shift
   // every childIndex in `headings`, which was captured before this loop began —
   // and those indices are what the loop above walks.
-  var holidayResult = insertHolidayModules8_(devBody, headings, params && params.holidays);
+  // A holiday module that already carries real dates is only rewritten when the
+  // user asked for the numbered modules to be overwritten too — there is no
+  // separate preserve/overwrite control for the breaks, so they follow that one.
+  var overwriting = false;
+  for (var o in overwrite) {
+    if (Object.prototype.hasOwnProperty.call(overwrite, o) && overwrite[o]) { overwriting = true; break; }
+  }
+  var holidayResult =
+    insertHolidayModules8_(devBody, headings, params && params.holidays, overwriting);
 
   Logger.log('applyModuleDates8: %s filled in, %s overwritten, %s preserved, %s unsupported, ' +
-             '%s holiday module(s) added.',
+             '%s holiday module(s) added, %s holiday module(s) re-dated.',
              filledIn, overwritten, preserved.length, unsupported.length,
-             holidayResult.added.length);
+             holidayResult.added.length, holidayResult.updated.length);
 
   var lines = ['✅ Development tab updated.', ''];
   lines.push('Newly filled in: ' + filledIn);
@@ -1062,6 +1117,11 @@ function applyModuleDates8(params) {
     lines.push('', 'Holiday modules added (' + holidayResult.added.length + '):');
     for (var a = 0; a < holidayResult.added.length; a++) lines.push('  • ' + holidayResult.added[a]);
     lines.push('  Drag one to a different spot if it did not land where you expected.');
+  }
+  if (holidayResult.updated.length > 0) {
+    lines.push('', 'Holiday modules already present, dates written (' +
+                   holidayResult.updated.length + '):');
+    for (var v = 0; v < holidayResult.updated.length; v++) lines.push('  • ' + holidayResult.updated[v]);
   }
   if (holidayResult.skipped.length > 0) {
     lines.push('', 'Holiday modules already present, left alone (' +

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-05 at 23:53 MDT
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-07 at 21:16 MDT
 
      UI for the "Design Map → Dev Tab (Module Titles, Objectives, & More)" tool
      (Code9.gs). The Module Titles panel
@@ -66,6 +66,19 @@
       color: #333;
       margin: 12px 0 4px;
     }
+
+    /* Section heads for the intro. The dialog's title bar already shows the
+       tool name, so these are 13px rather than the title's own size — but the
+       same blue as every section heading in the Create Model Module sidebar,
+       for a consistent look across the suite. */
+    .sec-head {
+      color: #0033a0;
+      font-size: 13px;
+      font-weight: bold;
+      margin: 0 0 6px;
+    }
+    .sec-head + .sec-head { margin-top: 18px; }
+    .body-text { font-size: 12px; color: #555; line-height: 1.45; margin: 0 0 10px; }
 
     /* ── Section nav ─────────────────────────────────────────── */
     /* Sticky so it is reachable from anywhere in a sidebar this tall. The
@@ -475,11 +488,6 @@
 </head>
 <body>
 
-  <!-- The parenthetical is a second line rather than a wrap, so the tool's
-       actual name stays scannable at the top of a sidebar this tall. -->
-  <h3>Design Map &rarr; Dev Tab<br>
-    <span class="h3-sub">(Module Titles, Objectives, &amp; More)</span></h3>
-
   <!-- ── LOADING ─────────────────────────────────────────── -->
   <!-- The ticking node is aria-hidden and a static line is announced instead.
        startTimer rewrites its text every second; inside a live region that
@@ -493,23 +501,34 @@
   <!-- ── MAIN FORM ───────────────────────────────────────── -->
   <div id="main" class="hidden">
 
-    <p class="intro">
+    <h3 class="sec-head">What does this tool do?</h3>
+    <p class="body-text">
       Copies the Design tab&rsquo;s Course Design Map into the Development tab:
       module titles into the module headings, the CLO/MLO row into each Module
       Overview, and every other row&rsquo;s notes under that activity&rsquo;s
-      &ldquo;Directions go here&hellip;&rdquo; line. Run this after &ldquo;Add
-      Activity Titles, Tools, Due Date Headers, &amp; Times&rdquo;.
+      &ldquo;Directions go here&hellip;&rdquo; line.
     </p>
+
+    <h3 class="sec-head">When should I run this?</h3>
+    <p class="body-text">
+      Run this after &ldquo;Add Activity Titles, Tools, Due Date Headers,
+      &amp; Times&rdquo; &mdash; that&rsquo;s the tool that creates the module
+      headings and activity slots this one writes into.
+    </p>
+
+    <hr class="divider">
 
     <div id="alerts" role="status" aria-live="polite"></div>
 
-    <!-- ── SECTION NAV ───────────────────────────────────── -->
+    <h3 class="sec-head">Sidebar Anchor Links</h3>
+
+    <!-- ── SECTION NAV ──────────────────────── -->
     <!-- Buttons, not <a href="#id">. This document sets <base target="_top">,
          so a bare in-page anchor would try to navigate the HOST Docs page
          rather than scroll this iframe. scrollIntoView sidesteps the question
          entirely, and lets focus move to the heading as well as the scroll —
          a keyboard user who "jumps" needs their focus to arrive too. -->
-    <nav class="section-nav" aria-label="Jump to a section">
+<nav class="section-nav" aria-label="Jump to a section">
       <button type="button" data-target="main-heading">Module&nbsp;Titles</button>
       <span aria-hidden="true">&middot;</span>
       <button type="button" data-target="objectives-heading">Objectives</button>
@@ -913,14 +932,16 @@
 
     var alerts = '';
 
+    // The full header-vs-row text for each conflict is not repeated here —
+    // it is already shown, labeled by origin, in that module's own radio
+    // group below. This line exists only for triage: which modules need a
+    // look, without scrolling through every one to find out.
     if (data.conflicts.length > 0) {
-      var items = data.conflicts.map(function (c) {
-        return '<li><strong>' + esc(c.module) + '</strong>: header says &ldquo;' +
-               esc(c.header) + '&rdquo;, Title row says &ldquo;' + esc(c.row) + '&rdquo;</li>';
-      }).join('');
+      var names = data.conflicts.map(function (c) { return esc(c.module); }).join(', ');
       alerts += notice('warn',
-        '<strong>Conflicting module titles found.</strong> Pick one below, or type your own. ' +
-        'The Design tab is never changed by this tool.<ul>' + items + '</ul>');
+        '<strong>Conflicting module titles found in ' + names + '.</strong> ' +
+        'Pick one below for each, or type your own. The Design tab is never ' +
+        'changed by this tool.');
     }
 
     if (data.unmatchedDesign.length > 0) {

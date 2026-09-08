@@ -6,7 +6,7 @@
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-07 at 13:35 MDT
+// Last updated on 2026-09-07 at 21:16 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -1327,7 +1327,15 @@ function applyDesignMapTitles9(params) {
       // the replacement surgical: the parentheses, the hyphen and the heading's
       // Arial 17 bold all survive untouched. Word-bounded so it cannot match
       // inside a longer word.
-      para.replaceText('\\b' + TITLE_PLACEHOLDER_7 + '\\b', chosenTitle);
+      //
+      // replaceText's SECOND argument is also regex-flavored: a literal "$" in a
+      // typed title (e.g. "$500 Stipend Module") is read as a backreference marker
+      // and throws, aborting this whole loop mid-batch with no way to tell which
+      // title caused it. Escape both characters this API treats specially in a
+      // replacement string before using it as one: one backslash becomes two,
+      // one dollar sign becomes a backslash followed by a dollar sign.
+      var safeTitle = String(chosenTitle).replace(/\\/g, '\\\\').replace(/\$/g, '\\$');
+      para.replaceText('\\b' + TITLE_PLACEHOLDER_7 + '\\b', safeTitle);
       written++;
     } else {
       skipped.push(info.displayLabel + ' — already reads "' + info.titlePart + '"');

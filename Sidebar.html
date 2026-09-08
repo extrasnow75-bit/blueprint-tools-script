@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-09-07 at 13:35 MDT -->
+<!-- Blueprint Tools — Sidebar.html | Last updated on 2026-09-07 at 20:28 MDT -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -99,16 +99,23 @@
     .tool-fix-cell  { font-weight: bold; font-size: 12px; color: #333; }
     .tool-fix-used  { font-size: 11px; color: #555; margin: 2px 0 0; line-height: 1.4; }
     .tool-fix-row select { margin-top: 4px; }
-    /* Section heads. Ranked BELOW the dialog's own title bar, which already
-       shows the tool name — so these are black and smaller rather than another
-       line of blue at the same weight as the title. */
+    /* Section heads. The dialog's title bar already shows the tool name, so
+       these are 13px rather than the title's own size — but the same blue as
+       every section heading in the Create Model Module sidebar, for a
+       consistent look across the suite. */
     .sec-head {
-      color: #000;
+      color: #0033a0;
       font-size: 13px;
       font-weight: bold;
       margin: 0 0 6px;
     }
     .sec-head + .sec-head { margin-top: 18px; }
+    /* Separates the intro (what/when) from the form questions below it. */
+    .divider {
+      border: none;
+      border-top: 2px solid #aab2c8;
+      margin: 14px 0;
+    }
     .body-text { font-size: 12px; color: #555; line-height: 1.45; margin: 0 0 10px; }
     .body-list { font-size: 12px; color: #555; line-height: 1.45; margin: 0 0 10px; padding-left: 20px; }
     /* Customize: collapsed by default at the user's request. The summary line
@@ -202,6 +209,10 @@
     in the Design tab.
   </p>
 
+  <hr class="divider">
+
+  <h2 class="sec-head">Questions about Blueprint setup</h2>
+
   <label for="numModules">How many modules will this course contain?</label>
   <input type="number" id="numModules" min="1" max="52" placeholder="e.g. 15">
   <label for="numbered">Should Activity Titles be numbered?</label>
@@ -252,6 +263,8 @@
       <div id="tool-fix-rows"></div>
     </div>
   </div>
+
+  <hr class="divider">
 
   <!-- Customize. Every box ships ticked, so the default run is exactly what it
        was before this panel existed. Unticking is the ONLY way to preserve the

@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-07 at 13:35 MDT
+ * Last updated on 2026-09-07 at 21:16 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -93,6 +93,10 @@ function onOpen() {
     // it writes into. Replaces "Add Module Titles & Module Dates (Beta)", whose
     // title half now lives here and whose dates half became the Specialty Tool
     // below — see project_blueprint_designmap_dev_tab.md, section 3.
+    // Separated like every other pair below it. The first item's name is long
+    // enough to wrap, and without a rule between the two there is no telling
+    // where it ends and this one begins.
+    .addSeparator()
     .addItem('Design Map → Dev Tab (Module Titles, Objectives, & More)',
                                                        'showDesignMapSidebar9')
     .addSeparator()
@@ -188,12 +192,20 @@ function processBlueprint(params) {
   }
   const afterMod  = Math.min(existing, numModules);
   let   insertIdx = findModuleInsertionPoint(devTab.body, afterMod);
+  // Modules created THIS run, tracked by number. A slot inside one of these has
+  // no designer text to protect — the same reasoning insertActivitySlot already
+  // applies to a slot added to an existing module — so fillSlot must write its
+  // title regardless of doTitles, or a Customize run that also grows the module
+  // count leaves brand-new headings reading the literal "Activity Title"
+  // placeholder forever, with nothing to distinguish them from real content.
+  const createdModules = new Set();
   for (let m = afterMod + 1; m <= numModules; m++) {
     insertIdx = createModule(devTab.body, m, params, insertIdx, activities);
+    createdModules.add(m);
     stats.created++;
   }
   for (let m = 1; m <= numModules; m++) {
-    processModule(devTab.body, m, activities, params, stats);
+    processModule(devTab.body, m, activities, params, stats, createdModules.has(m));
   }
   // Add blue top/bottom borders to every due-by header in the Development tab.
   // Paragraph borders are single-valued style attributes, so re-applying the
@@ -492,12 +504,12 @@ function deleteModule(body, modNum) {
   }
 }
 // ── PROCESS ONE MODULE ────────────────────────────────────────────
-function processModule(body, modNum, activities, params, stats) {
+function processModule(body, modNum, activities, params, stats, isNewModule) {
   const slots     = getSlotsInModule(body, modNum);
   const slotParas = [];
   for (const { slotNum, para } of slots) {
     if (slotNum <= activities.length) {
-      fillSlot(body, para, modNum, slotNum, activities[slotNum - 1], params, stats);
+      fillSlot(body, para, modNum, slotNum, activities[slotNum - 1], params, stats, isNewModule);
       slotParas.push(para);
     } else {
       removeSlot(body, para);
@@ -576,7 +588,13 @@ function insertActivitySlot(body, modNum, slotNum, activity, params, insertIdx, 
   aPara.setSpacingBefore(TITLE_SPACE_BEFORE);
   _fmt(aPara.editAsText(), { font: FONT, size: 15, bold: false, italic: false, color: BLACK });
   stats.filled++;
-  const estText = (!params.timeEstimates && activity.time) ? 'Estimated time: ' + activity.time : 'Estimated time:';
+  // params.timeEstimates is overloaded: with doTimes on it means "time in the
+  // title (true) vs. on this line (false)", but processBlueprint also forces
+  // it false to represent doTimes being OFF. !params.timeEstimates alone can't
+  // tell those apart, so doTimes has to be checked directly or a slot created
+  // with time estimates unticked gets the real time written here anyway.
+  const estText = (params.doTimes !== false && !params.timeEstimates && activity.time)
+    ? 'Estimated time: ' + activity.time : 'Estimated time:';
   const ePara = ins(estText);
   ePara.setHeading(NORMAL);
   zeroIndent_(ePara);
@@ -621,13 +639,16 @@ function getSlotsInModule(body, modNum) {
   return slots;
 }
 // ── FILL ONE SLOT ─────────────────────────────────────────────────
-function fillSlot(body, headingPara, modNum, slotNum, activity, params, stats) {
+function fillSlot(body, headingPara, modNum, slotNum, activity, params, stats, isNewModule) {
   // doTitles off: leave this heading exactly as the designer left it — text,
   // spacing and character formatting alike. This is the whole point of the
   // switch, so it must not "just" re-normalize the spacing either; a title
   // someone deliberately restyled would come back changed and the checkbox
-  // would look broken.
-  if (params.doTitles !== false) {
+  // would look broken. That protection only applies to a slot that existed
+  // before this run, though — a slot inside a module createModule just built
+  // has no designer text to protect, so isNewModule overrides the toggle here
+  // the same way insertActivitySlot's title write is never gated on it at all.
+  if (params.doTitles !== false || isNewModule) {
     let title = activity.name;
     if (params.timeEstimates && activity.time) title += ` (${activity.time})`;
     const prefix   = params.numbered ? `${modNum}.${String(slotNum).padStart(2,'0')} ` : '';
@@ -1145,7 +1166,10 @@ function buildSummary(stats, params, activities, numModules) {
     `Modules: ${numModules} total`,
     stats.created      > 0 ? `  + ${stats.created} new module(s) created`  : null,
     stats.deleted      > 0 ? `  − ${stats.deleted} module(s) removed`       : null,
-    doTitles ? `Activities set: ${stats.filled}` : 'Activity titles: left unchanged',
+    doTitles ? `Activities set: ${stats.filled}` :
+      (stats.created > 0
+        ? `Activity titles: left unchanged, except the ${stats.created} new module(s) just created`
+        : 'Activity titles: left unchanged'),
     doTools  ? `Tools assigned: ${stats.tools}`  : 'Canvas tools: left unchanged',
     stats.slotsDeleted > 0 ? `Extra slots removed: ${stats.slotsDeleted}`   : null,
     doDue ? `Due-day headers inserted: ${stats.headers}` : 'Due-day headers: left unchanged',
