@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-08 at 01:19 MDT
+ * Last updated on 2026-09-08 at 08:57 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -128,7 +128,7 @@ function showSidebar() {
 // Knowledge Base article in a new tab (with a click-through link as a fallback
 // in case the browser blocks the automatic pop-up).
 const KB_ARTICLE_URL =
-  'https://docs.google.com/document/d/1fSKIamcfOZFthkEtScX_OGEDjx6g8uMLX5j7N5wmUTQ/edit?tab=t.dt1zwyxe9p6f#heading=h.wac296jbizmu';
+  'https://docs.google.com/document/d/1j1An78cPc72JrcFksU7h2NeDtEeE2V9N/edit';
 function showKbArticle() {
   const url  = KB_ARTICLE_URL;
   const html = HtmlService.createHtmlOutput(
