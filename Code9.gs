@@ -6,7 +6,7 @@
 // each Module Overview as a real numbered list, and every other row's notes
 // under that activity's "Directions go here…" placeholder.
 // ------------------------------------------------------------
-// Last updated on 2026-09-07 at 21:16 MDT
+// Last updated on 2026-09-08 at 00:32 MDT
 // ------------------------------------------------------------
 //
 // Runs AFTER "Add Activity Titles, Tools, Due Date Headers, & Times", which is
@@ -468,14 +468,24 @@ function scanDevStructure9_(devBody) {
 
     // ── Normal paragraph ──
     if (slot) {
-      // Slot preamble, never content. Same two tests readModuleContent_
-      // (Code2.gs) uses, and for the same reason: "Estimated time:" precedes
-      // the tool line and matches neither a blank nor a heading. Tracked rather
-      // than merely skipped, because the last of them is the notes anchor in a
+      // Slot preamble, never content. Same tests readModuleContent_ (Code2.gs)
+      // uses, and for the same reason: "Estimated time:" precedes the tool
+      // line and matches neither a blank nor a heading. Tracked rather than
+      // merely skipped, because the last of them is the notes anchor in a
       // slot whose placeholder has already been consumed by Deploy.
       if (/^estimated time/i.test(trimmed))       { slot.lastPreamble = para; continue; }
       if (/link to settings tab$/i.test(trimmed)) { slot.lastPreamble = para; continue; }
-      if (trimmed === '')                         continue;
+
+      // A resolved Page line carries no suffix at all — it is just the bare
+      // word "Page" — so neither test above catches it. Unlike those two,
+      // this one is NOT safe to run once real content may have started:
+      // "Page", "Discussion", etc. are short enough that a genuine notes
+      // paragraph could say one verbatim. Gating it on "nothing captured yet"
+      // confines it to before real content begins, where the tool line always
+      // sits by construction.
+      if (!slot.placeholder && slot.content.length === 0 &&
+          CANVAS_TOOL_OPTIONS.indexOf(trimmed) !== -1) { slot.lastPreamble = para; continue; }
+      if (trimmed === '')                              continue;
 
       if (!slot.placeholder &&
           (text === DIRECTIONS_PLACEHOLDER_TEXT || text === 'Directions go here...')) {

@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-09-06 at 00:09 MDT
+// Last updated on 2026-09-08 at 00:32 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -324,8 +324,9 @@ function readModuleContent_(body, moduleTitle) {
         continue;
       }
 
-      // Structural slot lines are NOT activity directions either. These are
-      // skipped ANYWHERE in the slot.
+      // Structural slot lines are NOT activity directions either. The
+      // "Estimated time:" and suffix-bearing tool-line checks are skipped
+      // ANYWHERE in the slot.
       //
       // They used to be gated on !pastPreamble, but "Estimated time:" precedes
       // the tool line in a slot and matched neither test — so it ended the
@@ -334,6 +335,16 @@ function readModuleContent_(body, moduleTitle) {
       // already had their own pair, duplicating them.
       if (/^estimated time/i.test(text))       continue;
       if (/link to settings tab$/i.test(text)) continue;
+
+      // A resolved Page line carries no suffix at all — it is just the bare
+      // word "Page" — so nothing above catches it. Unlike those two, this
+      // check is NOT safe to run "anywhere in the slot": "Page", "Discussion",
+      // etc. are short enough that real directions text could plausibly say
+      // one verbatim as its own paragraph. Gating it on !pastPreamble confines
+      // it to before any real content has been seen — where the tool line
+      // always sits by construction — so a same-named paragraph deep in
+      // genuine content is never mistaken for it.
+      if (!pastPreamble && CANVAS_TOOL_OPTIONS.indexOf(text) !== -1) continue;
 
       // Skip leading blank lines only.
       if (!pastPreamble) {
@@ -661,10 +672,13 @@ function getActivityPattern(moduleTitle) {
 
 /**
  * Given the body and an H4 paragraph (activity heading), returns the tool type
- * found in the "Tool ⏺ Link to settings tab" line immediately following the
- * heading (or "Tool; Link to settings tab" on pre-marker Blueprints).
+ * found in the "Tool ⏺; Link to settings tab" line immediately following the
+ * heading (or "Tool; Link to settings tab" on pre-marker Blueprints; or just
+ * "Tool" with no suffix at all, which is how a resolved Page reads, since
+ * Page has no Settings tab to link to).
  *
- * The tool type is the text before the separator, trimmed.
+ * The tool type is the text before the separator, trimmed — or the whole
+ * line, trimmed, when there is no separator to find.
  *
  * @param {GoogleAppsScript.Document.Body} body
  * @param {GoogleAppsScript.Document.Paragraph} headingPara
@@ -686,7 +700,15 @@ function getToolTypeForSlot(body, headingPara, knownIndex) {
         h === DocumentApp.ParagraphHeading.HEADING3 ||
         h === DocumentApp.ParagraphHeading.HEADING2) break;
 
-    var text = para.getText();
+    var text    = para.getText();
+    var trimmed = text.trim();
+
+    // Page has no Settings tab to link to, so a resolved Page line carries no
+    // suffix at all — it is just the bare word "Page". Catch that case before
+    // the "link to settings tab" check below, which a bare line can never pass.
+    // trimmed is already an exact CANVAS_TOOL_OPTIONS member here, i.e. already
+    // canonical, so there is nothing for normalizeToolName to do.
+    if (CANVAS_TOOL_OPTIONS.indexOf(trimmed) !== -1) return trimmed;
 
     // Confirm this is actually the tool line BEFORE looking for a separator.
     // Without this the loop returns on the first paragraph carrying one, and
@@ -696,7 +718,7 @@ function getToolTypeForSlot(body, headingPara, knownIndex) {
     // the same predicate setNearbyTool keys on in Code.gs.
     if (!/link to settings tab/i.test(text)) continue;
 
-    // "<Tool> ⏺ Link to settings tab" on Blueprints built since the marker
+    // "<Tool> ⏺; Link to settings tab" on Blueprints built since the marker
     // replaced the grey highlight, "<Tool>; Link to settings tab" on older ones.
     // Split on whichever separator is present — dropping the semicolon path
     // would break every Blueprint made before the change. TOOL_MARKER and

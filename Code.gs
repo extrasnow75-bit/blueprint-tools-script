@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-07 at 21:16 MDT
+ * Last updated on 2026-09-07 at 23:24 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -45,7 +45,9 @@ const DUE_MARKER_RE = /^\s*due by\b[^.]{0,20}?\bat 11:59 p\.m\. mountain time\b.
 // The placeholder's companion chip, for the case where it is its own paragraph
 // rather than a right-tabbed run on the due-by line.
 const DISPLAY_AS_RE = /display header as/i;
-// The Canvas-tool line reads "<Tool> ⏺ Link to settings tab".
+// The Canvas-tool line reads "<Tool> ⏺; Link to settings tab" — except for
+// Page, which has no Settings tab in Canvas to link to, so it reads just
+// "Page" with no marker and no suffix at all.
 //
 // The circle replaced a grey background highlight on the tool name. QA marks
 // text light green once it is ready to go into Canvas, and a background colour
@@ -57,7 +59,7 @@ const TOOL_MARKER = '⏺';   // ⏺ BLACK CIRCLE FOR RECORD
 // tags a Canvas tool", not part of the tool's name. Keeping it out of the red
 // also stops it reading as punctuation belonging to the words on either side.
 const TOOL_MARKER_COLOR = BLACK;
-const TOOL_SUFFIX = ' ' + TOOL_MARKER + ' Link to settings tab';
+const TOOL_SUFFIX = ' ' + TOOL_MARKER + '; Link to settings tab';
 // Blueprints built before the marker landed still read "<Tool>; Link to settings
 // tab". Both forms must be recognised: on a re-run over an old document here,
 // and by getToolTypeForSlot in Code2.gs, which reads this line to decide which
@@ -687,18 +689,34 @@ function setNearbyTool(body, headingPara, toolValue) {
     const hasSelectTool = text.includes(TOOL_PLACEHOLDER);
     // Match on the wording, not the separator. A Blueprint built before the
     // marker landed reads "<Tool>; Link to settings tab"; one this tool has
-    // already touched reads "<Tool> ⏺ Link to settings tab". Keying on the
+    // already touched reads "<Tool> ⏺; Link to settings tab". Keying on the
     // semicolon alone would silently stop finding the line on a second run.
     const hasSuffix     = text.includes('Link to settings tab');
-    if (!hasSelectTool && !hasSuffix) continue;
+    // A Page line carries no suffix at all once resolved, so neither check
+    // above finds it on a later run — it would look like plain body text and
+    // get skipped, leaving a since-changed tool stuck reading "Page" forever.
+    // A bare, exact match against one of the six known tool names is what
+    // catches that line back.
+    const isBareTool    = CANVAS_TOOL_OPTIONS.includes(text.trim());
+    if (!hasSelectTool && !hasSuffix && !isBareTool) continue;
+    // Page has no Settings tab in Canvas to link to, so it gets no suffix at
+    // all — just the bare tool name.
+    const suffix = toolValue === 'Page' ? '' : TOOL_SUFFIX;
     try {
       if (hasSelectTool) {
         para.replaceText(TOOL_PLACEHOLDER, toolValue);
-        // Bring a legacy line onto the marker, so an old Blueprint ends up
-        // looking exactly like a newly built one.
-        para.replaceText(TOOL_SUFFIX_LEGACY, TOOL_SUFFIX);
+        if (text.includes(TOOL_MARKER)) {
+          // A slot createModule/insertActivitySlot just built carries the
+          // current-format suffix already, written before the tool was known.
+          // Only Page needs correcting — strip what was assumed by default.
+          if (suffix === '') para.replaceText(TOOL_SUFFIX, '');
+        } else {
+          // Legacy line, built before the marker landed: upgrade it directly
+          // to whatever this tool needs, marker-and-semicolon or nothing.
+          para.replaceText(TOOL_SUFFIX_LEGACY, suffix);
+        }
         _fmtToolLine(para);
-      } else if (hasSuffix) {
+      } else if (hasSuffix || isBareTool) {
         // Only rewrite the text when it is actually wrong. setText() replaces
         // the whole run and resets every character attribute with it —
         // background colour included — so an unconditional rewrite would strip
@@ -706,7 +724,7 @@ function setNearbyTool(body, headingPara, toolValue) {
         // each re-run. That highlight is the very thing the marker change exists
         // to protect. _fmtToolLine still runs: it only sets foreground colour,
         // font and weight, so it repairs formatting without touching the green.
-        if (text !== toolValue + TOOL_SUFFIX) para.setText(toolValue + TOOL_SUFFIX);
+        if (text !== toolValue + suffix) para.setText(toolValue + suffix);
         _fmtToolLine(para);
       }
       Logger.log(`  Tool → ${toolValue}`);
