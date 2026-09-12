@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-09-08 at 01:19 MDT
+// Last updated on 2026-09-11 at 23:24 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -679,9 +679,10 @@ function getActivityPattern(moduleTitle) {
 /**
  * Given the body and an H4 paragraph (activity heading), returns the tool type
  * found in the tool line immediately following the heading:
- *   "<Tool> ⏺; Link to settings tab"  — current format, every tool but Page
- *   "Page ⏺"                          — current format, Page (no Settings
- *                                        tab in Canvas to link to)
+ *   "<Tool> ⏺ Link to settings tab"   — current format, every tool
+ *   "<Tool> ⏺; Link to settings tab"  — pre-2026-09, every tool but Page
+ *   "Page ⏺"                          — pre-2026-09, Page (no Settings tab
+ *                                        in Canvas to link to)
  *   "<Tool>; Link to settings tab"    — legacy, built before the marker landed
  *   "Page"                            — bare, briefly how a resolved Page
  *                                        line read for one commit before the

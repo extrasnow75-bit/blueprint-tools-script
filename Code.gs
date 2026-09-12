@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-08 at 08:57 MDT
+ * Last updated on 2026-09-11 at 23:24 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -45,11 +45,11 @@ const DUE_MARKER_RE = /^\s*due by\b[^.]{0,20}?\bat 11:59 p\.m\. mountain time\b.
 // The placeholder's companion chip, for the case where it is its own paragraph
 // rather than a right-tabbed run on the due-by line.
 const DISPLAY_AS_RE = /display header as/i;
-// The Canvas-tool line reads "<Tool> ⏺; Link to settings tab" — except for
-// Page, which has no Settings tab in Canvas to link to, so it reads just
-// "Page ⏺" with no text after the marker. The marker itself still appears on
-// every tool, Page included: it is a structural "this line tags a Canvas
-// tool" mark, independent of whatever link text does or doesn't follow it.
+// The Canvas-tool line reads "<Tool> ⏺ Link to settings tab" — on every tool,
+// Page included. (QA's 2026-09 template change: earlier, Page had the marker
+// alone because it has no Settings tab in Canvas, and a semicolon sat between
+// the marker and the phrase. Both forms are still recognised on a re-run and
+// upgraded to the current one.)
 //
 // The circle replaced a grey background highlight on the tool name. QA marks
 // text light green once it is ready to go into Canvas, and a background colour
@@ -61,12 +61,12 @@ const TOOL_MARKER = '⏺';   // ⏺ BLACK CIRCLE FOR RECORD
 // tags a Canvas tool", not part of the tool's name. Keeping it out of the red
 // also stops it reading as punctuation belonging to the words on either side.
 const TOOL_MARKER_COLOR = BLACK;
-const TOOL_SUFFIX      = ' ' + TOOL_MARKER + '; Link to settings tab';
-const TOOL_SUFFIX_PAGE = ' ' + TOOL_MARKER;
+const TOOL_SUFFIX = ' ' + TOOL_MARKER + ' Link to settings tab';
 // Blueprints built before the marker landed still read "<Tool>; Link to settings
-// tab". Both forms must be recognised: on a re-run over an old document here,
-// and by getToolTypeForSlot in Code2.gs, which reads this line to decide which
-// directions to deploy.
+// tab"; ones built between then and 2026-09 read "<Tool> ⏺; Link to settings
+// tab" or, for Page, "Page ⏺". All must be recognised: on a re-run over an old
+// document here, and by getToolTypeForSlot in Code2.gs, which reads this line
+// to decide which directions to deploy.
 const TOOL_SUFFIX_LEGACY = '; Link to settings tab';
 // The complete set of Canvas tools a slot may be tagged with. These strings are
 // load-bearing downstream — they are the DIRECTION_OPTIONS keys in Code2.gs and
@@ -703,21 +703,14 @@ function setNearbyTool(body, headingPara, toolValue) {
     // catches that interim form back.
     const isBareTool    = CANVAS_TOOL_OPTIONS.includes(text.trim());
     if (!hasSelectTool && !hasMarker && !hasSuffix && !isBareTool) continue;
-    // Page has no Settings tab in Canvas to link to, so nothing follows the
-    // marker for it — but the marker itself still applies, same as every
-    // other tool.
-    const suffix = toolValue === 'Page' ? TOOL_SUFFIX_PAGE : TOOL_SUFFIX;
+    const suffix = TOOL_SUFFIX;
     try {
       if (hasSelectTool) {
         para.replaceText(TOOL_PLACEHOLDER, toolValue);
-        if (hasMarker) {
-          // A slot createModule/insertActivitySlot just built carries the
-          // full non-Page suffix already, written before the tool was known.
-          // Only Page needs correcting — trim it down to marker-only.
-          if (toolValue === 'Page') para.replaceText(TOOL_SUFFIX, suffix);
-        } else {
-          // Legacy line, built before the marker landed: upgrade it directly
-          // to whatever this tool needs.
+        if (!hasMarker) {
+          // Legacy line, built before the marker landed: upgrade it to the
+          // current suffix. A slot createModule/insertActivitySlot just built
+          // already carries it.
           para.replaceText(TOOL_SUFFIX_LEGACY, suffix);
         }
         _fmtToolLine(para);
@@ -729,6 +722,8 @@ function setNearbyTool(body, headingPara, toolValue) {
         // each re-run. That highlight is the very thing the marker change exists
         // to protect. _fmtToolLine still runs: it only sets foreground colour,
         // font and weight, so it repairs formatting without touching the green.
+        // This is also what upgrades the pre-2026-09 forms — "<Tool> ⏺; Link
+        // to settings tab" and the marker-only "Page ⏺" — to the current one.
         if (text !== toolValue + suffix) para.setText(toolValue + suffix);
         _fmtToolLine(para);
       }
