@@ -2,7 +2,7 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-11 at 23:24 MDT
+ * Last updated on 2026-09-12 at 21:14 MDT
  * ================================================================
  */
 const RED       = '#ff0000';
@@ -128,7 +128,7 @@ function showSidebar() {
 // Knowledge Base article in a new tab (with a click-through link as a fallback
 // in case the browser blocks the automatic pop-up).
 const KB_ARTICLE_URL =
-  'https://docs.google.com/document/d/1j1An78cPc72JrcFksU7h2NeDtEeE2V9N/edit';
+  'https://boisestateecampus.atlassian.net/wiki/x/BwAEMgE';
 function showKbArticle() {
   const url  = KB_ARTICLE_URL;
   const html = HtmlService.createHtmlOutput(

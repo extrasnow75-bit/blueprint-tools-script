@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-07 at 21:16 MDT
+<!-- Blueprint Tools — Sidebar9.html | Last updated on 2026-09-12 at 21:14 MDT
 
      UI for the "Design Map → Dev Tab (Module Titles, Objectives, & More)" tool
      (Code9.gs). The Module Titles panel
@@ -635,9 +635,8 @@
     <section id="sec-highlight">
       <h4 id="highlight-heading" tabindex="-1">4. Highlight the pasted notes?</h4>
       <p class="section-hint">
-        Cyan blue is the IDC convention for &ldquo;note to self, delete before this
-        goes to the SME&rdquo;. It makes the copied Design Map notes easy to find
-        and strip out once the directions are written. The module objectives are
+        Cyan blue is the IDC convention for pasted Design Map notes. It makes them
+        easy to find and strip out once the directions are written. The module objectives are
         never highlighted &mdash; those are real course content that stays.
       </p>
       <label class="sr-only" for="highlight">Highlight the pasted notes</label>
@@ -1481,8 +1480,7 @@
     lines.push('Activity note blocks pasted: ' + a.notes);
 
     if (RUN.opts.highlight && a.notes > 0) {
-      lines.push('', 'Pasted notes are highlighted cyan blue. Delete them before the ' +
-                     'Blueprint goes to the SME.');
+      lines.push('', 'Pasted notes are highlighted cyan blue.');
     }
 
     function section(heading, items) {
