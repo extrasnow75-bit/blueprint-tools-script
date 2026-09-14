@@ -128,7 +128,7 @@ function showSidebar() {
 // Knowledge Base article in a new tab (with a click-through link as a fallback
 // in case the browser blocks the automatic pop-up).
 const KB_ARTICLE_URL =
-  'https://boisestateecampus.atlassian.net/wiki/x/BwAEMgE';
+  'https://boisestateecampus.atlassian.net/wiki/spaces/EKB/pages/5133959171/Blueprint+Tools';
 function showKbArticle() {
   const url  = KB_ARTICLE_URL;
   const html = HtmlService.createHtmlOutput(
