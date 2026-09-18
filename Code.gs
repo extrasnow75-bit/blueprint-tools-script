@@ -128,23 +128,36 @@ function showSidebar() {
   DocumentApp.getUi().showSidebar(html);
 }
 // ── KB ARTICLE ────────────────────────────────────────────────────
-// A menu can't open a URL directly, so show a small dialog that opens the
-// Knowledge Base article in a new tab (with a click-through link as a fallback
-// in case the browser blocks the automatic pop-up).
+// A menu item can only name a function — the Ui service has no "open this URL"
+// item — so a dialog is the only bridge from the menu to the web. Everything
+// here exists to make that bridge cost as little as possible:
+//   • The auto-open is attempted, and when the browser allows it the dialog
+//     closes itself, so the whole thing is one click and no leftover window.
+//   • When the pop-up is blocked (the usual case — window.open outside a click
+//     is not a user gesture) the dialog stays, showing one large link. Clicking
+//     it is a real gesture, so it always opens, and it closes the dialog on the
+//     way out. Two clicks, no dismiss step.
 const KB_ARTICLE_URL =
   'https://boisestateecampus.atlassian.net/wiki/spaces/EKB/pages/5133959171/Blueprint+Tools';
 function showKbArticle() {
   const url  = KB_ARTICLE_URL;
   const html = HtmlService.createHtmlOutput(
-      '<div style="font-family:Arial,sans-serif;font-size:13px;color:#333;padding:4px 2px;">' +
-      '<p style="margin:0 0 12px;">Opening the Blueprint Tools Knowledge Base article in a new tab&hellip;</p>' +
-      '<p style="margin:0;">If it doesn’t open, ' +
-      '<a href="' + url + '" target="_blank" rel="noopener" style="color:#0033a0;font-weight:bold;">' +
-      'click here to open the KB Article &rarr;</a></p>' +
-      '<script>try{window.open(' + JSON.stringify(url) + ',"_blank","noopener");}catch(e){}</script>' +
-      '</div>')
-    .setWidth(340)
-    .setHeight(120);
+      '<div style="font-family:Arial,sans-serif;font-size:13px;color:#333;' +
+              'padding:2px;text-align:center;">' +
+      '<a href="' + url + '" target="_blank" rel="noopener" ' +
+         'onclick="setTimeout(function(){google.script.host.close();},250);" ' +
+         'style="display:block;padding:14px 10px;background:#0033a0;color:#fff;' +
+                'font-weight:bold;text-decoration:none;border-radius:4px;">' +
+      'Open the Blueprint Tools KB Article &rarr;</a>' +
+      '<p style="margin:10px 0 0;font-size:11px;color:#666;">Opens in a new browser tab.</p>' +
+      '</div>' +
+      // Fires before the user can reach the link. If the browser allows the
+      // pop-up, window.open returns a window and there is nothing left to do
+      // here, so shut the dialog rather than leave it sitting behind the tab.
+      '<script>try{var w=window.open(' + JSON.stringify(url) + ',"_blank","noopener");' +
+      'if(w)setTimeout(function(){google.script.host.close();},100);}catch(e){}</script>')
+    .setWidth(320)
+    .setHeight(110);
   DocumentApp.getUi().showModalDialog(html, 'KB Article');
 }
 // ── MAIN ──────────────────────────────────────────────────────────
