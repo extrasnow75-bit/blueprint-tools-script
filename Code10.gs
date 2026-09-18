@@ -22,11 +22,18 @@
  * log. A new document genuinely has no history, so that is correct.
  *
  * STORAGE SHAPE
- * One property per run, keyed BPLOG_<epochMillis>_<suffix>. A single
+ * One property per run, keyed BPLOG_<epochMillis>_<sequence>. A single
  * JSON array would cap out around 45 entries against the 9KB
  * per-value limit; one property per entry against the 500KB store
  * gives well over a thousand. Epoch millis are 13 digits until the year
  * 2286, so sorting the keys lexically sorts them chronologically.
+ *
+ * The sequence is a zero-padded counter, NOT a random suffix. Two runs
+ * can land in the same millisecond, and randomness there fails twice
+ * over: their relative order becomes arbitrary, which matters because
+ * the merge logic below trusts the last key to be the newest entry; and
+ * two equal suffixes collide, silently overwriting an entry. A counter
+ * makes both impossible.
  *
  * LOGGING MUST NEVER BREAK A TOOL RUN. Every path in this file swallows
  * its own errors. A failed write loses one log entry; it must never lose
@@ -35,6 +42,9 @@
 
 // ── STORAGE ───────────────────────────────────────────────────────
 var LOG_KEY_PREFIX     = 'BPLOG_';
+// Deliberately has no underscore: it must NOT start with LOG_KEY_PREFIX,
+// or logEntries_ would read the counter as though it were an entry.
+var LOG_SEQ_KEY        = 'BPLOGSEQ';
 var LOG_SCHEMA_VERSION = 1;
 // Entries kept before the oldest are pruned. 400 × ~250 bytes leaves
 // generous headroom under the 500KB document property store.
@@ -277,7 +287,7 @@ function logRun_(toolName, outcome, summary, startMs, opts) {
     };
     if (opts.data) entry.data = opts.data;
 
-    props.setProperty(logNewKey_(now), JSON.stringify(entry));
+    props.setProperty(logNewKey_(props, now), JSON.stringify(entry));
     logPrune_(props);
 
   } catch (e) {
@@ -287,11 +297,23 @@ function logRun_(toolName, outcome, summary, startMs, opts) {
   }
 }
 
-/** A key unique even when two runs land in the same millisecond. */
-function logNewKey_(nowMs) {
-  var suffix = Math.floor(Math.random() * 46656).toString(36);
-  while (suffix.length < 3) suffix = '0' + suffix;
-  return LOG_KEY_PREFIX + nowMs + '_' + suffix;
+/**
+ * A key that is unique AND correctly ordered even when two runs land in
+ * the same millisecond. Both properties are load-bearing — see STORAGE
+ * SHAPE at the top of this file.
+ *
+ * Safe to read-modify-write because every caller holds the document lock.
+ */
+function logNewKey_(props, nowMs) {
+  var seq = Number(props.getProperty(LOG_SEQ_KEY) || 0) + 1;
+  if (seq > 999999) seq = 1;           // wraps harmlessly: the millis differ
+  props.setProperty(LOG_SEQ_KEY, String(seq));
+
+  var ms = String(nowMs);
+  while (ms.length  < 13) ms  = '0' + ms;
+  var sq = String(seq);
+  while (sq.length  <  6) sq  = '0' + sq;
+  return LOG_KEY_PREFIX + ms + '_' + sq;
 }
 
 /** Drops the oldest entries once the log passes LOG_MAX_ENTRIES. */

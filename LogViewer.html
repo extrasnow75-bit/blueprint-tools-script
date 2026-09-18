@@ -48,7 +48,10 @@
       z-index: 1;
     }
     tbody tr.row { cursor: pointer; border-bottom: 1px solid #eee; }
-    tbody tr.row:nth-child(4n+1) { background: #fafafa; }
+    /* Striping is assigned in JS, not with nth-child: expanded detail rows
+       are siblings in the same tbody, so a positional selector would
+       count them and the banding would jump whenever a row is opened. */
+    tbody tr.row.alt { background: #fafafa; }
     tbody tr.row:hover { background: #eef2fb; }
     tbody td { padding: 8px; vertical-align: top; }
     td.when { white-space: nowrap; font-weight: bold; width: 150px; }
@@ -220,7 +223,9 @@
     tbl.style.display = '';
 
     for (var i = 0; i < list.length; i++) {
-      rows.appendChild(buildRow(list[i], i));
+      var tr = buildRow(list[i], i);
+      if (i % 2 === 1) tr.className += ' alt';
+      rows.appendChild(tr);
       if (i === openIndex) rows.appendChild(buildDetail(list[i]));
     }
   }
