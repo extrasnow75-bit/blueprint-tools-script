@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — LogViewer.html | Last updated on 2026-09-18 at 09:40 MDT -->
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #333;
+      margin: 0;
+      padding: 16px 16px 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    h3 { color: #0033a0; margin: 0 0 4px; font-size: 15px; }
+    .sub { color: #666; font-size: 12px; margin: 0 0 12px; }
+
+    /* ── Filter ── */
+    .filter {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ddd;
+      font-size: 12px;
+    }
+    .filter label { cursor: pointer; }
+    .count { margin-left: auto; color: #666; }
+
+    /* ── Table ── */
+    .scroll { flex: 1; overflow-y: auto; margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #666;
+      padding: 8px 8px 6px;
+      border-bottom: 1px solid #ddd;
+      z-index: 1;
+    }
+    tbody tr.row { cursor: pointer; border-bottom: 1px solid #eee; }
+    tbody tr.row:nth-child(4n+1) { background: #fafafa; }
+    tbody tr.row:hover { background: #eef2fb; }
+    tbody td { padding: 8px; vertical-align: top; }
+    td.when { white-space: nowrap; font-weight: bold; width: 150px; }
+    td.tool { width: 200px; }
+    td.user { width: 110px; color: #555; word-break: break-all; }
+    td.what { color: #555; }
+    tr.err td.when { border-left: 3px solid #d93025; padding-left: 5px; }
+    tr.err td.what { color: #b3261e; }
+    .ro { color: #888; font-style: italic; }
+
+    /* ── Expanded detail ── */
+    tr.detail td { padding: 0 8px 12px; }
+    .detail-box {
+      background: #f4f6fb;
+      border: 1px solid #d6dff0;
+      border-radius: 4px;
+      padding: 12px 14px;
+    }
+    .detail-box pre {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      white-space: pre-wrap;
+      margin: 0 0 12px;
+      color: #333;
+    }
+    .steps { margin: 0 0 10px; padding-left: 18px; font-size: 12px; }
+    .steps li { margin-bottom: 3px; }
+    .steps strong { color: #0033a0; }
+    .note { font-size: 12px; color: #555; margin: 0 0 10px; }
+    .inputs { font-size: 12px; color: #555; margin: 0 0 10px; }
+
+    /* ── Buttons ── */
+    button {
+      font-family: Arial, sans-serif;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .copy-ts {
+      background: #0033a0;
+      color: #fff;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    .copy-ts:hover { background: #002070; }
+    footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0;
+      border-top: 1px solid #ddd;
+      background: #fff;
+    }
+    .secondary {
+      background: #555; color: #fff; padding: 8px 14px; font-size: 13px;
+    }
+    .secondary:hover { background: #333; }
+    .primary {
+      background: #0033a0; color: #fff; padding: 8px 18px; font-size: 13px;
+    }
+    .primary:hover { background: #002070; }
+    .clear-link {
+      margin-left: auto;
+      background: none;
+      color: #777;
+      font-size: 11px;
+      text-decoration: underline;
+      padding: 4px;
+    }
+    .clear-link:hover { color: #d93025; }
+
+    /* ── States ── */
+    .state { padding: 32px 8px; color: #666; text-align: center; }
+    .state strong { display: block; color: #333; margin-bottom: 6px; font-size: 13px; }
+    #toast {
+      position: fixed; bottom: 68px; left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff; padding: 8px 16px; border-radius: 4px;
+      font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h3>Blueprint Tools &mdash; Run Log</h3>
+  <p class="sub">Every time a Blueprint tool ran on this document.</p>
+
+  <div class="filter">
+    <input type="checkbox" id="changes-only">
+    <label for="changes-only">Document changes only (hide Time Estimator)</label>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="scroll">
+    <div class="state" id="loading">Loading&hellip;</div>
+    <table id="tbl" style="display:none">
+      <thead>
+        <tr><th>When</th><th>Tool</th><th>Who</th><th>What happened</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="state" id="empty" style="display:none"></div>
+  </div>
+
+  <footer>
+    <button class="secondary" id="copy-all">Copy whole log</button>
+    <button class="primary" id="close">Close</button>
+    <button class="clear-link" id="clear">Clear log</button>
+  </footer>
+
+  <div id="toast"></div>
+
+<script>
+  var ENTRIES = [];
+  var openIndex = -1;
+
+  // ── Load ────────────────────────────────────────────────────────
+  google.script.run
+    .withSuccessHandler(onLoad)
+    .withFailureHandler(onFail)
+    .getRunLog();
+
+  function onLoad(res) {
+    ENTRIES = (res && res.entries) ? res.entries : [];
+    document.getElementById('loading').style.display = 'none';
+    render();
+  }
+
+  function onFail(err) {
+    document.getElementById('loading').style.display = 'none';
+    showState('<strong>The log could not be read.</strong>' +
+              escapeHtml(err && err.message ? err.message : String(err)));
+  }
+
+  // ── Render ──────────────────────────────────────────────────────
+  function visible() {
+    var changesOnly = document.getElementById('changes-only').checked;
+    var out = [];
+    for (var i = 0; i < ENTRIES.length; i++) {
+      if (changesOnly && ENTRIES[i].readOnly) continue;
+      out.push(ENTRIES[i]);
+    }
+    return out;
+  }
+
+  function render() {
+    var list  = visible();
+    var tbl   = document.getElementById('tbl');
+    var empty = document.getElementById('empty');
+    var rows  = document.getElementById('rows');
+
+    document.getElementById('count').textContent =
+      list.length === 0 ? '' : list.length + (list.length === 1 ? ' run' : ' runs');
+
+    rows.innerHTML = '';
+
+    if (list.length === 0) {
+      tbl.style.display = 'none';
+      // An existing Blueprint will show this on day one. Without a real
+      // message a blank table reads as a broken feature.
+      showState(ENTRIES.length === 0
+        ? '<strong>No runs recorded yet.</strong>The log starts from the first time a ' +
+          'Blueprint tool runs after this update.'
+        : '<strong>Nothing to show with this filter.</strong>Untick &ldquo;Document changes ' +
+          'only&rdquo; to see Time Estimator runs.');
+      return;
+    }
+
+    empty.style.display = 'none';
+    tbl.style.display = '';
+
+    for (var i = 0; i < list.length; i++) {
+      rows.appendChild(buildRow(list[i], i));
+      if (i === openIndex) rows.appendChild(buildDetail(list[i]));
+    }
+  }
+
+  function buildRow(e, idx) {
+    var tr = document.createElement('tr');
+    tr.className = 'row' + (e.outcome === 'error' ? ' err' : '');
+    tr.onclick = function () {
+      openIndex = (openIndex === idx) ? -1 : idx;
+      render();
+    };
+
+    tr.appendChild(cell('when', e.when));
+    tr.appendChild(cell('tool', e.tool));
+    tr.appendChild(cell('user', e.user || '—'));
+
+    var what = document.createElement('td');
+    what.className = 'what';
+    if (e.outcome === 'error') {
+      what.textContent = '⚠ Failed — ' + firstLine(e.summary);
+    } else if (e.readOnly) {
+      what.innerHTML = '<span class="ro">Read only — no changes</span>';
+    } else {
+      what.textContent = firstLine(e.summary) || 'Completed';
+    }
+    tr.appendChild(what);
+    return tr;
+  }
+
+  function buildDetail(e) {
+    var tr = document.createElement('tr');
+    tr.className = 'detail';
+    var td = document.createElement('td');
+    td.colSpan = 4;
+
+    var html = '<div class="detail-box">';
+
+    if (e.summary) html += '<pre>' + escapeHtml(e.summary) + '</pre>';
+
+    if (e.readOnly && e.data) {
+      html += '<p class="inputs"><strong>Settings used:</strong> ' +
+              escapeHtml(describeInputs(e.data)) + '</p>';
+    }
+
+    if (e.readOnly) {
+      // A read-only tool creates no revision, so version history has no
+      // entry at this moment. Saying so stops people hunting for one.
+      html += '<p class="note">The Time Estimator only read this document &mdash; it ' +
+              'didn’t change anything, so version history has no entry for this ' +
+              'moment. To see what it was reading, open the last version saved ' +
+              '<strong>at or before</strong> this time.</p>';
+    } else {
+      html += '<ol class="steps">' +
+              '<li>Close this window.</li>' +
+              '<li><strong>File &rarr; Version history &rarr; See version history</strong></li>' +
+              '<li>Restore the last version saved <strong>before</strong> ' +
+                  escapeHtml(e.when) + '.</li>' +
+              '</ol>';
+    }
+
+    html += '<button class="copy-ts" data-ts="' + escapeHtml(e.when) + '">Copy timestamp</button>';
+    html += '</div>';
+
+    td.innerHTML = html;
+    td.querySelector('.copy-ts').onclick = function (ev) {
+      ev.stopPropagation();
+      copy(e.when, 'Timestamp copied');
+    };
+    tr.appendChild(td);
+    return tr;
+  }
+
+  function describeInputs(d) {
+    var bits = [];
+    if (d.credits        !== undefined) bits.push(d.credits + ' credits');
+    if (d.weeks          !== undefined) bits.push(d.weeks + ' weeks');
+    if (d.modulesPerWeek !== undefined) bits.push(d.modulesPerWeek + ' module(s) per week');
+    return bits.length ? bits.join(', ') : 'not recorded';
+  }
+
+  // ── Footer actions ──────────────────────────────────────────────
+  document.getElementById('changes-only').onchange = function () {
+    openIndex = -1;
+    render();
+  };
+
+  document.getElementById('close').onclick = function () {
+    google.script.host.close();
+  };
+
+  document.getElementById('copy-all').onclick = function () {
+    var list = visible();
+    if (list.length === 0) { toast('Nothing to copy'); return; }
+    var lines = [];
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      lines.push(e.when + '  |  ' + e.tool + '  |  ' + (e.user || '—') +
+                 '  |  ' + (e.outcome === 'error' ? 'FAILED: ' : '') +
+                 firstLine(e.summary));
+    }
+    copy(lines.join('\n'), 'Log copied');
+  };
+
+  document.getElementById('clear').onclick = function () {
+    if (!window.confirm('Erase the whole run log for this document?\n\n' +
+                        'This cannot be undone, and it will not change the document itself.')) return;
+    google.script.run
+      .withSuccessHandler(function () { ENTRIES = []; openIndex = -1; render(); toast('Log cleared'); })
+      .withFailureHandler(function (err) { toast('Could not clear the log'); })
+      .clearRunLog();
+  };
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function cell(cls, text) {
+    var td = document.createElement('td');
+    td.className = cls;
+    td.textContent = text;
+    return td;
+  }
+
+  function firstLine(s) {
+    if (!s) return '';
+    var parts = String(s).split('\n');
+    return parts[0];
+  }
+
+  function showState(html) {
+    var el = document.getElementById('empty');
+    el.innerHTML = html;
+    el.style.display = '';
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function copy(text, msg) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    toast(ok ? msg : 'Copy failed — select the text by hand');
+  }
+
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show';
+    setTimeout(function () { t.className = ''; }, 1800);
+  }
+</script>
+</body>
+</html>

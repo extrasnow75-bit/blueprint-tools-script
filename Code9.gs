@@ -1313,7 +1313,7 @@ function appendSpacer9_(devBody, lastEl) {
  * @param {Object} params  .titles {Object} module number → chosen title text
  * @returns {{written: number, skipped: string[]}}
  */
-function applyDesignMapTitles9(params) {
+function applyDesignMapTitles9Core_(params) {
   params = params || {};
   var titles = params.titles || {};
 
@@ -1382,7 +1382,7 @@ function applyDesignMapTitles9(params) {
  * @returns {{objectives: number, notes: number, objectivesSkipped: string[],
  *            notesSkipped: string[], unmatched: string[]}}
  */
-function applyDesignMapModules9(params) {
+function applyDesignMapModules9Core_(params) {
   params = params || {};
   var resolutions = params.resolutions || {};
   var pasteAnyway = params.pasteAnyway || {};

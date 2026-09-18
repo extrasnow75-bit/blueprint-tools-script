@@ -403,7 +403,7 @@ function findMatchingModelContent_(modelContent, actTitle) {
  *   .targetModuleTitles {string[]}
  * @returns {string} plain-text summary shown in the sidebar
  */
-function applyDirectionsFromModel(params) {
+function applyDirectionsFromModelCore_(params) {
   var modelModuleTitle   = params.modelModuleTitle;
   var targetModuleTitles = params.targetModuleTitles;
 
@@ -526,7 +526,7 @@ function getDocTitleFromUrl(url) {
  *
  * @returns {string} summary text
  */
-function applyDirections(params) {
+function applyDirectionsCore_(params) {
   var sourceUrl  = params.sourceUrl;
   var selections = params.selections; // { "Readings and Multimedia": "Readings and Multimedia", ... }
 

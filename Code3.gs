@@ -158,7 +158,7 @@ function roundUpQtr3(hrs) {
  *   missing      [{module, title, reason}]
  *   error        string  (only on failure)
  */
-function runTimeEstimator(credits, weeks, modulesPerWeek) {
+function runTimeEstimatorCore_(credits, weeks, modulesPerWeek) {
   try {
     credits        = Number(credits);
     weeks          = Number(weeks);

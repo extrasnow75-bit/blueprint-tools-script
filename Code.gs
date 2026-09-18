@@ -114,6 +114,10 @@ function onOpen() {
     .addItem('Specialty Tool: Add Module Dates &/or Holiday Modules',
                                                        'showModuleDatesSidebar8')
     .addSeparator()
+    // Sits beside the KB Article rather than among the tools: neither item
+    // changes the document, and both are things you open when something has
+    // gone sideways rather than as part of a build.
+    .addItem('View Run Log',                           'showRunLog')
     .addItem('KB Article',                             'showKbArticle')
     .addToUi();
 }
@@ -144,7 +148,7 @@ function showKbArticle() {
   DocumentApp.getUi().showModalDialog(html, 'KB Article');
 }
 // ── MAIN ──────────────────────────────────────────────────────────
-function processBlueprint(params) {
+function processBlueprintCore_(params) {
   // The sidebar's max="52" and parseInt are client-side only — google.script.run
   // is callable directly, so the bound has to hold here too. An unbounded value
   // drives the createModule/deleteModule loops below past the 6-minute limit and

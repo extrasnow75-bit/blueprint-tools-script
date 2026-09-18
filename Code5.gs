@@ -35,7 +35,7 @@ function showModelModuleNoAiSidebar() {
  *   .selections  {Object}  { activityTitle → directionName }
  * @returns {string}  plain-text summary shown in the sidebar
  */
-function applyDirectionsToModule5(params) {
+function applyDirectionsToModule5Core_(params) {
   var moduleTitle = params.moduleTitle;
   var sourceUrl   = params.sourceUrl;
   var selections  = params.selections;

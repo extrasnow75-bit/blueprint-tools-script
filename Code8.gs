@@ -1033,7 +1033,7 @@ function insertHolidayModules8_(devBody, headings, requests, overwriting) {
 }
 
 
-function applyModuleDates8(params) {
+function applyModuleDates8Core_(params) {
   var dates     = (params && params.dates)     || {};
   var overwrite = (params && params.overwrite) || {};
 
