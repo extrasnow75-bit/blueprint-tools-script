@@ -2,7 +2,7 @@
 // Blueprint Tools — Code2.gs
 // Adds activity directions to the Development tab of a blueprint doc.
 // ------------------------------------------------------------
-// Last updated on 2026-09-11 at 23:24 MDT
+// Last updated on 2026-09-25 at 14:25 MDT
 // ============================================================
 
 // -----------------------------------------------------------
@@ -879,6 +879,17 @@ function findContentStartByIndex(body, h2Index) {
   // (whose getText() is unreliable), or on how long the block's intro is — the
   // exact things that made the fallback heuristic below miss the tool-line blocks.
   var MARKER_RE = /\(H[2-4]\)\s*$/i;
+
+  // Some tool types have no "Instructions" section of their own — e.g. Classic
+  // Quizzes builds instructions into the quiz-creation UI, so the template
+  // marks this with a disclaimer note like `["Instructions" H2 is built into
+  // Classic Quizzes]` instead of a real (H2)/(H3)/(H4) marker. Without this
+  // check, the marker search below has nothing of its own to find and walks
+  // straight past the block's actual content to the next marker it finds —
+  // a LATER sub-section's, such as "Technical Support (H2)" — dropping
+  // everything in between (the real instructions) along the way.
+  var NO_MARKER_NOTE_RE = /^\[.*built into.*\]\s*$/i;
+
   for (var m = h2Index + 1; m < numChildren; m++) {
     var mc = body.getChild(m);
     if (mc.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
@@ -886,7 +897,9 @@ function findContentStartByIndex(body, h2Index) {
     // Reached the next section's real H2 heading without finding a marker —
     // give up and let the fallback heuristic decide.
     if (mp.getHeading() === H2) break;
-    if (MARKER_RE.test(mp.getText().trim())) return m;
+    var mText = mp.getText().trim();
+    if (NO_MARKER_NOTE_RE.test(mText)) return m + 1;
+    if (MARKER_RE.test(mText)) return m;
   }
 
   // FALLBACK (no marker found): the original demo-header + boilerplate-denylist
