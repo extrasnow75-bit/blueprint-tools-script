@@ -64,7 +64,7 @@ Build order: **10 → 11 → 12 → 13 → 14**, one branch per tool after the f
 
 ### 3.1 Link Project Documents (`Code10.gs` / `Sidebar10.html`)
 
-Mockup: `mockups/LinkDocs.png`. **It is outdated:** it does not yet show the Dept / Number / Name fields, the catalog description, or the End-of-Project Report. Update the mockup (or describe the change to Greg) before building.
+Mockup: `mockups/LinkDocs.png` (updated 2026-11-02 to show Dept / Number / Name, the catalog description with the name-mismatch warning, the six-document preview with checkboxes, and the End-of-Project Report). **Greg has not yet reviewed this updated version.** The sample text is illustrative: the catalog title is invented, the description is a placeholder, and the "APPAI 507" → "APPAI 505" change is only there to show replace-old-title mode.
 
 **A. Link documents**
 - Find the blueprint's parent Drive folder (almost always the project folder). List its files.
@@ -278,7 +278,7 @@ Confirm each signature by reading the code before calling it; this list was made
 
 `docs/dev-handoff/mockups/` holds each mockup as `.png` (view these) and `.dc.html` (source; they render standalone in a browser but are design-canvas files, not shipping code). The canvas also lives as a private claude.ai artifact: https://claude.ai/artifact/9VaZVq4C24jP8o1hEt9WKH (only Greg can open it). Sample numbers in the mockups are invented (49 activities, 7 modules).
 
-Updated this session: `Main.png` and `StatusResultsB.png` now include the settings-finalized check. Still to update: `LinkDocs.png`.
+Updated this session: `Main.png` and `StatusResultsB.png` now include the settings-finalized check, and `LinkDocs.png` now shows the full project setup (title fields, catalog description, document preview). No mockup exists yet for the Version Check dialog; Greg said none is needed.
 
 ## 9. Greg's last stated decisions (quick list)
 

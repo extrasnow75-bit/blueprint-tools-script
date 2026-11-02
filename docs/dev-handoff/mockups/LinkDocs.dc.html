@@ -16,42 +16,95 @@ body{margin:0;font-family:Arial,sans-serif}
 .sec{color:#0033a0;font-size:13px;font-weight:bold;margin:0 0 6px}
 .sb hr{border:0;border-top:2px solid #aab2c8;margin:14px 0}
 .btn{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;background:#0033a0;color:#fff;border:0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.btn2{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;margin:0 0 8px;background:#fff;color:#0033a0;border:2px solid #0033a0;border-radius:3px;font:bold 13px Arial,sans-serif}
 .card{border:1px solid #aab2c8;border-radius:3px;padding:8px 10px;margin:0 0 10px;font-size:12px}
 .card a{color:#0033a0}
+.lbl{display:block;font-size:12px;font-weight:bold;margin:8px 0 0}
 .row{padding:8px 0;border-top:1px solid #dde1ea}
 .rt{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .rt b{font-size:12px}
 .tool{font-size:11px;color:#555;white-space:nowrap}
 .sel,.inp{width:100%;box-sizing:border-box;min-height:36px;margin:4px 0 2px;font:12px Arial,sans-serif;border:1px solid #767676;border-radius:3px;padding:4px 6px;background:#fff;color:#333}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .m{font-size:11px;margin:0}
 .m.ok{color:#1e6b2e}.m.sg{color:#5c4400}.m.no{color:#8a1c1c;font-weight:bold}.m.sh{color:#555}
 .rev{background:#fff4ce;margin:0 -8px;padding:8px}
 .chk{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:0 0 8px}
 .chk input{margin:2px 0 0;width:16px;height:16px;flex:none}
+.chk i{display:block;font-style:normal;font-size:11px;color:#555}
+.chk b{font-size:12px}
 .note{font-size:12px;border-radius:3px;padding:8px 10px;margin:0 0 10px;background:#e8f0fe;color:#1a3a7a}
+.warn{font-size:12px;border-radius:3px;padding:8px 10px;margin:0 0 10px;background:#fff4ce;color:#5c4400;border:1px solid #7a5c00}
+.warn b{display:block}
+.prev{border:1px dashed #555;border-radius:3px;padding:8px 10px;font-size:13px;margin:6px 0 4px;background:#fafafa}
+.prev b{color:#0033a0}
+.ta{width:100%;box-sizing:border-box;min-height:96px;margin:4px 0 6px;font:12px Arial,sans-serif;border:1px solid #767676;border-radius:3px;padding:6px;background:#fff;color:#555}
+.doc{padding:8px 0;border-top:1px solid #dde1ea}
+.doc .ch{display:flex;gap:8px;align-items:flex-start;font-size:12px}
+.doc .ch input{margin:2px 0 0;width:16px;height:16px;flex:none}
+.chg{font-size:11px;margin:4px 0 0 24px;color:#333}
+.chg del{color:#8a1c1c}.chg ins{color:#1e6b2e;text-decoration:none;font-weight:bold}
+.chg .k{color:#555}
+.chg a{color:#0033a0}
+.dim{color:#777}
+.sub{margin:6px 0 0 24px;padding:6px 8px;border:1px solid #dde1ea;border-radius:3px;font-size:11px;background:#f7f8fb}
+.sub .chk{margin:0 0 4px}
 </style>
 </helmet>
-<div class="sb" style="height:960px">
+<div class="sb" style="height:2600px">
 <h3>Link Project Documents</h3>
-<p class="intro">Looks in this blueprint's folder for the project documents and links them on the Dashboard and in Instructor Resources.</p>
+<p class="intro">Sets up a new project: fills in the course title across the project documents, adds the catalog description, and links the documents on the Dashboard.</p>
 
-<p class="sec">Folder</p>
-<div class="card"><strong>CS 321 Project Folder</strong><br>12 files found next to this blueprint. <a href="#">Pick a different folder</a></div>
+<p class="sec">1. Course</p>
+<div class="two">
+<div><label class="lbl" for="d">Dept</label><input class="inp" id="d" type="text" value="APPAI"></div>
+<div><label class="lbl" for="n">Course number</label><input class="inp" id="n" type="text" value="505"></div>
+</div>
+<label class="lbl" for="cn">Course name</label>
+<input class="inp" id="cn" type="text" value="Mathematical Foundations for Artificial Intelligence">
+<div class="prev">Titles will read:<br><b>APPAI 505: Mathematical Foundations for Artificial Intelligence</b></div>
+<p class="m sh">Number 500 or above, so the graduate catalog will be checked.</p>
 
 <hr>
-<p class="sec">Dashboard › Course Documents</p>
+<p class="sec">2. Catalog description</p>
+<div class="card"><strong>Graduate Catalog</strong> · 2026–27<br>Found: APPAI 505. <a href="#">Check the undergraduate catalog instead</a></div>
+<div class="warn"><b>The catalog's course name is different</b>
+Project: Mathematical Foundations <u>for</u> Artificial Intelligence<br>Catalog: Mathematical Foundations <u>of</u> Artificial Intelligence</div>
+<label class="lbl" for="desc">Description to add to the Design tab</label>
+<textarea class="ta" id="desc" aria-label="Catalog description">[The catalog's course description appears here. You can paste over it.]</textarea>
+<label class="chk"><input type="checkbox" checked> Add it under Course Information (replaces “Add catalog description here”)</label>
+<p class="m sh">Couldn't find the course? Paste the description above and the tool will still add it.</p>
 
-<div class="row"><div class="rt"><b>Settings Tables</b><span class="tool">Sheet</span></div>
-<select class="sel" aria-label="Settings Tables file"><option>CS 321 Settings Tables</option></select>
-<p class="m ok">✓ Name and type match</p></div>
+<hr>
+<p class="sec">3. Documents to update</p>
+<p class="intro" style="margin:0 0 6px">Each document is checked for the title. Nothing changes until you press Apply.</p>
 
-<div class="row"><div class="rt"><b>Syllabus</b><span class="tool">Doc</span></div>
-<select class="sel" aria-label="Syllabus file"><option>CS 321 Syllabus Template</option></select>
-<p class="m sg">Name differs. Please confirm.</p></div>
+<div class="doc"><label class="ch"><input type="checkbox" checked><span><b>Blueprint</b></span></label>
+<p class="chg">Dashboard title, 2 places<br><del>APPAI 507: Mathematical Foundations…</del><br>→ <ins>APPAI 505: Mathematical Foundations…</ins></p></div>
 
-<div class="row"><div class="rt"><b>Instructor Guide</b><span class="tool">Doc</span></div>
-<select class="sel" aria-label="Instructor Guide file"><option>CS 321 Instructor Guide</option></select>
-<p class="m ok">✓ Name and type match</p></div>
+<div class="doc"><label class="ch"><input type="checkbox" checked><span><b>Agenda &amp; Schedule of Deliverables</b></span></label>
+<p class="chg">Title line, 1 place<br><span class="dim">Already says APPAI 505: Mathematical Foundations… No change.</span></p></div>
+
+<div class="doc"><label class="ch"><input type="checkbox" checked><span><b>Course Suggestions</b></span></label>
+<p class="chg">Heading<br><del>Course ###: Course Title</del><br>→ <ins>APPAI 505: Mathematical Foundations…</ins></p></div>
+
+<div class="doc"><label class="ch"><input type="checkbox" checked><span><b>Instructor Guide</b></span></label>
+<p class="chg">Title line<br><del>APPAI 507- Mathematical Foundations… (Incomplete)</del><br>→ <ins>APPAI 505: Mathematical Foundations…</ins> (Incomplete)<br><span class="k">Only the title part changes. “(Incomplete)” stays.</span></p>
+<div class="sub"><label class="chk"><input type="checkbox" checked><span><b>Sample announcement</b><i>“Welcome to Course Name.” becomes the course name</i></span></label></div></div>
+
+<div class="doc"><label class="ch"><input type="checkbox" checked><span><b>Syllabus</b></span></label>
+<p class="chg">Title<br><del>Syllabus: Course ###</del><br>→ <ins>Syllabus: APPAI 505</ins></p></div>
+
+<div class="doc"><label class="ch"><input type="checkbox" disabled><span><b class="dim">End-of-Project Report</b></span></label>
+<p class="chg"><span class="m no">No report in this folder.</span> <span class="k">Skipped. Paste a URL below if there is one.</span><br>
+<input class="inp" type="text" placeholder="Paste a URL (optional)" aria-label="End-of-Project Report URL" style="margin-left:0"></p></div>
+
+<div class="doc" style="border-bottom:1px solid #dde1ea"><label class="ch"><input type="checkbox"><span><b>Other matches (3 found, not changed)</b></span></label>
+<p class="chg"><a href="#">Show</a> <span class="k">Same wording as the old title, but not the title itself, such as link text in the Agenda.</span></p></div>
+
+<hr>
+<p class="sec">4. Link the documents</p>
+<div class="card"><strong>APPAI 505 Project Folder</strong><br>12 files found next to this blueprint. <a href="#">Pick a different folder</a></div>
 
 <div class="row rev"><div class="rt"><b>Course Suggestions</b><span class="tool">Doc</span></div>
 <select class="sel" aria-label="Course Suggestions file"><option>No file found</option></select>
@@ -59,24 +112,30 @@ body{margin:0;font-family:Arial,sans-serif}
 <p class="m no">Nothing in the folder matches.</p>
 <label class="chk" style="margin:6px 0 0"><input type="checkbox"> Skip it. This course doesn't have one.</label></div>
 
-<div class="row"><div class="rt"><b>Schedule of Deliverables</b><span class="tool">Doc</span></div>
-<select class="sel" aria-label="Schedule file"><option>Schedule of Deliverables</option></select>
-<p class="m ok">✓ Name and type match</p></div>
+<div class="row rev"><div class="rt"><b>Syllabus</b><span class="tool">Doc</span></div>
+<select class="sel" aria-label="Syllabus file"><option>APPAI 505 Course Syllabus</option></select>
+<p class="m sg">Name differs from the usual pattern. Please confirm.</p></div>
+
+<div class="row"><div class="rt"><b>Settings Tables, Instructor Guide, Schedule of Deliverables</b></div>
+<p class="m ok">✓ 3 matched on name and type. <a href="#" style="color:#0033a0">Show</a></p></div>
+
+<div class="row"><div class="rt"><b>End-of-Project Report</b><span class="tool">Doc</span></div>
+<p class="m sh">No file found. Optional, so it stays blank.</p></div>
 
 <div class="row"><div class="rt"><b>Google Folder</b><span class="tool">Folder</span></div>
 <p class="m sh">The folder above. Added automatically.</p></div>
 
-<hr>
-<p class="sec">Also fill in</p>
-<label class="chk"><input type="checkbox" checked> Development › Instructor Resources (Instructor Guide and Course Suggestions links)</label>
+<label class="chk" style="margin-top:10px"><input type="checkbox" checked> Development › Instructor Resources (Instructor Guide and Course Suggestions links)</label>
 <label class="chk"><input type="checkbox"> Replace links that are already there (2 found)</label>
+<p class="intro" style="margin:4px 0 12px">Not Drive files, so left for the team to add: Panopto Folder, Canvas Course, Creative Brief.</p>
 
-<p class="intro" style="margin:8px 0 10px">Not Drive files, so left for the team to add: Panopto Folder, Canvas Course, Creative Brief.</p>
-
-<button class="btn" type="button">Add 5 links</button>
+<hr>
+<div class="note">Ready to change 4 documents, add 1 catalog description, and add 5 links.</div>
+<button class="btn2" type="button">Preview all changes</button>
+<button class="btn" type="button">Apply</button>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":960}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":2600}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }
