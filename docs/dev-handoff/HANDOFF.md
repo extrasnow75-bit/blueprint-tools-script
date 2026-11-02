@@ -180,6 +180,22 @@ Nothing else: no "what changed" notes, no per-file explanations. If everything i
 - `appsscript.json` (permissions) cannot be read from inside the script, so a release that adds a scope cannot be flagged by this tool. Ask Greg whether to mention this in the sidebar.
 
 
+### 3.6 Permissions summary (decide these together, before editing `appsscript.json`)
+
+Current scopes: `documents`, `script.container.ui`, `script.external_request`, plus the Docs v1 advanced service. A new scope changes the authorization prompt for every user of the script. Get Greg's OK on the exact list first. This table is from the design discussion, not from testing; confirm each row in a spike.
+
+| Tool | Needs | New scope? |
+|---|---|---|
+| Link Project Documents | List the blueprint's parent folder (read-only Drive metadata). Edit the other project documents (the existing `documents` scope should cover documents Greg can edit). Catalog fetch (`script.external_request`, already present). | Drive read-only metadata |
+| Draft Settings Tables | Copy template tabs inside the settings table spreadsheet, so write access to Sheets. | Sheets (read and write) |
+| Deploy Settings Tables | Read the settings table's tab names. Writes only to the blueprint. | Sheets (read-only is enough) |
+| Development Status Check | Read settings-table tabs and the "Check when settings are finalized:" checkboxes. Save the report to a new blueprint tab (no new scope). Save it to a new Google Doc in the blueprint's folder (**see below**). | Sheets (read-only); Drive for the new-Doc option |
+| Blueprint Tools Version Check | Fetch the manifest from GitHub (`script.external_request`, already present). Same export options as the Status Check. | Drive for the new-Doc option only |
+
+**Shared decision, "save to a new Google Doc in the same folder":** the Status Check and the Version Check both offer it, so one scope decision covers both. A new Doc is created in My Drive and moving it into the blueprint's folder very likely needs a broader Drive permission than read-only metadata. Not verified. Test it. If it needs a broad Drive scope, tell Greg plainly and offer to drop the option and keep only "new tab in the blueprint" (which needs no new scope).
+
+**Sheets:** pick the narrowest scope that works for each tool, but remember all tools share one authorization prompt, so the effective scope is the widest one. Draft Settings Tables needs write access.
+
 ## 4. Spikes to run first (throwaway code in a separate file)
 
 Put these in something like `Spikes.gs` and delete them afterward. Greg must run them; he was not at a computer.
