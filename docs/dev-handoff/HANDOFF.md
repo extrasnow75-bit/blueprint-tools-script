@@ -57,9 +57,10 @@ Menu order (final, with a separator between every item):
 8. Deploy Settings Tables
 9. Specialty Tool: Add Module Dates &/or Holiday Modules *(existing)*
 10. Development Status Check
-11. KB Article *(existing)*
+11. Blueprint Tools Version Check (second from the bottom, directly above KB Article)
+12. KB Article *(existing)*
 
-Build order: **10 → 11 → 12 → 13**, one branch per tool after the first (for example `deploy-settings-tables`). Greg preferred building the settings-table tools before the Status Check.
+Build order: **10 → 11 → 12 → 13 → 14**, one branch per tool after the first (for example `deploy-settings-tables`). Greg preferred building the settings-table tools before the Status Check. The Version Check (`Code14.gs` / `Sidebar14.html`) comes last.
 
 ### 3.1 Link Project Documents (`Code10.gs` / `Sidebar10.html`)
 
@@ -147,6 +148,34 @@ Output: always shown in the sidebar. Ask (on both the setup and results screens)
 
 The "Status Check" settings-table reading needs a Sheets permission. For this tool read-only would be enough; Draft needs write (it creates tabs); Deploy only needs to read tab names. **Decide the Sheets scope for all three tools together** and list it for Greg before editing `appsscript.json`.
 
+### 3.5 Blueprint Tools Version Check (`Code14.gs` / `Sidebar14.html`)
+
+Added late. No mockup yet. Greg pastes code into Apps Script by hand, so this tells him which files to paste after an update.
+
+**What the sidebar shows (keep it this short; Greg said more detail is too much):**
+
+1. **Out-of-date files:** file name, the version date in the document, and the date of the version on GitHub `master`.
+2. **New files on GitHub that are missing from the document.**
+
+Nothing else: no "what changed" notes, no per-file explanations. If everything is current, say so in one line.
+
+**Design (proposed; confirm details with Greg):**
+
+- Compare against the **`master`** branch only (Greg confirmed). The repo is public, so no token is needed, and never add one.
+- The repo gets a manifest on `master` (for example `version-manifest.json`) listing every script file and its version date. Fetch it with `UrlFetchApp` from `https://raw.githubusercontent.com/extrasnow75-bit/blueprint-tools-script/master/version-manifest.json`. This uses the existing `script.external_request` scope; no new scope is needed. (Checked on 2026-11-02: the raw URL returns 200.)
+- **A script cannot read its own `.gs` source.** So each `.gs` file carries a version stamp equal to its `Last updated on` header date, as a top-level `var` (not `const`; in the V8 runtime only `var` and function declarations become properties of the global object, so `globalThis[...]` lookups would miss a `const`; verify this in a spike). A `.gs` file is "missing" when its stamp is undefined.
+- Sidebar `.html` files can be read with `HtmlService.createHtmlOutputFromFile(name).getContent()`. Put a version comment in each (for example `<!-- version: 2026-11-02 -->`) and read it. A file that cannot be opened is "missing."
+- Comparison: document older than GitHub = out of date. Document **newer** than GitHub = show as "newer than GitHub" (probably a branch version), not an error.
+- Whenever a commit changes a script file, update its stamp and the manifest in the same commit. Consider a small repo script that fails if a changed file's stamp and the manifest disagree, since a forgotten stamp makes the check wrongly say "current."
+- Keep the manifest format backward compatible, so an old copy of this tool still lists new files as missing, as long as the tool itself was pasted.
+
+**Known limits (do not hide them from Greg):**
+
+- Files that exist in the document but not in the repo cannot be detected (listing a script's own files needs a broader permission; do not add it).
+- A forgotten stamp bump is invisible.
+- `appsscript.json` (permissions) cannot be read from inside the script, so a release that adds a scope cannot be flagged by this tool. Ask Greg whether to mention this in the sidebar.
+
+
 ## 4. Spikes to run first (throwaway code in a separate file)
 
 Put these in something like `Spikes.gs` and delete them afterward. Greg must run them; he was not at a computer.
@@ -156,6 +185,8 @@ Put these in something like `Spikes.gs` and delete them afterward. Greg must run
 3. **Create a report tab** in the blueprint and write text into it.
 4. **Catalog endpoint** (see 3.1 C).
 5. **Read settings-table checkboxes** (`getValue()` returns true/false) with the narrowest Sheets scope that works.
+6. **Global lookup of stamps:** confirm a top-level `var` in one `.gs` file is readable from another via `globalThis` (needed by 3.5).
+7. **Fetch the manifest** from raw.githubusercontent.com with `UrlFetchApp` inside a blueprint-bound script.
 
 ## 5. Test files (Google Drive)
 
@@ -214,7 +245,7 @@ Confirm each signature by reading the code before calling it; this list was made
 
 ## 7. Open questions for Greg
 
-1. How does code get from this repo into the Apps Script project: `clasp`, or copy and paste? (There is no `.clasp.json` in the repo.) Ask before assuming.
+1. **Answered:** Greg pastes code into the Apps Script editor himself. Do not set up `clasp` or run any push on his behalf. When you change files, tell him exactly which files to paste.
 2. Replace-old-title: replace only the identifier and keep extras like "(Incomplete)" and "Syllabus"? (Proposed, unconfirmed.)
 3. Does APPAI 505 have a settings table somewhere?
 4. Which Deploy layout: flat (A) or by module (B)?
