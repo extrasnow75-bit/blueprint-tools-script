@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings Table Title Cell Options</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:Arial,sans-serif}
+.pg{width:560px;box-sizing:border-box;padding:28px 32px 32px;background:#fff;color:#333;border:1px solid #aab2c8}
+h1{margin:0 0 4px;font-size:20px;color:#0033a0}
+.sub{margin:0 0 6px;font-size:13px;color:#555;line-height:1.45}
+.tab{display:inline-flex;align-items:center;gap:8px;border:1px solid #dadce0;border-top:4px solid #e06666;border-radius:0 0 4px 4px;padding:4px 12px;font-size:12px;margin:6px 0 18px;background:#fff}
+.opt{margin:0 0 22px}
+.opt h2{margin:0 0 6px;font-size:14px;color:#333}
+.sheet{border:1px solid #dadce0;display:grid;grid-template-columns:28px 1fr;font-size:10px;color:#202124}
+.ch{background:#f8f9fa;border-bottom:1px solid #dadce0;border-right:1px solid #dadce0;color:#5f6368;text-align:center;padding:2px 0}
+.chb{background:#f8f9fa;border-bottom:1px solid #dadce0;display:grid;grid-template-columns:1fr 1fr;color:#5f6368;text-align:center;padding:2px 0}
+.rh{background:#f8f9fa;border-right:1px solid #dadce0;color:#5f6368;text-align:center;padding:6px 0}
+.cell{padding:6px 8px;line-height:1.35;min-height:48px;box-sizing:border-box;border:2px solid #1a73e8;margin:1px}
+.hl{background:#fff4ce;font-weight:bold}
+.res{margin:6px 0 0;font-size:12px;color:#555}
+.res b{color:#333}
+.rec{border:2px solid #0033a0;border-radius:4px;padding:10px 12px;font-size:12px;color:#333;line-height:1.45}
+.cap{font-size:11px;color:#555;margin:14px 0 0}
+</style>
+</helmet>
+<div class="pg" style="height:880px">
+<h1>Title cell (A1) on a new tab</h1>
+<p class="sub">Example: a tab named “Weekly Quiz”, copied from the Classic Quiz Template. Each box shows what A1 would say afterward.</p>
+<div class="tab"><span>Weekly Quiz</span></div>
+
+<div class="opt">
+<h2>A · Leave it exactly as the template has it</h2>
+<div class="sheet"><div class="ch"></div><div class="chb"><span>A</span><span>B</span></div><div class="rh">1</div><div class="cell">Quiz XX Settings Table<br>Note: This table is for the Classic Quizzes tool in Canvas.</div></div>
+<p class="res"><b>Result:</b> Still says “XX.” The designer changes it when they fill in the tab.</p>
+</div>
+
+<div class="opt">
+<h2>B · Replace only the XX with the tab name</h2>
+<div class="sheet"><div class="ch"></div><div class="chb"><span>A</span><span>B</span></div><div class="rh">1</div><div class="cell">Quiz <span class="hl">Weekly Quiz</span> Settings Table<br>Note: This table is for the Classic Quizzes tool in Canvas.</div></div>
+<p class="res"><b>Result:</b> Reads “Quiz Weekly Quiz Settings Table.” The word repeats whenever the tab name already contains the tool name.</p>
+</div>
+
+<div class="opt">
+<h2>C · Rewrite the first line, keep the note line</h2>
+<div class="sheet"><div class="ch"></div><div class="chb"><span>A</span><span>B</span></div><div class="rh">1</div><div class="cell"><span class="hl">Weekly Quiz Settings Table</span><br>Note: This table is for the Classic Quizzes tool in Canvas.</div></div>
+<p class="res"><b>Result:</b> Reads “Weekly Quiz Settings Table.” The note line is untouched.</p>
+</div>
+
+<div class="rec"><b>My recommendation:</b> A or C. B is the option I raised earlier, and it produces repeated words for most tab names. C is the only edit that reads correctly every time, and it changes one line of one cell.</div>
+<p class="cap">Illustration, not a screenshot of your sheet. The cell text is the template's own (read from the copy you shared). The sheet's fonts, colors, and column widths are approximations. Yellow marks the text that would change.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":560,"height":880}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

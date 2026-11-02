@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Status Check Setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:Arial,sans-serif}
+.sb{width:320px;box-sizing:border-box;padding:14px 16px 20px;font-size:13px;line-height:1.5;color:#333;background:#fff;border:1px solid #aab2c8}
+.sb h3{color:#0033a0;font-size:15px;margin:0 0 6px}
+.intro{font-size:12px;color:#555;margin:0 0 12px}
+.sec{color:#0033a0;font-size:13px;font-weight:bold;margin:0 0 6px}
+.sb hr{border:0;border-top:2px solid #aab2c8;margin:14px 0}
+.btn{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;background:#0033a0;color:#fff;border:0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.card{border:1px solid #aab2c8;border-radius:3px;padding:8px 10px;margin:0 0 10px;font-size:12px}
+.card div{display:flex;justify-content:space-between;gap:8px}
+.k{color:#555}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:0 0 8px}
+.chk input{margin:2px 0 0;width:16px;height:16px;flex:none}
+.hint{font-size:11px;color:#555;margin:-4px 0 8px 24px}
+.note{font-size:12px;border-radius:3px;padding:8px 10px;margin:0 0 10px;background:#e8f0fe;color:#1a3a7a}
+</style>
+</helmet>
+<div class="sb" style="height:1060px">
+<h3>Development Status Check</h3>
+<p class="intro">Counts every activity in the Development tab by review stage, checks links and content, and compares each module's time to the credit-hour guideline.</p>
+
+<p class="sec">Course</p>
+<div class="card">
+<div><span class="k">Credits</span><strong>3</strong></div>
+<div><span class="k">Course length</span><strong>7 weeks</strong></div>
+<div><span class="k">Numbered modules found</span><strong>7</strong></div>
+<div><span class="k">Time target per module</span><strong>16¼ – 19½ hrs</strong></div>
+</div>
+<p class="intro">Credits and course length are read from the Dashboard tab. If Credits shows “--”, pick a value in that dropdown first.</p>
+
+<hr>
+<p class="sec">Checks to run</p>
+<label class="chk"><input type="checkbox" checked> Review stage of each activity (untouched, drafted, green, purple, yellow, struck through)</label>
+<label class="chk"><input type="checkbox" checked> Home text, Instructor Guide URL, Course Suggestions URL</label>
+<label class="chk"><input type="checkbox" checked> Settings table link on each Assignment, Discussion, and Quiz</label>
+<label class="chk"><input type="checkbox" checked> Module time vs. guideline</label>
+<label class="chk"><input type="checkbox" checked> Settings table tabs marked “Check when settings are finalized”</label>
+
+<hr>
+<p class="sec">Settings table tabs to count</p>
+<div class="card"><strong>CS 321 Settings Tables</strong><br><span class="k">Found through the Dashboard link. 12 tabs.</span></div>
+<label class="chk"><input type="checkbox" checked> Course Settings</label>
+<label class="chk"><input type="checkbox" checked> Discussion</label>
+<label class="chk"><input type="checkbox" checked> Weekly Quiz</label>
+<label class="chk"><input type="checkbox" checked> Writing Assignment</label>
+<label class="chk"><input type="checkbox" checked> Weekly Reflection</label>
+<label class="chk"><input type="checkbox" checked> Reminder: Replies (Not Graded)</label>
+<label class="chk"><input type="checkbox" checked> Team Member Surveys</label>
+<label class="chk"><input type="checkbox" checked> Exams</label>
+<label class="chk"><input type="checkbox"> Assignment Template <span class="k">(Template)</span></label>
+<label class="chk"><input type="checkbox"> Discussion Template <span class="k">(Template)</span></label>
+<label class="chk"><input type="checkbox"> Classic Quiz Template <span class="k">(Template)</span></label>
+<label class="chk"><input type="checkbox"> New Quiz Template <span class="k">(Template)</span></label>
+<p class="hint" style="margin-left:0">Tabs with “Template” in the name start unchecked. Tick any tab to include it, or untick any tab to leave it out.</p>
+
+<hr>
+<p class="sec">Also save the report to</p>
+<label class="chk"><input type="radio" name="out" checked> Nowhere. Show it here in the sidebar only.</label>
+<label class="chk"><input type="radio" name="out"> A new tab in this blueprint</label>
+<label class="chk"><input type="radio" name="out"> A new Google Doc in this blueprint's folder</label>
+<p class="hint">Adds one file next to the blueprint.</p>
+
+<hr>
+<button class="btn" type="button">Run Status Check</button>
+<p class="intro" style="margin:8px 0 0">Reads the blueprint only. The one thing it can add is the report you choose above.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

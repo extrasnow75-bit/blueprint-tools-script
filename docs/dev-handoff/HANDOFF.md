@@ -1,0 +1,240 @@
+# Blueprint Tools: development handoff
+
+Written 2026-11-02 at the end of a long design conversation in Claude Chat. Everything below was decided or learned there. Nothing has been built yet. No code has been written for the new tools.
+
+Read this whole file, then `docs/dev-handoff/mockups/*.png` (sidebar mockups), then start at "Build order".
+
+## 0. Who you are working for
+
+Greg is an instructional designer and UX/UI designer. He is not a trained coder; he "vibe codes." The organization (Boise State eCampus) runs on Google Workspace, so everything is Google Apps Script.
+
+- He wants workflow automation and efficiency.
+- He does not want flattery. Do not compliment his questions or ideas.
+- Explain things in plain language. Say what to click or test, not just what changed.
+- He cannot always run scripts (he was driving when part of this was discussed). Do not assume he can test immediately; batch questions and tests.
+- Ask before building when a wrong guess is expensive. Otherwise decide, state what you decided, and move on.
+
+## 1. The project
+
+Repo: `extrasnow75-bit/blueprint-tools-script` (GitHub). A Google Apps Script project bound to course "blueprint" Google Docs. It adds a **🎓 Blueprint Tools** menu (see `onOpen()` in `Code.gs`).
+
+Existing files: `Code.gs`, `Code2.gs`, `Code3.gs`, `Code5.gs`, `Code8.gs`, `Code9.gs` and matching `Sidebar*.html`. About 5,500 lines. Work is on branch **`link-project-documents`**, not `master`. Do not merge to master without Greg asking.
+
+### Conventions you must follow
+
+- **File naming:** new files continue the numbering: `Code10.gs` / `Sidebar10.html`, `Code11.gs` / `Sidebar11.html`, and so on. (Greg stated this.)
+- **Flat shared namespace.** Every `.gs` file shares one global scope. A function or constant defined twice does not error; the later one silently wins. So:
+  - Give every new function and constant the file-number suffix (existing examples: `showDesignMapSidebar9`, `classifyHeading7_`, `normTitle9_`). Private helpers end with `_`.
+  - Before defining anything, grep the whole repo for the name.
+  - Reuse existing helpers rather than copying them (list in section 6).
+- **File header style:** see the top of `Code9.gs`. It has a title, a short description, a `Last updated on YYYY-MM-DD at HH:MM MDT` line, and notes on shared helpers. Match it and keep the date current.
+- **Sidebars:** 320px wide, Arial 13px, blue `#0033a0` headings, 44px minimum button height. The mockups show the style.
+- **Scopes:** `appsscript.json` currently has `documents`, `script.container.ui`, `script.external_request`, plus the Docs v1 advanced service. **Any new scope changes the authorization prompt for every user of the script.** List exactly what you want to add and why, and get Greg's OK before editing `appsscript.json`.
+- **Never overwrite user content silently.** Existing tools follow a "never-overwrite" contract. New tools show a preview and apply only what the user confirms.
+- Commit messages and PR text: follow the attribution lines Claude Code gives you for the session.
+
+## 2. Blueprint structure (what the code reads)
+
+Three tabs: **Dashboard**, **Design**, **Development**.
+
+- Development tab: `H2` = module; `H3` = "Due by … Mountain Time" headers; `H4` = activities (for example `1.03 Discussion: Topic 1`). Under each H4 is a tool line shaped like `<Tool> ⏺ Link to settings tab`. `TOOL_MARKER = '⏺'`. The tool name may be plain text or a dropdown smart chip. The "Link to settings tab" wording varies in real blueprints, and sometimes there is extra text after the link. Directions placeholder text: `Directions go here…`
+- Tool names normalize through `normalizeToolName(raw)` in `Code.gs`. `External Assignment` (a type-in variant) already maps to `Assignment`. `Assignment (Not Graded)` exists and uses the normal Assignment tab of the settings table template.
+- Color Key (the document `11b03xRjWkJ6MvQvtUhg6CaRGmwjNAE478HQkzLYNZ3s`): light green 3 = ready for QA, light purple 3 = approved by QA, yellow = revised, strikethrough = built in Canvas. **Read the exact hex values from the Color Key or a test blueprint with `getBackgroundColor`; do not rely on memory.** The mockups use `#b7e1cd` (green) and `#d9d2e9` (purple) as stand-ins.
+- Dashboard: has a Team Information chip column and a "Course Documents" column with labels (Settings Tables, Syllabus, Instructor Guide, Course Suggestions, Schedule of Deliverables, Google Folder, and others). Course length appears as text such as `Course Length: 7 Weeks` in the 505 copy (the template may use a chip, such as "15 Weeks"). Greg will add a **Credits dropdown chip** to a test blueprint (numeric option values) and ask a colleague to add it to the template.
+- **Quickbase integration was dropped** (the API token is too risky). Never propose it again.
+
+## 3. The tools, in build order
+
+Menu order (final, with a separator between every item):
+
+1. Link Project Documents
+2. Add Activity Titles, Tools, Due Date Headers, & Times *(existing)*
+3. Design Map → Dev Tab *(existing)*
+4. Create Model Module *(existing)*
+5. Deploy Activity Directions *(existing)*
+6. Time Estimator *(existing)*
+7. Draft Settings Tables
+8. Deploy Settings Tables
+9. Specialty Tool: Add Module Dates &/or Holiday Modules *(existing)*
+10. Development Status Check
+11. KB Article *(existing)*
+
+Build order: **10 → 11 → 12 → 13**, one branch per tool after the first (for example `deploy-settings-tables`). Greg preferred building the settings-table tools before the Status Check.
+
+### 3.1 Link Project Documents (`Code10.gs` / `Sidebar10.html`)
+
+Mockup: `mockups/LinkDocs.png`. **It is outdated:** it does not yet show the Dept / Number / Name fields, the catalog description, or the End-of-Project Report. Update the mockup (or describe the change to Greg) before building.
+
+**A. Link documents**
+- Find the blueprint's parent Drive folder (almost always the project folder). List its files.
+- Match files to the Dashboard "Course Documents" labels. Names usually follow a pattern but vary.
+- The user confirms each match with a dropdown, and can paste a URL for anything missing.
+- Add links on the Dashboard. Also add the Instructor Guide and Course Suggestions links in the Development tab's Instructor Resources.
+- Course Suggestions (and the End-of-Project Report) may not exist; skip with a notice and let the user paste a URL.
+- Greg always has edit access to the project documents, but not to the template files.
+
+**B. Fill the course identity into project documents.** Sidebar fields: **Dept**, **Course number**, **Course name**, with a live preview. Per-document preview with a checkbox per document, shown before any change. Documents (six):
+
+| Document | What to replace |
+|---|---|
+| Blueprint (Dashboard and anywhere the title appears) | course title |
+| Agenda / Schedule of Deliverables | title line |
+| Course Suggestions | `Course ###: Course Title` (H2) |
+| Instructor Guide | title line; `Welcome to Course Name.` in the sample announcement (separate checkbox, on by default) |
+| Syllabus | `Syllabus: Course ###` |
+| End-of-Project Report | `COURSE XXX` → dept + number only (no name); case-sensitive; **three tabs**, so search every tab (the Media Summary tab has no course reference) |
+
+Rules Greg confirmed: in `Course ###` the word "Course" stands for the department code, so it becomes e.g. `CS 321`. The end-of-project report gets dept + number only.
+
+**Re-run / replace-old-title mode.** Finished projects are already filled in, and titles are inconsistent. Real examples from APPAI 505:
+
+- Dashboard and Course Suggestions: `APPAI 505: Mathematical Foundations for Artificial Intelligence`
+- Syllabus: `... (AI) Syllabus`
+- Instructor Guide: `APPAI 505- Mathematical Foundations for Artificial Intelligence (Incomplete)` (hyphen, no colon, trailing note)
+
+So exact-string replacement does not work. Find the title line by position and pattern (a short heading paragraph starting with a department code and number), show the match in the preview, and **replace only the identifier part**; leave extras like "(Incomplete)" or "Syllabus" alone. (Proposed; Greg had not confirmed this yet. Ask.) Any other occurrence (for example link text such as "CS 321 Agreement" in the CS 321 Agenda) must appear as an **unchecked** item in the preview, never replaced by default.
+
+Shared tokens proposed for templates: `{{DEPT}}`, `{{COURSE_NUMBER}}`, `{{COURSE_NAME}}`, with a "COURSE ###" style fallback and the existing placeholder patterns above. Greg is asking colleagues to add tokens to templates; until then, match the existing placeholders.
+
+**C. Catalog description.** Fetch the Boise State catalog description for the course and place it in the blueprint's **Design tab**, in the "Add catalog description here" bullet under "Course Information". Preview before writing.
+
+- Undergraduate catalog: `https://www.boisestate.edu/registrar-catalog/#/home`; graduate catalog: `https://www.boisestate.edu/graduatecatalog/#/home`.
+- **Rule: course number 500 and above uses the graduate catalog; below 500, undergraduate.** Show which catalog was used with a "check the other catalog" link (some courses appear in both). If it is in neither, say so and allow pasting.
+- **Unresolved and unverified.** Both catalogs are hash-routed single-page apps. `UrlFetchApp` cannot run JavaScript. I could not confirm a machine-readable endpoint (my fetch tool was blocked). **First step: a spike.** Open a course page in a browser, check the Network tab for the request that returns the course text, and see whether it can be called with `UrlFetchApp` (the scope is already present; `Code8.gs` already fetches the registrar calendar this way). If there is no usable endpoint, fall back to: sidebar builds the right catalog search link from Dept and Number, and the user pastes the description; the script still places it with a preview.
+- Compare the catalog title to the typed course name. If it differs, show both side by side with a warning but still allow insertion. Normalize before comparing: ignore case, punctuation, "&" vs "and", and text in parentheses (the Syllabus title has "(AI)").
+- Record the catalog year or retrieval date in the preview. Older catalogs probably exist only as archived PDFs (ScholarWorks), not live pages; do not try to fetch older versions.
+
+### 3.2 Deploy Settings Tables (`Code11.gs` / `Sidebar11.html`)
+
+Mockups: `DeployA.png` (flat list), `DeployB.png` (by module). Greg liked the grouped/by-module direction; confirm which one before building.
+
+- Find the settings table (Google Sheet) through the Dashboard's Settings Tables link, or let the user choose a file.
+- Match settings-table **tabs** to Development-tab **activities**. Many activities can share one tab (many-to-one). Dropdown override per activity. Preview before any change.
+- Write a link onto the tool line (the "Link to settings tab" phrase). Page activities have no settings tab; skip them.
+- Never match the Course Settings tab or the template tabs.
+- Option to replace links that already exist.
+
+### 3.3 Draft Settings Tables (`Code12.gs` / `Sidebar12.html`)
+
+Mockup: `DraftTabs.png`. Also `A1Title.png`.
+
+- Purpose: quick draft tabs in the settings table by duplicating the template tabs (Assignment, Discussion, Classic Quiz, New Quiz). Everything else (editing tab contents) stays manual.
+- Group activities by similar titles (strip numbers and topic labels). Modes: **one per kind of activity (default)**, one per Canvas tool, one per activity. Never default to ~30 tabs.
+- Section is called **"Settings Table Tab Names"** (not "tab names"; that confuses people with blueprint tabs). Names are editable, up to 100 characters, and unique.
+- "Add another tab (exam, evaluation, survey…)" button.
+- **Cell A1 stays exactly as in the template** (Greg chose option A). Do not edit any cell contents.
+- Copy whole tabs; never rebuild them. Conditional formatting depends on fixed cell positions.
+- **The tool must never tick the "Check when settings are finalized:" box.** If a template tab arrives ticked, warn; do not untick it.
+- A "Split off" control (to pull one activity out of a group) was proposed but not mocked up.
+
+### 3.4 Development Status Check (`Code13.gs` / `Sidebar13.html`)
+
+Mockups: `Main.png` (setup), `StatusResultsB.png` (results; Greg picked B), `StatusResultsA.png` (alternative, not chosen).
+
+Counts **whole activities** (not paragraphs) by stage:
+
+1. untouched template text 2. drafted, not highlighted 3. green = ready for QA 4. purple = approved by QA 5. yellow = revised 6. strikethrough = built in Canvas.
+
+Mixed formatting inside one activity: any yellow makes it "Revised" (Greg's rule); otherwise count it at the lowest stage (my proposal; not explicitly confirmed).
+
+Other checks: Home text present; Instructor Guide URL; Course Suggestions URL; a settings-table link on every non-Page tool line (**any link attribute counts**, not the wording; placeholder text without a link counts as missing; report this per activity next to the red tool name); module time vs. credit-hour guideline.
+
+Time target per module = credits × 37.5 to credits × 45 hours ÷ weeks ÷ modules per week, rounded up to ¼ hour. Example: 3 credits over 7 weeks gives 16¼ – 19½ hrs. Reuse `runTimeEstimator(credits, weeks, modulesPerWeek)` from `Code3.gs`. Credits come from the Dashboard dropdown chip; weeks from Course Length.
+
+**Settings-table finalized check (added late).** Row text `Check when settings are finalized:` followed by a checkbox, one per settings-table tab. Match on the shorter phrase "settings are finalized" and find the row by text, not position. Report "N of M tabs finalized", with each tab listed. Tabs with "Template" in the name start unchecked; every other tab (including Course Settings) starts checked; the user can toggle each one. A tab with no such row is listed as "no finalize box found", not counted as unfinished. **Read-only: no tool may tick this box.** Activity-level counting ("31 of 35 activities have finalized settings") is a possible later addition via the links Deploy writes.
+
+Output: always shown in the sidebar. Ask (on both the setup and results screens) whether to also save the report as a new blueprint tab, a new Google Doc in the blueprint's folder, or neither. Wording for the "ready" count is still Greg's call ("Ready for dev team" vs. "Highlighted for QA or later").
+
+The "Status Check" settings-table reading needs a Sheets permission. For this tool read-only would be enough; Draft needs write (it creates tabs); Deploy only needs to read tab names. **Decide the Sheets scope for all three tools together** and list it for Greg before editing `appsscript.json`.
+
+## 4. Spikes to run first (throwaway code in a separate file)
+
+Put these in something like `Spikes.gs` and delete them afterward. Greg must run them; he was not at a computer.
+
+1. **Read a dropdown chip with the Docs API** (the Credits chip or tool-name chip). Expected: `ParagraphElement.dropdown` with `dropdownDefinitionId` and `selectedOptionId`; the definitions are in `documentTab.dropdownDefinitions` with `displayValue`. `DocumentApp` returns empty text for chips.
+2. **List the blueprint's parent folder** using only the read-only Drive metadata scope.
+3. **Create a report tab** in the blueprint and write text into it.
+4. **Catalog endpoint** (see 3.1 C).
+5. **Read settings-table checkboxes** (`getValue()` returns true/false) with the narrowest Sheets scope that works.
+
+## 5. Test files (Google Drive)
+
+All owned by gregsnow@boisestate.edu and shared with Greg's extrasnow75 account. Claude Code needs a Google Drive connector, or Greg pastes content; if you cannot open them, say so.
+
+**CS 321 folder** `1lMaGFtJJ9E2sVCIOVefBJjwmWTpZn0Km` ("Copy of CS 321 w/ Kathryn (Blueprint Tools Test)"). Undergraduate course. Greg planned to repair its Design tab because the faculty member's own scripts damaged the course pattern table and design map. Do not use it for Design-tab testing until he says so.
+
+- Blueprint: `1VhLrk5t2l3IVX44bQ-6cxFbNjmTurp7SdChZv8O1Buw` ("Copy of partially completed CS 321 Blueprint")
+- Settings Tables (Sheet): `1IPBT4z5An3Ki9AbiDqmPwn7tKi7mYlZY5CbSLgknYnM`
+- Course Suggestions `1g-XLpDbpIfTKXPz20zH1bKIBMG4q7JyV3A4hA0jr5GM`
+- Instructor Guide `1GiRD68MszmcEWo0e7Ljn_4_HE87KVMByVHvH1ZnFDgY`
+- Syllabus `1J7eug1jcJIl1IxqMQPPMiv1klBfothLZzHcjH2hcL5w`
+- Agenda & Schedule of Deliverables `1Zxoxn50HMZHQ3jL3nH3t_EEWuce9WfYx1EbPqhCywEA`
+- A generated "Video List - Copy of partially completed CS 321 Blueprint …" sheet `1OnotcNztYCFU35bCm4be4rIrdtQ5_UzVJIW0vIjUkv4`. **Trap:** its name contains the blueprint's full title. A name match on "Blueprint" hits both files. Skip the bound blueprint by ID, filter by document type, and treat the Video List as unrecognized.
+- No End-of-Project Report in this folder. All file names carry a "Copy of" prefix (ignore it when matching).
+
+**APPAI 505 folder** `1pmJsy8Do--2tWuHPBDFTnqXb26oySoKV` ("Copy of APPAI 505 (for Blueprint Tools)"). Graduate course (505), well-filled Design tab. Finished before end-of-project reports existed.
+
+- Blueprint `1h5YaRDE0MdR3AvgiOI8AvRdUKErPZ1yFs96lhtSFOAM`
+- Course Suggestions `1HpQx4BWi5RQWKxsCs4O5cuilNWEGt5kr3yXNJGlbLSk`
+- Agenda `1u898ECI_bNqNJRvOXzhKlPo-1idz4uhjknjsOCZhedE`
+- Syllabus `1wNwrULr9YWnDZwfz5ypmCvzcHwYt_TgblGr0EOTwjLo`
+- Instructor Guide `1iYVT8B21Bg-GoKSl-_OKVqGmN43Zk7Hay3aXyfvLVTc`
+- **No settings table** and **no End-of-Project Report** in this folder (Greg was asked whether a settings table exists; unanswered). All five documents are already filled in, so this is the **replace-old-title** test case.
+
+**Templates and examples** (Greg's staging folder "Blueprint Tools Stuff" is `1nUm-lWP5EdLnk-7ws3Qc0rEwDSAUpcxE`; not every file below lives in it)
+
+- Template blueprint copy: `1-KtR2g67N4qBlo7wELkNaWnu1XKSSfEpezk2ChN3_Ho` ("Copy of Template Blueprint 6.0 for GAS Test")
+- Settings table template: `1p5k4FUd2US257Om8FHywHFbdnYia6NfEMA6HjNVVqUI` (tabs: Assignment, Discussion, Classic Quiz, New Quiz templates, plus Course Settings)
+- End-of-Project Report template copy: `1rtMwwAuLfLvtB7iKJYk-RGJVnd9mbg4qADzheELsRVQ` (still has `COURSE XXX`)
+- Filled-in End-of-Project Report (APPAI 507, a different project): `1dTJt6Bb_qzUQOGAjy_Pom9riEPO4Jl0sVYd5g5NCAMI`
+- Other blueprint for script tests: "Fourth Example Blueprint for Script Test" `1EzDtfO4tMSLEGDSzrCfso5VeUsfvqCjSuujCjlAQN1I`
+- Blueprint Color Key `11b03xRjWkJ6MvQvtUhg6CaRGmwjNAE478HQkzLYNZ3s`
+
+Greg said he would send **unfilled** copies of the Instructor Guide and Agenda (their titles are already filled in in these copies, so the real placeholder is not visible) and the Schedule of Deliverables template. Until then, do not guess their placeholders.
+
+**Not accessible to the earlier session:** the "Template Activity Directions" document and the original (uncopied) CS 321 settings table.
+
+## 6. Existing code to reuse
+
+| Need | Where |
+|---|---|
+| Menu | `onOpen()` in `Code.gs` (add new items there; keep the separators) |
+| Tabs list | `collectTabs(doc)` in `Code.gs` |
+| Development tab body | `getDevelopmentTabBody(doc)` in `Code2.gs` |
+| Tool name normalization | `normalizeToolName(raw)` in `Code.gs` |
+| Doc ID from URL | `extractDocId` in `Code2.gs` |
+| Directions placeholder | `findDirectionsPlaceholder` in `Code2.gs` |
+| Time targets | `runTimeEstimator(credits, weeks, modulesPerWeek)` in `Code3.gs` |
+| Docs API request pattern | `borderDueHeaders_` / `flattenDocsTabs_` in `Code.gs` |
+| `UrlFetchApp` precedent | `fetchAcademicCalendar7` / `fetchPage7_` in `Code8.gs` |
+| Title matching | `normTitle9_`, `keywordScore9_`, `matchActivities9_` in `Code9.gs` |
+| Constants | `TOOL_MARKER`, `TOOL_SUFFIX`, `CANVAS_TOOL_OPTIONS` in `Code.gs` |
+
+Confirm each signature by reading the code before calling it; this list was made from a summary, not a fresh read.
+
+## 7. Open questions for Greg
+
+1. How does code get from this repo into the Apps Script project: `clasp`, or copy and paste? (There is no `.clasp.json` in the repo.) Ask before assuming.
+2. Replace-old-title: replace only the identifier and keep extras like "(Incomplete)" and "Syllabus"? (Proposed, unconfirmed.)
+3. Does APPAI 505 have a settings table somewhere?
+4. Which Deploy layout: flat (A) or by module (B)?
+5. "Ready for dev team" wording vs. "Highlighted for QA or later".
+6. Whether to also prefill End-of-Project Report fields from the Dashboard (First Taught, Faculty Developer, the five eCampus team roles). Offered, not requested; keep the first version to dept + number.
+7. Which Sheets scope (see 3.4). Greg must approve before `appsscript.json` changes.
+8. Mixed-formatting rule below "yellow wins" (my proposal: count at the lowest stage).
+
+## 8. Mockups
+
+`docs/dev-handoff/mockups/` holds each mockup as `.png` (view these) and `.dc.html` (source; they render standalone in a browser but are design-canvas files, not shipping code). The canvas also lives as a private claude.ai artifact: https://claude.ai/artifact/9VaZVq4C24jP8o1hEt9WKH (only Greg can open it). Sample numbers in the mockups are invented (49 activities, 7 modules).
+
+Updated this session: `Main.png` and `StatusResultsB.png` now include the settings-finalized check. Still to update: `LinkDocs.png`.
+
+## 9. Greg's last stated decisions (quick list)
+
+- Draft Settings Tables: leave A1 alone; no content edits; no ticking of the finalize box.
+- Counting unit: whole activities; any yellow means Revised.
+- Menu order and tool names as in section 3.
+- Credits via a Dashboard dropdown chip; Course Length gives weeks.
+- Graduate catalog for course numbers 500 and up.
+- Catalog name mismatch: warn, but still allow insertion.
+- Quickbase: dropped.

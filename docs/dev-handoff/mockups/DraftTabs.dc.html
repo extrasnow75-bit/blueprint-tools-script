@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Draft Settings Tables</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:Arial,sans-serif}
+.sb{width:320px;box-sizing:border-box;padding:14px 16px 20px;font-size:13px;line-height:1.5;color:#333;background:#fff;border:1px solid #aab2c8}
+.sb h3{color:#0033a0;font-size:15px;margin:0 0 6px}
+.intro{font-size:12px;color:#555;margin:0 0 12px}
+.sec{color:#0033a0;font-size:13px;font-weight:bold;margin:0 0 6px}
+.sb hr{border:0;border-top:2px solid #aab2c8;margin:14px 0}
+.btn{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;background:#0033a0;color:#fff;border:0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.btn2{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;margin:4px 0 12px;background:#fff;color:#0033a0;border:2px solid #0033a0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.card{border:1px solid #aab2c8;border-radius:3px;padding:8px 10px;margin:0 0 10px;font-size:12px}
+.card a{color:#0033a0}
+.rad{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:0 0 8px}
+.rad input{margin:2px 0 0;width:16px;height:16px;flex:none}
+.rad b{display:block;font-size:12px}
+.rad i{display:block;font-style:normal;font-size:11px;color:#555}
+.item{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-top:1px solid #dde1ea;font-size:12px}
+.item>input{margin:10px 0 0;width:16px;height:16px;flex:none}
+.item .bd{flex:1;min-width:0}
+.inp{width:100%;box-sizing:border-box;min-height:36px;font:bold 12px Arial,sans-serif;border:1px solid #767676;border-radius:3px;padding:4px 6px;background:#fff;color:#333}
+.meta{display:block;font-size:11px;color:#555;margin:3px 0 0}
+.meta a{color:#0033a0}
+.note{font-size:12px;border-radius:3px;padding:8px 10px;margin:0 0 10px;background:#e8f0fe;color:#1a3a7a}
+.sum{font-size:12px;margin:0 0 6px}
+</style>
+</helmet>
+<div class="sb" style="height:1000px">
+<h3>Draft Settings Tables</h3>
+<p class="intro">Adds tabs to your settings table for the kinds of Assignment, Discussion, and Quiz in the Development tab. Each tab is a copy of the matching template tab. Activities that are alike share one tab.</p>
+
+<p class="sec">Settings table</p>
+<div class="card"><strong>CS 321 Settings Tables</strong><br>Found through the Dashboard link. <a href="#">Choose a different file</a></div>
+
+<hr>
+<p class="sec">How many tabs?</p>
+<label class="rad"><input type="radio" name="hm" checked><span><b>One per kind of activity (recommended)</b><i>Activities with similar titles share a tab, such as every Weekly Quiz.</i></span></label>
+<label class="rad"><input type="radio" name="hm"><span><b>One per Canvas tool</b><i>Fewest tabs: Assignment, Discussion, and Quiz.</i></span></label>
+<label class="rad"><input type="radio" name="hm"><span><b>One per activity</b><i>Most tabs. Every activity gets its own.</i></span></label>
+
+<hr>
+<p class="sec">Settings Table Tab Names</p>
+<p class="sum"><strong>5 tabs</strong> will be created for 35 activities.</p>
+<p class="intro" style="margin:0 0 6px">Edit any name. Names stop at 100 characters and can't repeat.</p>
+
+<div class="item"><input type="checkbox" checked aria-label="Create Discussion tab"><div class="bd"><input class="inp" type="text" value="Discussion" aria-label="Tab name"><span class="meta">Discussion Template · used by 7 activities · <a href="#">Show</a></span></div></div>
+<div class="item"><input type="checkbox" checked aria-label="Create Weekly Quiz tab"><div class="bd"><input class="inp" type="text" value="Weekly Quiz" aria-label="Tab name"><span class="meta">Classic Quiz Template · used by 7 activities · <a href="#">Show</a></span></div></div>
+<div class="item"><input type="checkbox" checked aria-label="Create Writing Assignment tab"><div class="bd"><input class="inp" type="text" value="Writing Assignment" aria-label="Tab name"><span class="meta">Assignment Template · used by 7 activities · <a href="#">Show</a></span></div></div>
+<div class="item"><input type="checkbox" checked aria-label="Create Weekly Reflection tab"><div class="bd"><input class="inp" type="text" value="Weekly Reflection" aria-label="Tab name"><span class="meta">Assignment Template · used by 7 activities · <a href="#">Show</a></span></div></div>
+<div class="item" style="border-bottom:1px solid #dde1ea"><input type="checkbox" checked aria-label="Create Reminder Replies tab"><div class="bd"><input class="inp" type="text" value="Reminder: Replies (Not Graded)" aria-label="Tab name"><span class="meta">Assignment Template · used by 7 activities · <a href="#">Show</a></span></div></div>
+
+<button class="btn2" type="button">+ Add another tab (exam, evaluation, survey…)</button>
+
+<div class="note">Existing tabs are never changed. Only new copies are added. Page activities have no settings tab and are skipped (14).</div>
+<button class="btn" type="button">Create 5 tabs</button>
+<p class="intro" style="margin:8px 0 0">When an activity differs from the others on its tab, type the difference inside the tab. Then run Deploy Settings Tables to link each activity to its tab.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

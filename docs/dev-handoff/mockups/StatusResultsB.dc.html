@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Status Check Results B</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:Arial,sans-serif}
+.sb{width:320px;box-sizing:border-box;padding:14px 16px 20px;font-size:13px;line-height:1.5;color:#333;background:#fff;border:1px solid #aab2c8}
+.sb h3{color:#0033a0;font-size:15px;margin:0 0 4px}
+.intro{font-size:12px;color:#555;margin:0 0 12px}
+.sec{color:#0033a0;font-size:13px;font-weight:bold;margin:0 0 6px}
+.sb hr{border:0;border-top:2px solid #aab2c8;margin:14px 0}
+.btn{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;background:#fff;color:#0033a0;border:2px solid #0033a0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.hero{border:2px solid #0033a0;border-radius:4px;padding:10px 12px;margin:0 0 10px}
+.hero b{font-size:22px;line-height:1.1;color:#0033a0}
+.hero span{font-size:12px;color:#333}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile{border:1px solid #aab2c8;border-radius:3px;padding:6px 8px;display:flex;align-items:center;gap:8px}
+.tile strong{font-size:20px;line-height:1}
+.tile span{font-size:11px;color:#555;line-height:1.25}
+.sw{display:inline-block;flex:none;width:14px;height:14px;border:1px solid #555;border-radius:2px}
+.un{background:#d9d9d9}.dr{background:#fff}.gr{background:#b7e1cd}.pu{background:#d9d2e9}.ye{background:#ffff00}.bu{background:repeating-linear-gradient(135deg,#555 0 2px,#fff 2px 5px)}
+.bar{display:flex;height:16px;border:1px solid #555;border-radius:2px;overflow:hidden;margin:4px 0 4px}
+.bar span{border-right:1px solid #555}.bar span:last-child{border-right:0}
+.bar .gap{flex:none;width:4px;background:#0033a0;border-right:0}
+.key{font-size:11px;color:#555;margin:6px 0 0}
+.mod{border:1px solid #aab2c8;border-radius:4px;margin:0 0 10px;overflow:hidden}
+.mt{display:flex;justify-content:space-between;align-items:center;background:#f3f6fc;padding:8px 12px;border-bottom:1px solid #aab2c8}
+.mt strong{font-size:15px}
+.mt a{font-size:12px;color:#0033a0}
+.blk{padding:8px 12px;border-bottom:1px solid #dde1ea}
+.blk:last-child{border-bottom:0}
+.lab{font-size:11px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:.04em;margin:0 0 2px}
+.val{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}
+.val b{font-size:17px}
+.stat{font-size:12px;font-weight:bold;padding:1px 8px;border-radius:10px;border:1px solid}
+.s-in{color:#1e6b2e;border-color:#1e6b2e}
+.s-un{color:#5c4400;border-color:#7a5c00;background:#fff4ce}
+.s-ov{color:#8a1c1c;border-color:#8a1c1c;background:#fde8e8}
+.s-no{color:#555;border-color:#555}
+.sub{font-size:11px;color:#555;margin:2px 0 0}
+.sub.nr{color:#333}
+.acts{background:#f3f6fc;padding:0 12px 6px}
+.act{display:flex;gap:8px;padding:6px 0;border-top:1px dashed #aab2c8;font-size:12px}
+.act:first-of-type{border-top:0}
+.at{flex:1;min-width:0}
+.at b{display:block;font-size:12px}
+.at i{display:block;font-style:normal;font-size:11px;color:#555}
+.st{font-size:11px;white-space:nowrap;display:flex;align-items:center;gap:5px;margin-top:2px}
+.bad{color:#8a1c1c;font-weight:bold}
+.at b.tl{display:inline;font-size:11px;color:#cc0000}
+.at a{font-size:11px;color:#0033a0}
+.chk{display:flex;gap:8px;font-size:12px;margin:0 0 6px}
+.chk b{flex:none;width:16px}
+.good b{color:#1e6b2e}.bad2 b{color:#8a1c1c}
+.rad{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:0 0 8px}
+.rad input{margin:2px 0 0;width:16px;height:16px;flex:none}
+</style>
+</helmet>
+<div class="sb" style="height:2620px">
+<h3>Status Check Results</h3>
+<p class="intro">Oct 31, 10:14 a.m. · 49 activities · 7 modules</p>
+
+<div class="hero"><b>23 of 49</b> <span>activities are ready for the dev team</span>
+<div class="bar"><span class="gr" style="flex:9 1 0"></span><span class="pu" style="flex:6 1 0"></span><span class="ye" style="flex:3 1 0"></span><span class="bu" style="flex:5 1 0"></span><span class="gap"></span><span class="dr" style="flex:14 1 0"></span><span class="un" style="flex:12 1 0"></span></div>
+<p class="key">Ready = green, purple, yellow, or struck through. Not ready = text added but not highlighted for QA, or template text still there.</p></div>
+
+<div class="tiles">
+<div class="tile"><i class="sw un"></i><strong>12</strong><span>Untouched template</span></div>
+<div class="tile"><i class="sw dr"></i><strong>14</strong><span>Drafted, not highlighted</span></div>
+<div class="tile"><i class="sw gr"></i><strong>9</strong><span>Ready for QA (green)</span></div>
+<div class="tile"><i class="sw pu"></i><strong>6</strong><span>Approved by QA (purple)</span></div>
+<div class="tile"><i class="sw ye"></i><strong>3</strong><span>Revised (yellow)</span></div>
+<div class="tile"><i class="sw bu"></i><strong>5</strong><span>Built in Canvas</span></div>
+</div>
+
+<hr>
+<p class="sec">Module by module</p>
+
+<div class="mod">
+<div class="mt"><strong>Module 1</strong><a href="#">Show activities ▸</a></div>
+<div class="blk"><p class="lab">Time estimate</p><p class="val"><b>16¾ hrs</b><span class="stat s-in">✓ Within target range</span></p><p class="sub">Target is 16¼ – 19½ hrs</p></div>
+<div class="blk"><p class="lab">Ready for dev team</p><p class="val"><b>7 of 7</b></p>
+<div class="bar"><span class="pu" style="flex:2 1 0"></span><span class="ye" style="flex:1 1 0"></span><span class="bu" style="flex:4 1 0"></span></div>
+<p class="sub">All 7 are green, purple, yellow, or struck through.</p></div>
+</div>
+
+<div class="mod">
+<div class="mt"><strong>Module 2</strong><a href="#">Show activities ▸</a></div>
+<div class="blk"><p class="lab">Time estimate</p><p class="val"><b>15¼ hrs</b><span class="stat s-un">▼ Under target by 1 hr</span></p><p class="sub">Target is 16¼ – 19½ hrs</p></div>
+<div class="blk"><p class="lab">Ready for dev team</p><p class="val"><b>7 of 7</b></p>
+<div class="bar"><span class="gr" style="flex:2 1 0"></span><span class="pu" style="flex:3 1 0"></span><span class="ye" style="flex:1 1 0"></span><span class="bu" style="flex:1 1 0"></span></div>
+<p class="sub">All 7 are green, purple, yellow, or struck through.</p></div>
+</div>
+
+<div class="mod">
+<div class="mt"><strong>Module 3</strong><a href="#">Hide activities ▾</a></div>
+<div class="blk"><p class="lab">Time estimate</p><p class="val"><b>16¼ hrs</b><span class="stat s-in">✓ Within target range</span></p><p class="sub">Target is 16¼ – 19½ hrs</p></div>
+<div class="blk"><p class="lab">Ready for dev team</p><p class="val"><b>4 of 7</b></p>
+<div class="bar"><span class="gr" style="flex:3 1 0"></span><span class="pu" style="flex:1 1 0"></span><span class="gap"></span><span class="dr" style="flex:3 1 0"></span></div>
+<p class="sub nr">Not ready: 3 drafted but not highlighted.</p></div>
+<div class="acts">
+<div class="act"><div class="at"><b>3.01 Module Overview</b><i><b class="tl">Page</b> · no settings tab needed</i></div><div class="st"><i class="sw pu"></i>Approved by QA</div></div>
+<div class="act"><div class="at"><b>3.02 Readings and Multimedia</b><i><b class="tl">Page</b> · no settings tab needed</i></div><div class="st"><i class="sw gr"></i>Ready for QA</div></div>
+<div class="act"><div class="at"><b>3.03 Discussion: Topic 3</b><i><b class="tl">Discussion</b> · ✓ linked to “3.03 Discussion: Topic 3”</i></div><div class="st"><i class="sw gr"></i>Ready for QA</div></div>
+<div class="act"><div class="at"><b>3.04 Weekly Quiz</b><i><b class="tl">Quiz (Classic)</b> · ✓ linked to “3.04 Weekly Quiz”</i></div><div class="st"><i class="sw gr"></i>Ready for QA</div></div>
+<div class="act"><div class="at"><b>3.05 Reminder: Discussion Topic 3 - Replies</b><i><b class="tl">Assignment (Not Graded)</b> · ✓ linked to “3.05 Reminder: Topic 3 Replies”</i></div><div class="st"><i class="sw dr"></i>Not highlighted</div></div>
+<div class="act"><div class="at"><b>3.06 Writing Assignment</b><i class="bad"><b class="tl">Assignment</b> · ✗ not linked. Tool line still says “Link to settings tab” with no link. <a href="#">Go to it ▸</a></i></div><div class="st"><i class="sw dr"></i>Not highlighted</div></div>
+<div class="act"><div class="at"><b>3.07 Weekly reflection</b><i><b class="tl">Assignment</b> · ✓ linked to “Individual Activities”</i></div><div class="st"><i class="sw dr"></i>Not highlighted</div></div>
+</div>
+</div>
+
+<div class="mod">
+<div class="mt"><strong>Module 4</strong><a href="#">Show activities ▸</a></div>
+<div class="blk"><p class="lab">Time estimate</p><p class="val"><b>19¾ hrs</b><span class="stat s-ov">▲ Over target by ¼ hr</span></p><p class="sub">Target is 16¼ – 19½ hrs</p></div>
+<div class="blk"><p class="lab">Ready for dev team</p><p class="val"><b>3 of 7</b></p>
+<div class="bar"><span class="gr" style="flex:3 1 0"></span><span class="gap"></span><span class="dr" style="flex:4 1 0"></span></div>
+<p class="sub nr">Not ready: 4 drafted but not highlighted.</p></div>
+</div>
+
+<div class="mod">
+<div class="mt"><strong>Module 5</strong><a href="#">Show activities ▸</a></div>
+<div class="blk"><p class="lab">Time estimate</p><p class="val"><b>17 hrs</b><span class="stat s-in">✓ Within target range</span></p><p class="sub">Target is 16¼ – 19½ hrs</p></div>
+<div class="blk"><p class="lab">Ready for dev team</p><p class="val"><b>2 of 7</b></p>
+<div class="bar"><span class="gr" style="flex:1 1 0"></span><span class="ye" style="flex:1 1 0"></span><span class="gap"></span><span class="dr" style="flex:4 1 0"></span><span class="un" style="flex:1 1 0"></span></div>
+<p class="sub nr">Not ready: 4 drafted but not highlighted, 1 still template text.</p></div>
+</div>
+
+<div class="mod">
+<div class="mt"><strong>Module 6</strong><a href="#">Show activities ▸</a></div>
+<div class="blk"><p class="lab">Time estimate</p><p class="val"><b>12½ hrs</b><span class="stat s-un">▼ Under target by 3¾ hrs</span></p><p class="sub">Target is 16¼ – 19½ hrs</p></div>
+<div class="blk"><p class="lab">Ready for dev team</p><p class="val"><b>0 of 7</b></p>
+<div class="bar"><span class="dr" style="flex:3 1 0"></span><span class="un" style="flex:4 1 0"></span></div>
+<p class="sub nr">Not ready: 3 drafted but not highlighted, 4 still template text.</p></div>
+</div>
+
+<div class="mod">
+<div class="mt"><strong>Module 7</strong><a href="#">Show activities ▸</a></div>
+<div class="blk"><p class="lab">Time estimate</p><p class="val"><b>0 hrs</b><span class="stat s-no">No times entered</span></p><p class="sub">Target is 16¼ – 19½ hrs</p></div>
+<div class="blk"><p class="lab">Ready for dev team</p><p class="val"><b>0 of 7</b></p>
+<div class="bar"><span class="un" style="flex:7 1 0"></span></div>
+<p class="sub nr">Not ready: 7 still template text.</p></div>
+</div>
+
+<hr>
+<p class="sec">Other checks</p>
+<p class="chk good"><b>✓</b><span>Home: text has been added.</span></p>
+<p class="chk good"><b>✓</b><span>Instructor Guide: a URL is in place.</span></p>
+<p class="chk bad2"><b>✗</b><span>Course Suggestions: no URL found.</span></p>
+<p class="chk bad2"><b>✗</b><span>Settings table links: 31 of 35 present.</span></p>
+
+<hr>
+<p class="sec">Settings finalized</p>
+<div class="hero"><b>4 of 7</b> <span>settings table tabs are marked finalized</span>
+<div class="bar"><span class="gr" style="flex:4 1 0"></span><span class="gap"></span><span class="dr" style="flex:3 1 0"></span></div>
+<p class="key">8 tabs counted. 1 has no finalize box and is listed below, not counted as unfinished.</p></div>
+<p class="chk good"><b>✓</b><span>Discussion</span></p>
+<p class="chk good"><b>✓</b><span>Weekly Quiz</span></p>
+<p class="chk good"><b>✓</b><span>Writing Assignment</span></p>
+<p class="chk good"><b>✓</b><span>Exams</span></p>
+<p class="chk bad2"><b>✗</b><span>Weekly Reflection: not finalized</span></p>
+<p class="chk bad2"><b>✗</b><span>Reminder: Replies (Not Graded): not finalized</span></p>
+<p class="chk bad2"><b>✗</b><span>Team Member Surveys: not finalized</span></p>
+<p class="chk"><b>–</b><span>Course Settings: no “Check when settings are finalized” box found</span></p>
+<p class="intro" style="margin:6px 0 0">Template tabs were left out (4 not counted).</p>
+
+<hr>
+<p class="sec">Save this report</p>
+<p class="intro" style="margin:0 0 8px">Not saved yet. These results are only in the sidebar.</p>
+<label class="rad"><input type="radio" name="sv" checked> Don't save it</label>
+<label class="rad"><input type="radio" name="sv"> Save to a new tab in this blueprint</label>
+<label class="rad"><input type="radio" name="sv"> Save to a new Google Doc in this blueprint's folder</label>
+<button class="btn" type="button" style="background:#0033a0;color:#fff;border-color:#0033a0;margin:10px 0">Save report</button>
+<button class="btn" type="button">Run again</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":2620}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

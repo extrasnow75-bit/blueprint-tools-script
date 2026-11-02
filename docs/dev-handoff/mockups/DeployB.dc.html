@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deploy Settings Tables B</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:Arial,sans-serif}
+.sb{width:320px;box-sizing:border-box;padding:14px 16px 20px;font-size:13px;line-height:1.5;color:#333;background:#fff;border:1px solid #aab2c8}
+.sb h3{color:#0033a0;font-size:15px;margin:0 0 6px}
+.intro{font-size:12px;color:#555;margin:0 0 12px}
+.sec{color:#0033a0;font-size:13px;font-weight:bold;margin:0 0 6px}
+.sb hr{border:0;border-top:2px solid #aab2c8;margin:14px 0}
+.btn{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;background:#0033a0;color:#fff;border:0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.btn2{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;margin:0 0 8px;background:#fff;color:#0033a0;border:2px solid #0033a0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.card{border:1px solid #aab2c8;border-radius:3px;padding:8px 10px;margin:0 0 10px;font-size:12px}
+.card a{color:#0033a0}
+.bar{display:flex;height:14px;border:1px solid #555;border-radius:2px;overflow:hidden;margin:6px 0 4px}
+.bar span{border-right:1px solid #555}.bar span:last-child{border-right:0}
+.ex{background:#b7e1cd}.sg{background:#ffe599}.no{background:#f4b6b6}
+.lg{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:#555;margin:0 0 10px}
+.lg i{display:inline-block;width:10px;height:10px;border:1px solid #555;margin-right:4px;vertical-align:-1px}
+.acc{border-top:1px solid #aab2c8}
+.ah{display:flex;align-items:center;gap:8px;min-height:44px;font-size:12px;box-sizing:border-box;padding:4px 0}
+.ah strong{font-size:13px}
+.ah .tr{margin-left:auto;font-size:11px;color:#555}
+.car{width:12px;color:#0033a0;font-size:11px;flex:none}
+.okc{color:#1e6b2e;font-weight:bold}
+.warnc{color:#8a1c1c;font-weight:bold}
+.open{background:#f3f6fc;margin:0 -8px 4px;padding:0 8px 8px}
+.row{padding:8px 0;border-top:1px dashed #aab2c8}
+.row:first-of-type{border-top:0}
+.rt{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.rt b{font-size:12px}
+.tool{font-size:11px;color:#555;white-space:nowrap}
+.sel{width:100%;box-sizing:border-box;min-height:36px;margin:4px 0 2px;font:12px Arial,sans-serif;border:1px solid #767676;border-radius:3px;padding:4px 6px;background:#fff;color:#333}
+.m{font-size:11px;margin:0}
+.m.sgc{color:#5c4400}.m.noc{color:#8a1c1c;font-weight:bold}
+.prev{border:1px dashed #555;border-radius:3px;padding:8px 10px;font-size:12px;margin:0 0 10px;background:#fafafa}
+.prev b{color:#cc0000}
+.prev u{color:#0033a0}
+.unused{font-size:12px;margin:0 0 4px}
+</style>
+</helmet>
+<div class="sb" style="height:1000px">
+<h3>Deploy Settings Tables</h3>
+<p class="intro">Review the matches by module, fix any that need it, then add the links.</p>
+
+<div class="card"><strong>CS 321 Settings Tables</strong><br>Found through the Dashboard link. <a href="#">Change</a></div>
+
+<p class="sec">Match summary</p>
+<div class="bar"><span class="ex" style="flex:29 1 0"></span><span class="sg" style="flex:2 1 0"></span><span class="no" style="flex:4 1 0"></span></div>
+<p class="lg"><span><i class="ex"></i>29 exact</span><span><i class="sg"></i>2 suggested</span><span><i class="no"></i>4 no match</span></p>
+
+<hr>
+<p class="sec">By module</p>
+<div class="acc"><div class="ah"><span class="car">▸</span><strong>Module 1</strong><span class="tr"><span class="okc">✓</span> 5 of 5 matched</span></div></div>
+<div class="acc">
+<div class="ah"><span class="car">▾</span><strong>Module 2</strong><span class="tr"><span class="warnc">!</span> 2 need a look</span></div>
+<div class="open">
+<div class="row"><div class="rt"><b>2.03 Discussion: Topic 2</b><span class="tool">Discussion</span></div>
+<select class="sel" aria-label="Tab for 2.03"><option>Choose a tab…</option></select>
+<p class="m noc">No match found.</p></div>
+<div class="row"><div class="rt"><b>2.06 Writing Assignment</b><span class="tool">Assignment</span></div>
+<select class="sel" aria-label="Tab for 2.06"><option>Assignment</option></select>
+<p class="m sgc">Suggested from the tool name. Please confirm.</p></div>
+</div>
+</div>
+<div class="acc"><div class="ah"><span class="car">▸</span><strong>Module 3</strong><span class="tr"><span class="okc">✓</span> 5 of 5 matched</span></div></div>
+<div class="acc"><div class="ah"><span class="car">▸</span><strong>Module 4</strong><span class="tr"><span class="warnc">!</span> 1 needs a look</span></div></div>
+<div class="acc"><div class="ah"><span class="car">▸</span><strong>Module 5</strong><span class="tr"><span class="okc">✓</span> 5 of 5 matched</span></div></div>
+<div class="acc"><div class="ah"><span class="car">▸</span><strong>Module 6</strong><span class="tr"><span class="warnc">!</span> 1 needs a look</span></div></div>
+<div class="acc" style="border-bottom:1px solid #aab2c8"><div class="ah"><span class="car">▸</span><strong>Module 7</strong><span class="tr"><span class="okc">✓</span> 5 of 5 matched</span></div></div>
+
+<hr>
+<p class="sec">Tabs not used by any activity</p>
+<p class="unused">Team Member Surveys</p>
+<p class="unused">Exams</p>
+<p class="intro" style="margin:4px 0 0">These stay as they are. Course Settings and template tabs are never matched.</p>
+
+<hr>
+<p class="sec">What will be added</p>
+<div class="prev">Discussion <b>⏺</b> <u>Link to settings tab</u><br><span class="k" style="color:#555">The link goes on this phrase in each tool line.</span></div>
+
+<button class="btn2" type="button">Preview all 31 links</button>
+<button class="btn" type="button">Add 31 links</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

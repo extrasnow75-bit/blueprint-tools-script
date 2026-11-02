@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deploy Settings Tables A</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:Arial,sans-serif}
+.sb{width:320px;box-sizing:border-box;padding:14px 16px 20px;font-size:13px;line-height:1.5;color:#333;background:#fff;border:1px solid #aab2c8}
+.sb h3{color:#0033a0;font-size:15px;margin:0 0 6px}
+.intro{font-size:12px;color:#555;margin:0 0 12px}
+.sec{color:#0033a0;font-size:13px;font-weight:bold;margin:0 0 6px}
+.sb hr{border:0;border-top:2px solid #aab2c8;margin:14px 0}
+.btn{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;background:#0033a0;color:#fff;border:0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.card{border:1px solid #aab2c8;border-radius:3px;padding:8px 10px;margin:0 0 10px;font-size:12px}
+.card a{color:#0033a0}
+.seg{display:flex;border:1px solid #0033a0;border-radius:3px;overflow:hidden;margin:0 0 10px}
+.seg button{flex:1;min-height:36px;border:0;background:#fff;color:#0033a0;font:12px Arial,sans-serif}
+.seg button.on{background:#0033a0;color:#fff;font-weight:bold}
+.row{padding:8px 0;border-top:1px solid #dde1ea}
+.rt{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.rt b{font-size:12px}
+.tool{font-size:11px;color:#555;white-space:nowrap}
+.sel{width:100%;box-sizing:border-box;min-height:36px;margin:4px 0 2px;font:12px Arial,sans-serif;border:1px solid #767676;border-radius:3px;padding:4px 6px;background:#fff;color:#333}
+.m{font-size:11px;margin:0}
+.m.ok{color:#1e6b2e}.m.sg{color:#5c4400}.m.no{color:#8a1c1c;font-weight:bold}.m.sh{color:#555}
+.rev{background:#fff4ce;margin:0 -8px;padding:8px}
+.rev.no{background:#fde8e8}
+.more{font-size:12px;color:#555;text-align:center;padding:8px 0;border-top:1px solid #dde1ea}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:0 0 8px}
+.chk input{margin:2px 0 0;width:16px;height:16px;flex:none}
+.foot{position:sticky;bottom:0;background:#fff}
+.note{font-size:12px;border-radius:3px;padding:8px 10px;margin:0 0 10px;background:#e8f0fe;color:#1a3a7a}
+</style>
+</helmet>
+<div class="sb" style="height:1000px">
+<h3>Deploy Settings Tables</h3>
+<p class="intro">Matches each activity in the Development tab to a tab in the settings table. Change any match, then add the links under each activity's tool line.</p>
+
+<p class="sec">Settings table</p>
+<div class="card"><strong>CS 321 Settings Tables</strong><br>Found through the Dashboard link. 8 tabs. <a href="#">Choose a different file</a></div>
+
+<hr>
+<p class="sec">Activities (35)</p>
+<div class="seg"><button class="on" type="button">All 35</button><button type="button">Needs a look 4</button></div>
+
+<div class="row"><div class="rt"><b>1.03 Discussion: Topic 1</b><span class="tool">Discussion</span></div>
+<select class="sel" aria-label="Tab for 1.03"><option>Discussion</option></select>
+<p class="m ok">✓ Matched on title. Shared with 6 other activities.</p></div>
+
+<div class="row"><div class="rt"><b>1.04 Weekly Quiz</b><span class="tool">Quiz (Classic)</span></div>
+<select class="sel" aria-label="Tab for 1.04"><option>Weekly Quiz</option></select>
+<p class="m ok">✓ Exact match. Shared with 6 other activities.</p></div>
+
+<div class="row rev"><div class="rt"><b>1.06 Writing Assignment</b><span class="tool">Assignment</span></div>
+<select class="sel" aria-label="Tab for 1.06"><option>Assignment</option></select>
+<p class="m sg">Suggested from the tool name. Please confirm.</p></div>
+
+<div class="row"><div class="rt"><b>1.07 Weekly reflection</b><span class="tool">Assignment</span></div>
+<select class="sel" aria-label="Tab for 1.07"><option>Weekly Reflection</option></select>
+<p class="m ok">✓ Exact match. Shared with 6 other activities.</p></div>
+
+<div class="row rev no"><div class="rt"><b>2.03 Discussion: Topic 2</b><span class="tool">Discussion</span></div>
+<select class="sel" aria-label="Tab for 2.03"><option>Choose a tab…</option></select>
+<p class="m no">No match found. Pick a tab or leave it unlinked.</p></div>
+
+<div class="row"><div class="rt"><b>2.05 Reminder: Discussion Topic 2 - Replies</b><span class="tool">Assign. (Not Graded)</span></div>
+<select class="sel" aria-label="Tab for 2.05"><option>Reminder: Replies (Not Graded)</option></select>
+<p class="m ok">✓ Matched on title. Shared with 6 other activities.</p></div>
+
+<p class="more">29 more activities</p>
+
+<hr>
+<label class="chk"><input type="checkbox"> Replace links already there (3 found)</label>
+<p class="intro" style="margin:0 0 10px">Page activities have no settings tab and are skipped (14).</p>
+
+<div class="foot">
+<div class="note">31 of 35 matched. 4 need a choice.</div>
+<button class="btn" type="button">Add 31 links</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

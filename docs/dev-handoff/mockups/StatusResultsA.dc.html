@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Status Check Results A</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:Arial,sans-serif}
+.sb{width:320px;box-sizing:border-box;padding:14px 16px 20px;font-size:13px;line-height:1.5;color:#333;background:#fff;border:1px solid #aab2c8}
+.sb h3{color:#0033a0;font-size:15px;margin:0 0 4px}
+.intro{font-size:12px;color:#555;margin:0 0 12px}
+.sec{color:#0033a0;font-size:13px;font-weight:bold;margin:0 0 6px}
+.sb hr{border:0;border-top:2px solid #aab2c8;margin:14px 0}
+.btn{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:9px 12px;background:#fff;color:#0033a0;border:2px solid #0033a0;border-radius:3px;font:bold 13px Arial,sans-serif}
+.lg{display:flex;align-items:center;gap:8px;font-size:12px;margin:0 0 4px}
+.lg .n{margin-left:auto;font-weight:bold}
+.lg .p{width:34px;text-align:right;color:#555}
+.sw{display:inline-block;flex:none;width:14px;height:14px;border:1px solid #555;border-radius:2px}
+.un{background:#d9d9d9}.dr{background:#fff}.gr{background:#b7e1cd}.pu{background:#d9d2e9}.ye{background:#ffff00}.bu{background:repeating-linear-gradient(135deg,#555 0 2px,#fff 2px 5px)}
+.bar{display:flex;height:14px;border:1px solid #555;border-radius:2px;overflow:hidden;margin:4px 0 6px}
+.bar span{border-right:1px solid #555}.bar span:last-child{border-right:0}
+.big{height:20px;margin:0 0 10px}
+.mod{margin:0 0 10px}
+.mh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px}
+.mh strong{font-size:13px}
+.ct{font-size:11px;color:#555;margin:0}
+.chip{font-size:11px;font-weight:bold;padding:1px 7px;border-radius:9px;white-space:nowrap}
+.at{border:1px solid #1e6b2e;color:#1e6b2e}
+.under{border:1px solid #7a5c00;color:#5c4400;background:#fff4ce}
+.over{border:1px solid #8a1c1c;color:#8a1c1c;background:#fde8e8}
+.none{border:1px solid #555;color:#555}
+.chk{display:flex;gap:8px;font-size:12px;margin:0 0 6px}
+.chk b{flex:none;width:16px}
+.good b{color:#1e6b2e}.bad b{color:#8a1c1c}
+.note{font-size:12px;border-radius:3px;padding:8px 10px;margin:0 0 10px;background:#e8f0fe;color:#1a3a7a}
+</style>
+</helmet>
+<div class="sb" style="height:1080px">
+<h3>Status Check Results</h3>
+<p class="intro">Oct 31, 10:14 a.m. · 49 activities · 7 modules</p>
+
+<p class="sec">Where the activities stand</p>
+<div class="bar big">
+<span class="un" style="flex:12 1 0"></span><span class="dr" style="flex:14 1 0"></span><span class="gr" style="flex:9 1 0"></span><span class="pu" style="flex:6 1 0"></span><span class="ye" style="flex:3 1 0"></span><span class="bu" style="flex:5 1 0"></span>
+</div>
+<p class="lg"><i class="sw un"></i>Untouched template text<span class="n">12</span><span class="p">24%</span></p>
+<p class="lg"><i class="sw dr"></i>Drafted, not reviewed<span class="n">14</span><span class="p">29%</span></p>
+<p class="lg"><i class="sw gr"></i>Ready for QA (green)<span class="n">9</span><span class="p">18%</span></p>
+<p class="lg"><i class="sw pu"></i>Approved by QA (purple)<span class="n">6</span><span class="p">12%</span></p>
+<p class="lg"><i class="sw ye"></i>Revised, ready for QA (yellow)<span class="n">3</span><span class="p">6%</span></p>
+<p class="lg"><i class="sw bu"></i>Built in Canvas (struck through)<span class="n">5</span><span class="p">10%</span></p>
+
+<hr>
+<p class="sec">By module</p>
+<div class="mod"><div class="mh"><strong>Module 1</strong><span class="chip at">✓ At target · 16¾ hrs</span></div>
+<div class="bar"><span class="pu" style="flex:2 1 0"></span><span class="ye" style="flex:1 1 0"></span><span class="bu" style="flex:4 1 0"></span></div>
+<p class="ct">4 built · 2 approved · 1 revised</p></div>
+<div class="mod"><div class="mh"><strong>Module 2</strong><span class="chip under">▼ Under by 1 hr · 15¼ hrs</span></div>
+<div class="bar"><span class="gr" style="flex:2 1 0"></span><span class="pu" style="flex:3 1 0"></span><span class="ye" style="flex:1 1 0"></span><span class="bu" style="flex:1 1 0"></span></div>
+<p class="ct">1 built · 1 revised · 3 approved · 2 green</p></div>
+<div class="mod"><div class="mh"><strong>Module 3</strong><span class="chip at">✓ At target · 16¼ hrs</span></div>
+<div class="bar"><span class="dr" style="flex:3 1 0"></span><span class="gr" style="flex:3 1 0"></span><span class="pu" style="flex:1 1 0"></span></div>
+<p class="ct">1 approved · 3 green · 3 drafted</p></div>
+<div class="mod"><div class="mh"><strong>Module 4</strong><span class="chip over">▲ Over by ¼ hr · 19¾ hrs</span></div>
+<div class="bar"><span class="dr" style="flex:4 1 0"></span><span class="gr" style="flex:3 1 0"></span></div>
+<p class="ct">3 green · 4 drafted</p></div>
+<div class="mod"><div class="mh"><strong>Module 5</strong><span class="chip at">✓ At target · 17 hrs</span></div>
+<div class="bar"><span class="un" style="flex:1 1 0"></span><span class="dr" style="flex:4 1 0"></span><span class="gr" style="flex:1 1 0"></span><span class="ye" style="flex:1 1 0"></span></div>
+<p class="ct">1 revised · 1 green · 4 drafted · 1 untouched</p></div>
+<div class="mod"><div class="mh"><strong>Module 6</strong><span class="chip under">▼ Under by 3¾ hrs · 12½ hrs</span></div>
+<div class="bar"><span class="un" style="flex:4 1 0"></span><span class="dr" style="flex:3 1 0"></span></div>
+<p class="ct">3 drafted · 4 untouched</p></div>
+<div class="mod"><div class="mh"><strong>Module 7</strong><span class="chip none">No times entered</span></div>
+<div class="bar"><span class="un" style="flex:7 1 0"></span></div>
+<p class="ct">7 untouched</p></div>
+
+<hr>
+<p class="sec">Other checks</p>
+<p class="chk good"><b>✓</b><span>Home: text has been added.</span></p>
+<p class="chk good"><b>✓</b><span>Instructor Guide: a URL is in place.</span></p>
+<p class="chk bad"><b>✗</b><span>Course Suggestions: no URL found.</span></p>
+<p class="chk bad"><b>✗</b><span>Settings table links: 31 of 35 present. Missing on 3.06, 4.06, 5.05, 6.07.</span></p>
+
+<hr>
+<div class="note">Report also saved to a new tab named “Status Report”.</div>
+<button class="btn" type="button">Run again</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
