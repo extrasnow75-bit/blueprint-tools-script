@@ -146,18 +146,22 @@ Time target per module = credits × 37.5 to credits × 45 hours ÷ weeks ÷ modu
 
 Output: always shown in the sidebar. Ask (on both the setup and results screens) whether to also save the report as a new blueprint tab, a new Google Doc in the blueprint's folder, or neither. Wording for the "ready" count is still Greg's call ("Ready for dev team" vs. "Highlighted for QA or later").
 
-The "Status Check" settings-table reading needs a Sheets permission. For this tool read-only would be enough; Draft needs write (it creates tabs); Deploy only needs to read tab names. **Decide the Sheets scope for all three tools together** and list it for Greg before editing `appsscript.json`.
+The "Status Check" settings-table reading needs a Sheets permission. For this tool read-only would be enough; Draft needs write (it creates tabs); Deploy only needs to read tab names. **Also decide the Drive scope for "save to a new Google Doc in the blueprint's folder"** (used by the Status Check and the Version Check). **Decide the Sheets scope for all three tools together** and list it for Greg before editing `appsscript.json`.
 
 ### 3.5 Blueprint Tools Version Check (`Code14.gs` / `Sidebar14.html`)
 
 Added late. No mockup yet. Greg pastes code into Apps Script by hand, so this tells him which files to paste after an update.
 
-**What the sidebar shows (keep it this short; Greg said more detail is too much):**
+**Format: a pop-up dialog (light box), not a sidebar** (Greg's choice). Nothing in it is editable. Use `showModalDialog` (or `showModelessDialog` if Greg wants to keep working in the document; ask) with a fixed width and height, and let the list scroll. Keep the `Sidebar14.html` file name so it follows Greg's `Code#.gs` / `Sidebar#.html` naming rule, even though it is a dialog.
+
+**What the dialog shows (keep it this short; Greg said more detail is too much):**
 
 1. **Out-of-date files:** file name, the version date in the document, and the date of the version on GitHub `master`.
 2. **New files on GitHub that are missing from the document.**
 
 Nothing else: no "what changed" notes, no per-file explanations. If everything is current, say so in one line.
+
+**Export option (Greg asked for it):** a choice to save the results as **a new tab in the document** or **a new Google Doc in the same Drive folder as the document** (or neither). A new tab needs no new permission beyond `documents` (check that `Document.addTab` or the Docs API `addDocumentTab` request works; spike item 3). **Creating a Doc inside the document's folder very likely needs a broader Drive permission than this project has**: a new Doc is created in My Drive and moving it needs more than read-only metadata access. Not verified; test it, and if it needs a broader scope, list it for Greg before touching `appsscript.json`. This is the same question as the Status Check's identical export option (3.4).
 
 **Design (proposed; confirm details with Greg):**
 
