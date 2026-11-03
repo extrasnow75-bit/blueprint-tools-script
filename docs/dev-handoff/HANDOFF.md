@@ -164,7 +164,7 @@ Time target per module = credits × 37.5 to credits × 45 hours ÷ weeks ÷ modu
 
 **Report order (Greg's rule: roughly the order of the Development tab, Home first, media last; confirmed 2026-11-02, except where noted).** This replaces the order in the current `StatusResultsB` mockup, which has the totals at the very top.
 
-1. Header: date and time, number of activities, number of modules.
+1. Header (the report's top line, not a Development tab section; Greg approved it as is): date and time the check was run, number of activities counted, number of modules counted. It shows which version of the blueprint the report describes.
 2. Home: whether home screen text has been added, and its stage (see the Syllabus note above).
 3. Syllabus: format (written in place or linked document) and stage.
 4. Instructor Resources: Instructor Guide URL present; Course Suggestions URL present.
