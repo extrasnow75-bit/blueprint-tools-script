@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 01:38 MST
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 06:54 MST
 
      UI for "Link Project Documents" (Code10.gs). Built to
      docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
@@ -291,6 +291,7 @@ function docState() {
     var k = cb.getAttribute('data-doc'); out[k] = out[k] || { titleOn: false, sampleOn: false, othersOn: false };
     out[k].titleOn = cb.checked;
   });
+  document.querySelectorAll('[data-desc]').forEach(function (cb) { var k = cb.getAttribute('data-desc'); out[k] = out[k] || {}; out[k].descOn = cb.checked; });
   document.querySelectorAll('[data-sample]').forEach(function (cb) { var k = cb.getAttribute('data-sample'); out[k] = out[k] || {}; out[k].sampleOn = cb.checked; });
   var oa = $('othersAll'), pa = $('phAll');
   Object.keys(out).forEach(function (k) { out[k].othersOn = !!(oa && oa.checked); out[k].phOn = !!(pa && pa.checked); });
@@ -300,7 +301,8 @@ function collectState() {
   return {
     identity: identity(), slots: slotState, folderUrl: INIT.folder ? INIT.folder.url : null,
     docs: docState(),
-    catalog: { on: $('catOn').checked, text: $('desc').value, prereq: $('prereq').value, prereqOn: $('prereqOn').checked },
+    catalog: { on: $('catOn').checked, text: $('desc').value, prereq: $('prereq').value, prereqOn: $('prereqOn').checked,
+               source: (catResult && catResult.ok) ? { label: catResult.sourceLabel, url: catResult.sourceUrl } : null },
     devLinks: $('devOn').checked, replaceLinks: $('replaceOn').checked
   };
 }
@@ -319,6 +321,7 @@ function renderPreview() {
   PV.docs.forEach(function (d) {
     var titles = d.items.filter(function (i) { return i.kind === 'title'; });
     var samples = d.items.filter(function (i) { return i.kind === 'sample'; });
+    var cdescs = d.items.filter(function (i) { return i.kind === 'catalogdesc'; });
     d.items.filter(function (i) { return i.kind === 'other'; }).forEach(function (i) { othersAll.push({ doc: d.label, it: i }); });
     d.items.filter(function (i) { return i.kind === 'placeholder'; }).forEach(function (i) { phAll.push({ doc: d.label, it: i }); });
     if (d.status !== 'ok') {
@@ -338,6 +341,10 @@ function renderPreview() {
     if (changing === 0) html += '<p class="chg"><span class="k">Nothing to change in the title.</span></p>';
     if (samples.length) {
       html += '<div class="sub"><label class="chk"><input type="checkbox" data-sample="' + d.key + '" checked><span><b>Sample announcement</b><i>“Welcome to Course Name.” becomes the course name (' + samples.length + ' place' + (samples.length === 1 ? '' : 's') + ')</i></span></label></div>';
+    }
+    if (cdescs.length) {
+      html += '<div class="sub"><label class="chk"><input type="checkbox" data-desc="' + d.key + '"' + (cdescs[0].noop ? '' : ' checked') + '><span><b>Catalog description</b><i>' +
+        (cdescs[0].noop ? 'Already in this document. No change.' : 'Added as a new paragraph above the purple instructions, which stay. ' + esc(cdescs[0].after)) + '</i></span></label></div>';
     }
     html += '</div>';
   });
@@ -361,7 +368,7 @@ function renderPreview() {
   // Catalog status line
   var c = PV.catalog;
   $('catStatus').textContent = !c ? '' : (c.found
-    ? 'The “Add catalog description here” bullet was found in the Design tab. Line breaks in the description are joined into one line. Pasted ' + INIT.today + '.'
+    ? 'The “Add catalog description here” bullet was found in the Design tab. Line breaks in the description are joined into one line.' + (catResult && catResult.ok ? ' It ends with a linked “(Source: ' + catResult.sourceLabel + ')”.' : ' No source link, because the description was pasted. Pasted ' + INIT.today + '.')
     : 'The “Add catalog description here” bullet was NOT found in the Design tab (already filled in?). Nothing will be added.');
 
   // Link preview
@@ -383,7 +390,7 @@ function updateSummary() {
   PV.docs.forEach(function (d) {
     if (d.status !== 'ok' || !ds[d.key]) return;
     var n = d.items.filter(function (i) {
-      return !i.noop && ((i.kind === 'title' && ds[d.key].titleOn) || (i.kind === 'sample' && ds[d.key].sampleOn) || (i.kind === 'other' && ds[d.key].othersOn) || (i.kind === 'placeholder' && ds[d.key].phOn));
+      return !i.noop && ((i.kind === 'title' && ds[d.key].titleOn) || (i.kind === 'sample' && ds[d.key].sampleOn) || (i.kind === 'other' && ds[d.key].othersOn) || (i.kind === 'placeholder' && ds[d.key].phOn) || (i.kind === 'catalogdesc' && ds[d.key].descOn));
     }).length;
     if (n) docs++;
   });

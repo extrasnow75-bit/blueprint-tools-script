@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 02:06 MST
+// Last updated on 2026-11-03 at 06:54 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -171,8 +171,8 @@ function applyLinkDocs10(state) {
     var did = 0, ok = true;
     try {
       // Others and samples first, titles last (see swapRange10_ note).
-      ['other', 'placeholder', 'sample', 'title'].forEach(function (kind) {
-        var on = kind === 'title' ? sel.titleOn : (kind === 'sample' ? sel.sampleOn : (kind === 'placeholder' ? sel.phOn : sel.othersOn));
+      ['other', 'placeholder', 'sample', 'catalogdesc', 'title'].forEach(function (kind) {
+        var on = kind === 'title' ? sel.titleOn : (kind === 'sample' ? sel.sampleOn : (kind === 'placeholder' ? sel.phOn : (kind === 'catalogdesc' ? sel.descOn : sel.othersOn)));
         if (!on) return;
         for (var i = d._items.length - 1; i >= 0; i--) {
           var it = d._items[i];
@@ -192,7 +192,7 @@ function applyLinkDocs10(state) {
   // 2. Catalog description.
   if (plan.catalog && state.catalog && state.catalog.on) {
     try {
-      var c = applyCatalog10_(doc, plan.catalog, state.catalog.text, state.catalog.prereqOn ? state.catalog.prereq : '');
+      var c = applyCatalog10_(doc, plan.catalog, state.catalog.text, state.catalog.prereqOn ? state.catalog.prereq : '', cleanSource10_(state.catalog.source));
       report.push({ ok: c.ok, text: 'Catalog description: ' + c.text });
     } catch (e) {
       report.push({ ok: false, text: 'Catalog description: error. ' + (e && e.message || e) });
@@ -269,11 +269,12 @@ function buildPlan10_(state, forApply) {
         }
       }
       d._doc = target;
-      var scan = scanDoc10_(target, key, id);
+      var catText = state.catalog ? String(state.catalog.text || '').replace(/\s*[\r\n]+\s*/g, ' ').trim() : '';
+      var scan = scanDoc10_(target, key, id, { catalogText: catText, source: cleanSource10_(state.catalog && state.catalog.source) });
       d._items = scan.items;
       d.items = scan.items;
       d.notes = scan.notes;
-      if (!scan.items.some(function (i) { return i.kind === 'title'; })) {
+      if (!scan.items.some(function (i) { return i.kind === 'title' || i.kind === 'catalogdesc'; })) {
         d.status = 'notitle';
         d.message = key === 'eopr'
           ? 'No “COURSE XXX” found in any tab. Nothing to change.'
@@ -335,7 +336,8 @@ function docIdForSlot10_(sel) {
  * "Syllabus") is left alone. If the name on the line differs from the Course
  * name field the item carries `nameDiffers` and the sidebar warns.
  */
-function scanDoc10_(doc, slotKey, id) {
+function scanDoc10_(doc, slotKey, id, opts) {
+  opts = opts || {};
   var tabs = collectTabs(doc);
   var items = [], notes = [], titleSpans = [];   // titleSpans: {ti, ptext, s} to keep out of "others"
   var oldIds = {};
@@ -404,6 +406,22 @@ function scanDoc10_(doc, slotKey, id) {
     // "Course Title:". Template B has a title line (handled above); Template D
     // has neither, so it reports "No title line recognized".
     if (slotKey === 'schedule') scanScheduleTable10_(first.body, id, items);
+    // Syllabus: catalog description under "Course Description", if the syllabus
+    // still has the placeholder instructions. Skipped when the text is already in.
+    if (slotKey === 'syllabus' && opts.catalogText) {
+      tabs.forEach(function (t) {
+        var r = findAll10_(t.body, '^\\s*Insert Boise State catalog description')[0];
+        if (!r) return;
+        var el = r.getElement().asText();
+        var already = t.body.getText().indexOf(opts.catalogText.slice(0, 50)) !== -1;
+        items.push({
+          kind: 'catalogdesc', where: 'Course Description section',
+          before: '(placeholder instructions only)', after: snip10_(opts.catalogText) + (opts.source ? ' (Source: ' + opts.source.label + ')' : ''),
+          noop: already,
+          _run: function () { insertCatalogParagraph10_(el, opts.catalogText, opts.source); }
+        });
+      });
+    }
     if (slotKey === 'guide' && id.name) {
       tabs.forEach(function (t, ti) {
         findAll10_(t.body, 'Welcome to Course Name').forEach(function (r) {
@@ -867,6 +885,12 @@ function fetchCatalogCourse10(dept, number, level) {
     out.title = String(hit.title || '').trim();
     out.description = cleanCatalogText10_(hit.description);
     out.code = dept + ' ' + number;
+    // "Where it is from": a label like "2026-2027 Undergraduate Catalog" linked to
+    // this course's own catalog page (the page URL carries the course's pid,
+    // e.g. .../registrar-catalog/#/courses/SJ0xQ8I98, seen in Greg's browser).
+    out.sourceLabel = (cat.yearLong ? cat.yearLong + ' ' : '') + out.levelName + ' Catalog';
+    out.sourceUrl = (lvl === 'grad' ? 'https://www.boisestate.edu/graduatecatalog/' : 'https://www.boisestate.edu/registrar-catalog/') +
+                    '#/courses/' + encodeURIComponent(hit.pid);
     out.prerequisites = '';
     // The search result has no prerequisites. The course-detail request does
     // (seen in Greg's Network tab: fields prerequisites [HTML], credits.value,
@@ -906,14 +930,15 @@ function catalogFor10_(lvl) {
         var start = ym ? parseInt(ym[1], 10) : 0;
         if (!best || start > best.start) {
           best = { id: c._id || c.id, name: name, start: start,
-                   year: ym ? ym[1] + '–' + ym[2].slice(-2) : '' };
+                   year: ym ? ym[1] + '–' + ym[2].slice(-2) : '',
+                   yearLong: ym ? ym[1] + '-' + (ym[2].length === 2 ? ym[1].slice(0, 2) + ym[2] : ym[2]) : '' };
         }
       });
       if (best && best.id) return best;
     }
   } catch (e) { /* fall through to the fixed IDs */ }
   var fid = CATALOG_FALLBACK_IDS_10[lvl];
-  return { id: fid, name: '', year: lvl === 'undergrad' ? '2026–27' : '' };
+  return { id: fid, name: '', year: lvl === 'undergrad' ? '2026–27' : '', yearLong: lvl === 'undergrad' ? '2026-2027' : '' };
 }
 
 /** Strips HTML tags and the trailing newline the catalog leaves on descriptions. */
@@ -950,12 +975,13 @@ function findCatalogSpot10_(doc) {
   return { el: el, len: el.getText().length };
 }
 
-function applyCatalog10_(doc, plan, text, prereq) {
+function applyCatalog10_(doc, plan, text, prereq, source) {
   var clean = String(text || '').replace(/\s*[\r\n]+\s*/g, ' ').trim();
   if (!clean) return { ok: false, text: 'nothing to add (the box was empty).' };
   var spot = findCatalogSpot10_(doc);
   if (!spot) return { ok: false, text: 'the “Add catalog description here” bullet was not found, so nothing was added.' };
   swapRange10_(spot.el, 0, spot.len - 1, clean);
+  appendSourceLink10_(spot.el, source);
   var msg = 'added to the Design tab.';
   var pre = String(prereq || '').replace(/\s+/g, ' ').trim();
   if (pre) {
@@ -965,6 +991,50 @@ function applyCatalog10_(doc, plan, text, prereq) {
     catch (e) { msg += ' The prerequisite bullet could not be added (' + (e && e.message || e) + ').'; }
   }
   return { ok: true, text: msg };
+}
+
+/** Only a plain label and an https link are ever written. */
+function cleanSource10_(src) {
+  if (!src || !src.label || !/^https:\/\/www\.boisestate\.edu\//i.test(String(src.url || ''))) return null;
+  return { label: String(src.label).replace(/\s+/g, ' ').trim().slice(0, 80), url: String(src.url) };
+}
+
+/**
+ * Adds " (Source: <label>)" at the end of a Text element, with the link on the
+ * label only. DEFAULT wording; Greg asked for "an embedded link saying where it
+ * is from, like 2026-2027 Undergraduate Catalog".
+ */
+function appendSourceLink10_(textEl, source) {
+  if (!source) return;
+  var prefix = ' (Source: ';
+  var start = textEl.getText().length;
+  textEl.appendText(prefix + source.label + ')');
+  var ls = start + prefix.length;
+  textEl.setLinkUrl(ls, ls + source.label.length - 1, source.url);
+  // The appended text can inherit the link of what came before it; clear the
+  // closing parenthesis so only the label is a link.
+  textEl.setLinkUrl(ls + source.label.length, ls + source.label.length, null);
+}
+
+/**
+ * Syllabus: inserts the catalog description as a new black paragraph right
+ * above the purple "Insert Boise State catalog description..." instructions,
+ * which are left in place (DEFAULT: insert, never delete the instructions).
+ */
+function insertCatalogParagraph10_(instrEl, text, source) {
+  var para = instrEl.getParent(), parent = para.getParent();
+  var idx = parent.getChildIndex(para);
+  var kind = parent.getType();
+  var host = kind === DocumentApp.ElementType.BODY_SECTION ? parent.asBody()
+           : (kind === DocumentApp.ElementType.TABLE_CELL ? parent.asTableCell() : null);
+  if (!host) throw new Error('unexpected location');
+  var np = host.insertParagraph(idx, text);
+  var t = np.editAsText();
+  t.setForegroundColor('#000000'); t.setBold(false); t.setItalic(false); t.setUnderline(false);
+  var ff = instrEl.getFontFamily(0), fs = instrEl.getFontSize(0);
+  if (ff) t.setFontFamily(ff);
+  if (fs) t.setFontSize(fs);
+  appendSourceLink10_(t, source);
 }
 
 /** Inserts a copy of the paragraph/list item holding `textEl`, right after it, with new text. */
