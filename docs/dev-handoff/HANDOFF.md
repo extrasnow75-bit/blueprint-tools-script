@@ -369,6 +369,7 @@ Design points:
 - Course type probably comes from the Project Type column in section 11.
 - `File.setOwner` / `Folder.setOwner` exist in `DriveApp` (full Drive scope already added). Untested inside the Boise State domain. A transfer of a folder moves the folder only, not its contents. Non-Google files (PDF, mp4) cannot be transferred this way. Large transfers can take a day. Only the current owner (or an admin) can transfer. Possible admin policy limits are unknown.
 - It is hard to undo (the old owner stays an editor; mistakes go through a request process). So: list every file with its current owner and its target, skip what cannot move, change nothing until the user confirms, and keep it separate from Link Project Documents.
+- New project folders: the media folder (with an inner accessible-media folder) is being renamed `DEPT ### Student-Facing Content`. Match it by name, accepting `Student-Facing Content`, `Student Facing Content` and the older `Media` / `Accessible Media` names. The Instructor Guide and Course Suggestions in a new project folder are Drive shortcuts to documents that sit beside the project folder, and the syllabus may be a .docx; the ownership tool has to resolve shortcuts to their targets and skip files it cannot transfer.
 - Order: fill the IDC chip from the blueprint's owner first, transfer the blueprint last (the sidebar runs inside it).
 - A spike is needed first: transfer one throwaway doc inside the Boise State domain. Greg runs it.
 - Proposed file: `Code16.gs` / `Sidebar16.html`.
