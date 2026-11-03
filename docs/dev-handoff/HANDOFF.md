@@ -347,7 +347,7 @@ Updated this session: `Main.png` and `StatusResultsB.png` now include the settin
 Greg shared an Excel copy of the list in his personal Drive (read-only for Claude; nothing from it is stored in this repo, and the file contains faculty names, so do not paste rows here). The real tool needs the original Google Sheet.
 
 What the workbook looks like (columns and tabs only):
-- One tab per semester (Spring 2026, Summer 2026, Fall 2026, Spring 2027, Summer 2027, Fall 2027, Fall 2025), plus history tabs, an IDC capacity tab and a small extra tab. About 900 rows by 35 columns each. The tab is the **development** semester, not the semester the course is taught.
+- One tab per semester (named like `Fall 2026`), plus history tabs, an IDC capacity tab and a small extra tab. About 900 rows by 35 columns each. The tab is the **development** semester, not the semester the course is taught. eCampus work runs on **cycles** (14-week development cycles; Greg: "Fall 2026 Cycle 1", "Fall 2026 Cycle 2"), and the cycle number is in the row's `Project Start Date` column. Use the word "cycle" in the UI. Cycle dates are NOT computed or written by this tool (Greg described the cycle timing two different ways, and the side table in the copy looked overlapping); copy the tab's season and year plus the cycle label exactly as written.
 - Row 1 headers include: Course Title, Project Type, OPDP, Crs Dev Shell Creator, Status, Project Start Date (holds values such as "Cycle 1"), First taught (values such as `SP27 15wk`, `FA26 7W1`, `SU27 10wks`, `n/a`), Copy Date Overlap, FD Meeting Pref., College, Assigned IDC, IDC / QA / Build / MM / CAS (flags, not names), Dev Team Priority, Notes.
 - The project key is column C, shaped `DEPT NUM-Faculty name`. Some rows hold several codes or several faculty (for example `ENGL 101/102-...`).
 - Checked against the APPAI 505 Dashboard: `Next taught` equals column J, and `Cycle: Summer Cycle 1 (2026)` equals the tab name plus column I.
@@ -357,7 +357,7 @@ Candidate mapping to the Dashboard: Next taught = First taught; Cycle = tab name
 
 People chips: the Docs API can insert a person chip only from an email address, not a name (not yet tested). Greg says the IDC is usually the blueprint's owner, so the script can read the owner's email from Drive (`File.getOwner()`; covered by the Drive scope). Do this BEFORE any ownership transfer (section 12). Faculty developer and other names stay manual unless a directory lookup is approved (new scope, would need Greg's OK).
 
-Needs Greg's answers: which fields to scrape; where they are written (Dashboard, a preview in the sidebar, or both); whether a course in two tabs asks or takes the newest; the original sheet's ID and who has view access; the Sheets scope (read-only is enough). Proposed file: `Code15.gs` / `Sidebar15.html`, or folded into Link Project Documents. Ask Greg.
+Needs Greg's answers: which fields to scrape; where they are written (Dashboard, a preview in the sidebar, or both); what values besides "Cycle 1" / "Cycle 2" appear in the cycle column; a course deferred and listed in two tabs should ask, showing each tab and cycle (proposed, unconfirmed); the original sheet's ID and who has view access; the Sheets scope (read-only is enough). Proposed file: `Code15.gs` / `Sidebar15.html`, or folded into Link Project Documents. Ask Greg.
 
 ## 12. Ownership transfer tool (idea, not started)
 
