@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 01:05 MST
+// Last updated on 2026-11-03 at 01:13 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -69,10 +69,12 @@ var IDENTITY_ORDER_10 = ['blueprint', 'schedule', 'suggestions', 'guide', 'sylla
 
 // A department code followed by a course number: "APPAI 505", "CS 321", "ENGL101".
 var IDENT_RE_10 = /\b([A-Z]{2,8})\s*(\d{3}[A-Z]?)\b/;
-// Template placeholders: "COURSE ###", "Course ###", "COURSE XXX".
-var PLACEHOLDER_RE_10 = /\b(?:COURSE|Course)\s*(?:###|XXX)/;
+// Template placeholders: "COURSE ###", "Course ###", "COURSE XXX", and "DEPT ###"
+// (Schedule of Deliverables Template B: title "DEPT ###: Course Title" and a
+// "DEPT ### Agreement" bullet).
+var PLACEHOLDER_RE_10 = /\b(?:COURSE|Course|DEPT)\s*(?:###|XXX)/;
 // RE2 versions for Body.findText (it takes a string pattern, case-sensitive).
-var PLACEHOLDER_FIND_10 = '\\b(?:COURSE|Course)\\s*(?:###|XXX)';
+var PLACEHOLDER_FIND_10 = '\\b(?:COURSE|Course|DEPT)\\s*(?:###|XXX)';
 
 var MAX_OTHERS_SHOWN_10 = 12;
 
@@ -381,6 +383,11 @@ function scanDoc10_(doc, slotKey, id) {
       found = addTitleItem(0, paras[i].el, slotKey === 'syllabus' ? 'Title' :
         (slotKey === 'suggestions' ? 'Heading' : 'Title line'));
     }
+    // Schedule of Deliverables Templates A and C keep the course identity in a
+    // Project Information table: empty cells beside "Course Prefix/Number:" and
+    // "Course Title:". Template B has a title line (handled above); Template D
+    // has neither, so it reports "No title line recognized".
+    if (slotKey === 'schedule') scanScheduleTable10_(first.body, id, items);
     if (slotKey === 'guide' && id.name) {
       tabs.forEach(function (t, ti) {
         findAll10_(t.body, 'Welcome to Course Name').forEach(function (r) {
@@ -417,6 +424,51 @@ function scanDoc10_(doc, slotKey, id) {
   });
 
   return { items: items, notes: notes };
+}
+
+/**
+ * Fills the empty cell beside "Course Prefix/Number:" with "DEPT ###" and the
+ * one beside "Course Title:" with the course name. A cell that already holds a
+ * code gets only the code swapped; a title cell that is already filled is left
+ * alone. DEFAULT: credits, people and dates are never touched.
+ */
+function scanScheduleTable10_(body, id, items) {
+  body.getTables().forEach(function (tbl) {
+    for (var r = 0; r < tbl.getNumRows(); r++) {
+      var row = tbl.getRow(r);
+      if (row.getNumCells() < 2) continue;
+      var label = row.getCell(0).getText().replace(/\s+/g, ' ').trim();
+      var isNum = /^Course Prefix\s*\/\s*Number:?$/i.test(label);
+      var isTitle = /^Course Title:?$/i.test(label);
+      if (!isNum && !isTitle) continue;
+      var want = isNum ? id.id : id.name;
+      if (!want) continue;
+      var cell = row.getCell(1), cur = cell.getText().trim();
+      var where = 'Project Information › ' + (isNum ? 'Course Prefix/Number' : 'Course Title');
+      if (!cur) {
+        items.push({
+          kind: 'title', where: where, before: '(empty)', after: want, mode: 'placeholder', noop: false,
+          _run: (function (c, w) { return function () {
+            var first = c.getNumChildren() ? c.getChild(0) : null;
+            if (first && first.getType() === DocumentApp.ElementType.PARAGRAPH) first.asParagraph().appendText(w);
+            else c.appendParagraph(w);
+          }; })(cell, want)
+        });
+      } else if (isNum && cell.getNumChildren() === 1 && cell.getChild(0).getType() === DocumentApp.ElementType.PARAGRAPH) {
+        var ed = titleEdit10_(cur, id);
+        if (ed) {
+          var te = cell.getChild(0).asParagraph().editAsText();
+          items.push({
+            kind: 'title', where: where, before: snip10_(cur), after: snip10_(ed.after), mode: ed.mode, old: ed.old,
+            noop: ed.ops.length === 0,
+            _run: function () { ed.ops.forEach(function (op) { swapRange10_(te, op.s, op.e, op.repl); }); }
+          });
+        }
+      } else if (isTitle) {
+        items.push({ kind: 'title', where: where, before: snip10_(cur), after: snip10_(cur), mode: 'same', noop: true, _run: function () {} });
+      }
+    }
+  });
 }
 
 /**
