@@ -39,6 +39,8 @@
 
 // ── CONSTANTS ────────────────────────────────────────────────
 
+var BP_VER_Code12 = '2026-11-03 09:10';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 var MAX_TAB_NAME_12 = 100;          // Greg: names stop at 100 characters
 var TEMPLATE_TAB_RE_12 = /template/i;
 var FINALIZE_RE_12 = /settings are finalized/i;

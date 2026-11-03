@@ -2,9 +2,11 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-09-12 at 21:14 MDT
+ * Last updated on 2026-11-03 at 11:30 MST
  * ================================================================
  */
+var BP_VER_Code = '2026-11-03 11:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 const RED       = '#ff0000';
 const DEEP_BLUE = '#0033a0';
 const BLACK     = '#000000';
@@ -125,6 +127,9 @@ function onOpen() {
                                                        'showModuleDatesSidebar8')
     .addSeparator()
     .addItem('Development Status Check',               'showStatusSidebar13')
+    .addSeparator()
+    // Second from the bottom, directly above KB Article.
+    .addItem('Blueprint Tools Version Check',          'showVersionDialog14')
     .addSeparator()
     .addItem('KB Article',                             'showKbArticle')
     .addToUi();

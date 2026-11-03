@@ -19,6 +19,8 @@
 
 // ── SIDEBAR ───────────────────────────────────────────────────────
 
+var BP_VER_Code3 = '2026-07-19 09:22';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 function showTimeEstimatorSidebar() {
   const html = HtmlService.createHtmlOutputFromFile('Sidebar3')
     .setTitle('🎓 Time Estimator')

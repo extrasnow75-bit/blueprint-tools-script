@@ -35,6 +35,8 @@
 
 // ── CONSTANTS ────────────────────────────────────────────────
 
+var BP_VER_Code10 = '2026-11-03 07:13';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 var MIME_DOC_10    = 'application/vnd.google-apps.document';
 var MIME_SHEET_10  = 'application/vnd.google-apps.spreadsheet';
 var MIME_DOCX_10   = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

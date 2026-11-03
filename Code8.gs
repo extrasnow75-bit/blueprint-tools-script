@@ -35,6 +35,8 @@
 // tool writes a field ONLY where its placeholder is still present, which is
 // what makes "skip and report" work without ever clobbering a designer's own
 // text. classifyHeading7_ (Code9.gs) reads these to compute dateIsPlaceholder.
+var BP_VER_Code8 = '2026-09-07 19:51';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 var START_PLACEHOLDER_7 = 'start date';
 var END_PLACEHOLDER_7   = 'end date';
 

@@ -45,6 +45,8 @@
 // The load-bearing contract with the Blueprint template: the tool writes a
 // field ONLY where its placeholder is still present, which is what makes
 // "skip and report" work without ever clobbering a designer's own text.
+var BP_VER_Code9 = '2026-09-08 01:19';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 var TITLE_PLACEHOLDER_7 = 'Title';
 
 // Matches a module heading prefix in any of the four accepted forms:

@@ -37,6 +37,8 @@
 // ── CONSTANTS ────────────────────────────────────────────────
 
 // The words that get the link. Same phrase Code.gs writes (TOOL_SUFFIX).
+var BP_VER_Code11 = '2026-11-03 08:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 var LINK_PHRASE_11 = 'Link to settings tab';
 
 // Tabs that are never matched: the Course Settings tab and any template tab.

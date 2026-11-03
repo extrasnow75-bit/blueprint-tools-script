@@ -9,6 +9,8 @@
 // CONSTANTS
 // -----------------------------------------------------------
 
+var BP_VER_Code2 = '2026-09-25 14:25';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 const DEFAULT_SOURCE_URL =
   'https://docs.google.com/document/d/1jTBx3itcf-sI8RFbxzFEpGjkPZ-uFRsXJlWcgKhgywM/edit';
 

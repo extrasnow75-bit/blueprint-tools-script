@@ -10,6 +10,7 @@ Google Apps Script project bound to course blueprint Google Docs. Menu: 🎓 Blu
 - New files follow the numbering: `Code10.gs` / `Sidebar10.html`, then 11, 12, 13.
 - All `.gs` files share one global namespace. Suffix every new function and constant with the file number (e.g. `showLinkDocsSidebar10`), end private helpers with `_`, and grep before defining a name. Reuse existing helpers; do not copy them.
 - Match the header style at the top of `Code9.gs`, including the `Last updated on` line.
+- Before every commit that changes a `Code*.gs` or `Sidebar*.html` file, update its `Last updated on` header, then run `python3 scripts/version_manifest.py --sync` (it updates each file's `BP_VER_` stamp and `version-manifest.json`) and `--check`. The Version Check tool (`Code14.gs`) reads these.
 - Do not add OAuth scopes to `appsscript.json` without listing them and getting Greg's OK; a new scope changes the authorization prompt for every user.
 - Tools preview changes and apply only what the user confirms. Never overwrite user content silently.
 - No tool may ever tick the settings table's "Check when settings are finalized:" box.

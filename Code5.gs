@@ -15,6 +15,8 @@
 
 // ── SIDEBAR OPENER ───────────────────────────────────────────
 
+var BP_VER_Code5 = '2026-08-30 13:36';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 function showModelModuleNoAiSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar5')
     .setTitle('Create Model Module')

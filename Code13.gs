@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 10:30 MST
+// Last updated on 2026-11-03 at 11:30 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,6 +45,8 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
+var BP_VER_Code13 = '2026-11-03 11:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
   untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)',
@@ -195,9 +197,17 @@ function runStatusCheck13(opts) {
  * @returns {{url: string, label: string}}
  */
 function saveStatusReport13(report, dest) {
-  var lines = reportLines13_(report);
   var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-  var title = 'Status Check ' + stamp;
+  return saveLines13_(reportLines13_(report), 'Status Check ' + stamp, dest, report.blueprint);
+}
+
+/**
+ * Writes a list of {text, h} lines to a new tab in this blueprint (dest 'tab') or
+ * a new Google Doc in the blueprint's folder (dest 'doc'). Shared with the
+ * Version Check (Code14.gs). Never touches existing content.
+ * @returns {{url: string, label: string}}
+ */
+function saveLines13_(lines, title, dest, blueprintName) {
   var doc = DocumentApp.getActiveDocument();
   if (dest === 'tab') {
     if (typeof doc.addTab !== 'function') throw new Error('This version of Apps Script cannot add a tab from a script. Use “new Google Doc” instead.');
@@ -208,7 +218,7 @@ function saveStatusReport13(report, dest) {
     return { url: doc.getUrl(), label: 'New tab “' + title + '” in this blueprint' };
   }
   if (dest === 'doc') {
-    var nd = DocumentApp.create(report.blueprint + ' - ' + title);
+    var nd = DocumentApp.create((blueprintName || doc.getName()) + ' - ' + title);
     writeLines13_(nd.getBody(), lines);
     nd.saveAndClose();
     try {

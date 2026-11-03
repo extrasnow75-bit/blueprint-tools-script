@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar14.html | Last updated on 2026-11-03 at 11:30 MST
+
+     Pop-up dialog (light box) for "Blueprint Tools Version Check" (Code14.gs).
+     Despite the Sidebar name (kept to follow the Code#/Sidebar# naming rule) it
+     opens with showModalDialog. Nothing in it is editable. Shows only: files
+     that are out of date, files on master that are missing here, and files here
+     that master does not have. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_blank">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #333; padding: 14px 16px; }
+    h3 { color: #0033a0; font-size: 15px; margin: 0 0 4px; }
+    .sub { font-size: 12px; color: #555; margin: 0 0 10px; }
+    .sec { color: #0033a0; font-size: 13px; font-weight: bold; margin: 12px 0 4px; }
+    .scroll { max-height: 270px; overflow-y: auto; padding-right: 4px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th { text-align: left; font-size: 11px; color: #555; border-bottom: 1px solid #aab2c8; padding: 2px 6px 2px 0; }
+    td { padding: 3px 6px 3px 0; border-bottom: 1px dotted #dde1ea; }
+    .ok { background: #e6f4ea; color: #1e3d26; border: 1px solid #1e6b2e; border-radius: 3px; padding: 8px 10px; }
+    .err { background: #fde7e7; color: #8a1c1c; border: 1px solid #8a1c1c; border-radius: 3px; padding: 8px 10px; }
+    .note { background: #fff4ce; color: #5c4400; border: 1px solid #7a5c00; border-radius: 3px; padding: 8px 10px; margin-top: 8px; }
+    .bar { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    button { min-height: 40px; padding: 6px 12px; border-radius: 3px; font: bold 12px Arial, sans-serif; cursor: pointer; background: #fff; color: #0033a0; border: 2px solid #0033a0; }
+    button.pri { background: #0033a0; color: #fff; border: 0; }
+    button:focus-visible { outline: 2px solid #0033a0; outline-offset: 2px; }
+    #msg { font-size: 12px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<h3>Blueprint Tools Version Check</h3>
+<p class="sub" id="sub">Checking against GitHub master…</p>
+<div id="out" aria-live="polite"></div>
+<div class="bar" id="bar" hidden>
+  <button type="button" id="saveTab">Save as a new tab</button>
+  <button type="button" id="saveDoc">Save as a Google Doc in this folder</button>
+  <button type="button" class="pri" id="close">Close</button>
+</div>
+<div id="msg" aria-live="polite"></div>
+
+<script>
+var R = null;
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+function tbl(rows, cols) {
+  return '<table><tr>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '</tr>' +
+    rows.map(function (r) { return '<tr>' + cols.map(function (c) { return '<td>' + esc(r[c[1]] || '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>';
+}
+
+google.script.run.withSuccessHandler(function (r) {
+  R = r; $('bar').hidden = false;
+  $('close').addEventListener('click', function () { google.script.host.close(); });
+  if (!r.ok) { $('sub').textContent = ''; $('out').innerHTML = '<div class="err">' + esc(r.error) + '</div>'; $('saveTab').hidden = true; $('saveDoc').hidden = true; return; }
+  $('sub').textContent = 'Checked ' + r.checkedAt + ' against the released version on GitHub (master).';
+  var h = '', clean = !r.outdated.length && !r.missing.length && !r.newer.length && !r.extra.length;
+  if (clean) h = '<div class="ok">All ' + r.total + ' files are current with master.</div>';
+  else {
+    h = '<div class="scroll">';
+    if (r.outdated.length) h += '<p class="sec">Out of date: paste these again</p>' + tbl(r.outdated, [['File', 'file'], ['Yours', 'yours'], ['Master', 'master']]);
+    if (r.missing.length) h += '<p class="sec">On master but missing from this document: paste these</p>' + tbl(r.missing, [['File', 'file'], ['Master', 'master']]);
+    if (r.newer.length) h += '<p class="sec">Newer than master</p>' + tbl(r.newer, [['File', 'file'], ['Yours', 'yours'], ['Master', 'master']]);
+    if (r.extra.length) h += '<p class="sec">Not on master</p>' + tbl(r.extra, [['File', 'file'], ['Yours', 'yours']]);
+    h += '</div>';
+    if (r.newer.length || r.extra.length) h += '<div class="note">You have ' + (r.extra.length ? 'files that are not on master' : 'files that are newer than master') + '. You are likely working with some test scripts that haven’t been officially released yet.</div>';
+    if (!r.outdated.length && !r.missing.length) h += '<p class="sub" style="margin-top:8px">Everything else (' + r.current + ' of ' + r.total + ' files) is current.</p>';
+  }
+  $('out').innerHTML = h;
+  $('saveTab').addEventListener('click', function () { save('tab'); });
+  $('saveDoc').addEventListener('click', function () { save('doc'); });
+}).withFailureHandler(function (e) {
+  $('sub').textContent = ''; $('out').innerHTML = '<div class="err">Could not run the check: ' + esc(e && e.message || e) + '</div>';
+  $('bar').hidden = false; $('saveTab').hidden = true; $('saveDoc').hidden = true;
+  $('close').addEventListener('click', function () { google.script.host.close(); });
+}).runVersionCheck14();
+
+function save(dest) {
+  $('msg').textContent = 'Saving…';
+  google.script.run.withSuccessHandler(function (s) { $('msg').innerHTML = 'Saved: <a href="' + esc(s.url) + '">' + esc(s.label) + '</a>'; })
+    .withFailureHandler(function (e) { $('msg').innerHTML = '<span style="color:#8a1c1c">Could not save: ' + esc(e && e.message || e) + '</span>'; })
+    .saveVersionReport14(R, dest);
+}
+</script>
+</body>
+</html>
