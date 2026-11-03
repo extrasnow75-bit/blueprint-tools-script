@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 01:05 MST
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 01:14 MST
 
      UI for "Link Project Documents" (Code10.gs). Built to
      docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
@@ -292,8 +292,8 @@ function docState() {
     out[k].titleOn = cb.checked;
   });
   document.querySelectorAll('[data-sample]').forEach(function (cb) { var k = cb.getAttribute('data-sample'); out[k] = out[k] || {}; out[k].sampleOn = cb.checked; });
-  var oa = $('othersAll');
-  Object.keys(out).forEach(function (k) { out[k].othersOn = !!(oa && oa.checked); });
+  var oa = $('othersAll'), pa = $('phAll');
+  Object.keys(out).forEach(function (k) { out[k].othersOn = !!(oa && oa.checked); out[k].phOn = !!(pa && pa.checked); });
   return out;
 }
 function collectState() {
@@ -315,11 +315,12 @@ function doPreview() {
 }
 
 function renderPreview() {
-  var html = '', othersAll = [];
+  var html = '', othersAll = [], phAll = [];
   PV.docs.forEach(function (d) {
     var titles = d.items.filter(function (i) { return i.kind === 'title'; });
     var samples = d.items.filter(function (i) { return i.kind === 'sample'; });
     d.items.filter(function (i) { return i.kind === 'other'; }).forEach(function (i) { othersAll.push({ doc: d.label, it: i }); });
+    d.items.filter(function (i) { return i.kind === 'placeholder'; }).forEach(function (i) { phAll.push({ doc: d.label, it: i }); });
     if (d.status !== 'ok') {
       html += '<div class="doc"><label class="ch"><input type="checkbox" disabled><span><b class="dim">' + esc(d.label) + '</b></span></label>' +
         '<p class="chg"><span class="m ' + (d.status === 'error' ? 'no' : 'sh') + '">' + esc(d.message) + '</span></p></div>';
@@ -340,6 +341,12 @@ function renderPreview() {
     }
     html += '</div>';
   });
+  if (phAll.length) {
+    html += '<div class="doc"><label class="ch"><input type="checkbox" id="phAll" checked><span><b>Leftover placeholders (' + phAll.length + ' found)</b></span></label>' +
+      '<p class="chg"><button type="button" class="linkbtn" id="showPh">Show</button> <span class="k">Unfilled “DEPT ###”-style text elsewhere in the documents. Each becomes the course code.</span></p>' +
+      '<div class="items" id="phList" hidden>' + phAll.slice(0, 40).map(function (o) { return '<div><span class="k">' + esc(o.doc) + ' · ' + esc(o.it.where) + '</span><br>' + esc(o.it.before) + '</div>'; }).join('') +
+      (phAll.length > 40 ? '<div class="k">…and ' + (phAll.length - 40) + ' more.</div>' : '') + '</div></div>';
+  }
   if (othersAll.length) {
     html += '<div class="doc" style="border-bottom:1px solid #dde1ea"><label class="ch"><input type="checkbox" id="othersAll"><span><b>Other matches (' + othersAll.length + ' found, not changed)</b></span></label>' +
       '<p class="chg"><button type="button" class="linkbtn" id="showOthers">Show</button> <span class="k">Same wording as the old code, but not the title itself, such as link text. Tick to replace them too.</span></p>' +
@@ -347,6 +354,7 @@ function renderPreview() {
       (othersAll.length > 40 ? '<div class="k">…and ' + (othersAll.length - 40) + ' more.</div>' : '') + '</div></div>';
   }
   $('docs').innerHTML = html;
+  if ($('showPh')) $('showPh').addEventListener('click', function () { var l = $('phList'); l.hidden = !l.hidden; this.textContent = l.hidden ? 'Show' : 'Hide'; });
   if ($('showOthers')) $('showOthers').addEventListener('click', function () { var l = $('othersList'); l.hidden = !l.hidden; this.textContent = l.hidden ? 'Show' : 'Hide'; });
   $('docs').querySelectorAll('input').forEach(function (c) { c.addEventListener('change', updateSummary); });
 
@@ -375,7 +383,7 @@ function updateSummary() {
   PV.docs.forEach(function (d) {
     if (d.status !== 'ok' || !ds[d.key]) return;
     var n = d.items.filter(function (i) {
-      return !i.noop && ((i.kind === 'title' && ds[d.key].titleOn) || (i.kind === 'sample' && ds[d.key].sampleOn) || (i.kind === 'other' && ds[d.key].othersOn));
+      return !i.noop && ((i.kind === 'title' && ds[d.key].titleOn) || (i.kind === 'sample' && ds[d.key].sampleOn) || (i.kind === 'other' && ds[d.key].othersOn) || (i.kind === 'placeholder' && ds[d.key].phOn));
     }).length;
     if (n) docs++;
   });

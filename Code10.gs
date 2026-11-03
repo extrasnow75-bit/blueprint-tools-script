@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 01:13 MST
+// Last updated on 2026-11-03 at 01:14 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -165,8 +165,8 @@ function applyLinkDocs10(state) {
     var did = 0, ok = true;
     try {
       // Others and samples first, titles last (see swapRange10_ note).
-      ['other', 'sample', 'title'].forEach(function (kind) {
-        var on = kind === 'title' ? sel.titleOn : (kind === 'sample' ? sel.sampleOn : sel.othersOn);
+      ['other', 'placeholder', 'sample', 'title'].forEach(function (kind) {
+        var on = kind === 'title' ? sel.titleOn : (kind === 'sample' ? sel.sampleOn : (kind === 'placeholder' ? sel.phOn : sel.othersOn));
         if (!on) return;
         for (var i = d._items.length - 1; i >= 0; i--) {
           var it = d._items[i];
@@ -415,8 +415,13 @@ function scanDoc10_(doc, slotKey, id) {
       var text = el.getText();
       var isTitle = titleSpans.some(function (ts) { return ts.ti === ti && ts.ptext === text && ts.s === s; });
       if (isTitle) return;
+      // DEFAULT: a leftover placeholder ("DEPT ###", "COURSE ###") is NOT an old
+      // title, so it gets its own group, checked by default (Schedule Template E
+      // has about a dozen "DEPT ### <document>" link labels). Old codes stay
+      // unchecked ("other"), per the handoff.
+      var isPh = PLACEHOLDER_RE_10.test(text.substring(s, e + 1));
       items.push({
-        kind: 'other', where: 'Tab “' + t.title + '”',
+        kind: isPh ? 'placeholder' : 'other', where: 'Tab “' + t.title + '”',
         before: snip10_(text, s), after: id.id, noop: false,
         _run: function () { swapRange10_(el, s, e, id.id); }
       });
@@ -485,7 +490,7 @@ function titleEdit10_(text, id) {
   if (m) {
     mode = 'placeholder'; old = m[0]; start = m.index;
     // "COURSE ###: Title" / "Course ###: Course Title": the name goes in too.
-    var tail = /:\s*(?:Course Title|Title)\s*$/.exec(text);
+    var tail = /:\s*(?:\[?Course (?:Title|Name)\]?|Title)\s*$/.exec(text);
     if (tail && id.name && tail.index > m.index) {
       ops.push({ s: tail.index, e: tail.index + tail[0].length - 1, repl: ': ' + id.name });
     }
