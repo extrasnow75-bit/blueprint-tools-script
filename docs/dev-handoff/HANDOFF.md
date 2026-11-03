@@ -157,6 +157,16 @@ Time target per module = credits × 37.5 to credits × 45 hours ÷ weeks ÷ modu
   - The tab is **always named exactly "Creative Brief."**
 - The mockups (`Main.png`, `StatusResultsB.png`) do **not** show this check yet. Add a "Media deliverables (Creative Brief tab)" checkbox to the setup screen and the callout to the results screen.
 
+**Report order (Greg's rule: roughly the order of the Development tab, Home first, media last; confirmed 2026-11-02, except where noted).** This replaces the order in the current `StatusResultsB` mockup, which has the totals at the very top.
+
+1. Header: date and time, number of activities, number of modules.
+2. Home: whether home screen text has been added.
+3. Instructor Resources: Instructor Guide URL present; Course Suggestions URL present.
+4. **Course totals** (Greg asked for these before the modules): activities ready for the dev team out of the total; the six stage counts (untouched, drafted, green, purple, yellow, built); total settings table links present out of those expected. *Placement after Instructor Resources and before the modules is my reading; Greg did not say whether totals go above Home. Ask if it matters.*
+5. Modules in order (Module 1, 2, 3 …): time estimate vs. target; ready count with stage breakdown; expandable activity list with each activity's stage and, for non-Page tools, its settings table link status.
+6. Settings table tabs: how many tabs are marked finalized out of those counted, each tab listed (Course Settings shown as "no finalize box found" if it has none).
+7. Media deliverables (Creative Brief tab), last: a colored alert callout for Completed items with a Final Link that are not ticked as added to the Dev tab; a smaller warning for ticked items with no Final Link; counts by media status (Cancelled ignored). Open question put to Greg: also show a one-line pointer to this alert at the very top of the report when there is something to act on.
+
 Output: always shown in the sidebar. Ask (on both the setup and results screens) whether to also save the report as a new blueprint tab, a new Google Doc in the blueprint's folder, or neither. Wording for the "ready" count is still Greg's call ("Ready for dev team" vs. "Highlighted for QA or later").
 
 The "Status Check" settings-table reading needs a Sheets permission. For this tool read-only would be enough; Draft needs write (it creates tabs); Deploy only needs to read tab names. **Also decide the Drive scope for "save to a new Google Doc in the blueprint's folder"** (used by the Status Check and the Version Check). **Decide the Sheets scope for all three tools together** and list it for Greg before editing `appsscript.json`.
