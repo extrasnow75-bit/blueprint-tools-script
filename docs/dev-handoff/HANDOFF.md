@@ -77,6 +77,7 @@ Mockup: `mockups/LinkDocs.png` (updated 2026-11-02 to show Dept / Number / Name,
 - The user confirms each match with a dropdown, and can paste a URL for anything missing.
 - Add links on the Dashboard. Also add the Instructor Guide and Course Suggestions links in the Development tab's Instructor Resources.
 - Course Suggestions (and the End-of-Project Report) may not exist; skip with a notice and let the user paste a URL.
+- Copying the End-of-Project Report template into the project folder is NOT part of Link Project Documents or the planned setup-data tool (Greg, 2026-11-03): a different tool does that. Link Project Documents only fills in and links a report copy that already exists in the folder.
 - Greg always has edit access to the project documents, but not to the template files.
 
 **B. Fill the course identity into project documents.** Sidebar fields: **Dept**, **Course number**, **Course name**, with a live preview. Per-document preview with a checkbox per document, shown before any change. Documents (six):
