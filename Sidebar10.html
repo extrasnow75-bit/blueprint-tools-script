@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 01:14 MST
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 01:38 MST
 
      UI for "Link Project Documents" (Code10.gs). Built to
      docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
@@ -272,7 +272,7 @@ function wirePick() {
 }
 function slotRow(s, flagged) {
   var opts = '<option value="">' + (s.options.length ? 'No file chosen' : 'No file found') + '</option>' +
-    s.options.map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === s.guess ? ' selected' : '') + '>' + esc(o.name) + '</option>'; }).join('');
+    s.options.map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === s.guess ? ' selected' : '') + '>' + esc(o.name) + (o.note ? ' (' + esc(o.note) + ')' : '') + '</option>'; }).join('');
   var msg = s.matches === 0 ? (s.options.length ? '<p class="m no">Nothing in the folder matches by name. Pick one or paste a URL.</p>' : '<p class="m no">Nothing in the folder matches.</p>')
           : (s.matches > 1 ? '<p class="m sg">' + s.matches + ' files match. Please confirm.</p>' : '<p class="m ok">✓ Matched on name and type.</p>');
   if (s.optional && s.matches === 0) msg = '<p class="m sh">No file found. Optional, so it stays blank unless you pick or paste one.</p>';

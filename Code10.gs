@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 01:14 MST
+// Last updated on 2026-11-03 at 01:38 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -37,6 +37,8 @@
 
 var MIME_DOC_10    = 'application/vnd.google-apps.document';
 var MIME_SHEET_10  = 'application/vnd.google-apps.spreadsheet';
+var MIME_DOCX_10   = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+var MIME_SHORTCUT_10 = 'application/vnd.google-apps.shortcut';
 
 // The six documents the identity step can touch. `label` is the sidebar name;
 // `nameRe` finds the file in the blueprint's folder; `dash` is the Dashboard
@@ -242,6 +244,16 @@ function buildPlan10_(state, forApply) {
         if (!docId) {
           d.status = 'skipped';
           d.message = 'No document chosen. Skipped. Paste a URL in section 4 if there is one.';
+          docs.push(d); return;
+        }
+        // A Word (.docx) file cannot be opened with DocumentApp. Say so plainly.
+        var mimeOf = '';
+        try { mimeOf = DriveApp.getFileById(docId).getMimeType(); } catch (e0) { /* fall through to the open error below */ }
+        if (mimeOf && mimeOf !== MIME_DOC_10) {
+          d.status = 'skipped';
+          d.message = mimeOf === MIME_DOCX_10
+            ? 'This is a Word (.docx) file, which the tool cannot edit. It can still be linked. To fill in the title, open it in Google Docs (File > Save as Google Docs) and run the tool again, or edit it by hand.'
+            : 'This file is not a Google Doc, so the tool cannot edit it.';
           docs.push(d); return;
         }
         try {
@@ -637,10 +649,22 @@ function loadFolderBundle10_(doc, folderId) {
   var files = [], it = folder.getFiles(), n = 0;
   while (it.hasNext() && n < 300) {
     var f = it.next(); n++;
-    if (f.getId() === doc.getId()) continue;               // never offer the bound blueprint itself
-    var mime = f.getMimeType();
-    var type = mime === MIME_DOC_10 ? 'doc' : (mime === MIME_SHEET_10 ? 'sheet' : 'other');
-    files.push({ id: f.getId(), name: f.getName(), type: type, url: f.getUrl() });
+    var mime = f.getMimeType(), fid = f.getId(), shortcut = false;
+    // New project folders hold SHORTCUTS to the Instructor Guide and Course
+    // Suggestions (the real documents sit beside the project folder until they
+    // are moved to the program folder). Resolve each shortcut to its target, so
+    // the tool links and edits the real document, but keep the shortcut's name,
+    // which carries the project name.
+    if (mime === MIME_SHORTCUT_10) {
+      var tid = f.getTargetId();
+      if (!tid) continue;
+      fid = tid; mime = f.getTargetMimeType(); shortcut = true;
+    }
+    if (fid === doc.getId()) continue;                     // never offer the bound blueprint itself
+    var type = mime === MIME_DOC_10 ? 'doc' : (mime === MIME_SHEET_10 ? 'sheet' : (mime === MIME_DOCX_10 ? 'docx' : 'other'));
+    var url = type === 'doc' ? 'https://docs.google.com/document/d/' + fid + '/edit'
+            : (type === 'sheet' ? 'https://docs.google.com/spreadsheets/d/' + fid + '/edit' : f.getUrl());
+    files.push({ id: fid, name: f.getName(), type: type, shortcut: shortcut, url: url });
   }
   files.sort(function (a, b) { return a.name < b.name ? -1 : 1; });
 
@@ -648,12 +672,14 @@ function loadFolderBundle10_(doc, folderId) {
   var slots = LINKDOCS_SLOTS_10.map(function (s) {
     // Ignore a leading "Copy of " when matching. The type filter is what keeps
     // the generated "Video List - <blueprint title>" sheet from matching.
-    var cands = files.filter(function (f) { return f.type === s.type; });
+    // A Word (.docx) file counts as a "doc": it can be linked, but not edited
+    // (see buildPlan10_).
+    var cands = files.filter(function (f) { return f.type === s.type || (s.type === 'doc' && f.type === 'docx'); });
     var hits = cands.filter(function (f) { return s.nameRe.test(f.name.replace(/^copy of\s+/i, '')); });
     var lab = findDashLabel10_(dash.body, s.dash);
     return {
       key: s.key, label: s.label, short: s.short, type: s.type, optional: s.optional,
-      options: cands.map(function (f) { return { id: f.id, name: f.name }; }),
+      options: cands.map(function (f) { return { id: f.id, name: f.name, note: f.type === 'docx' ? 'Word file' : (f.shortcut ? 'shortcut' : '') }; }),
       guess: hits.length ? hits[0].id : null,
       matches: hits.length,
       hasLabel: !!lab,
