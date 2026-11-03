@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 01:38 MST
+// Last updated on 2026-11-03 at 02:06 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -75,6 +75,10 @@ var IDENT_RE_10 = /\b([A-Z]{2,8})\s*(\d{3}[A-Z]?)\b/;
 // (Schedule of Deliverables Template B: title "DEPT ###: Course Title" and a
 // "DEPT ### Agreement" bullet).
 var PLACEHOLDER_RE_10 = /\b(?:COURSE|Course|DEPT)\s*(?:###|XXX)/;
+// For TITLE LINES only: also a department already filled in beside the number
+// placeholder, e.g. the AMI syllabus template's "AMI ### Syllabus". Not used for
+// the whole-document "leftover placeholders" scan, where it could match too much.
+var TITLE_PLACEHOLDER_RE_10 = /\b(?:COURSE|Course|DEPT|[A-Z]{2,8})\s*(?:###|XXX)/;
 // RE2 versions for Body.findText (it takes a string pattern, case-sensitive).
 var PLACEHOLDER_FIND_10 = '\\b(?:COURSE|Course|DEPT)\\s*(?:###|XXX)';
 
@@ -498,7 +502,7 @@ function scanScheduleTable10_(body, id, items) {
  */
 function titleEdit10_(text, id) {
   var ops = [], m, mode, old, start;
-  m = PLACEHOLDER_RE_10.exec(text);
+  m = TITLE_PLACEHOLDER_RE_10.exec(text);
   if (m) {
     mode = 'placeholder'; old = m[0]; start = m.index;
     // "COURSE ###: Title" / "Course ###: Course Title": the name goes in too.
