@@ -144,6 +144,16 @@ Time target per module = credits × 37.5 to credits × 45 hours ÷ weeks ÷ modu
 
 **Settings-table finalized check (added late).** Row text `Check when settings are finalized:` followed by a checkbox, one per settings-table tab. Match on the shorter phrase "settings are finalized" and find the row by text, not position. Report "N of M tabs finalized", with each tab listed. Tabs with "Template" in the name start unchecked; every other tab (including Course Settings) starts checked; the user can toggle each one. A tab with no such row is listed as "no finalize box found", not counted as unfinished. **Read-only: no tool may tick this box.** Activity-level counting ("31 of 35 activities have finalized settings") is a possible later addition via the links Deploy writes.
 
+**Media deliverables check (added late; Greg's screenshot and description).** Each blueprint has a **Creative Brief** tab (the blueprint has about 5 tabs: Dashboard, Design, Development, Creative Brief, and one more). It has a section called **"Media Deliverables"** with a table. Columns (from the template and the filled-in APPAI 507 report's Media Summary): Media Type | Title | Duration | Notes | **Final Link (Embed in Canvas)** | **Link Added to Dev Tab (IDC)** | **Media Status**. In Greg's screenshot, "Link Added to Dev Tab (IDC)" holds a **checkbox** (one row ticked, one not), "Media Status" holds a **dropdown chip** (for example "Completed"), and Notes holds date chips.
+
+- Find the section by its heading text and the table after it. **Find the columns by header text, not position** ("Final Link", "Link Added to Dev Tab", "Media Status"; the headers have extra words and sometimes a link).
+- **Headline result, shown prominently (a callout near the top of the results, above the activity counts):** media items whose **Media Status is Completed and that have a Final Link, but whose "Link Added to Dev Tab (IDC)" box is not ticked.** List each by media type and title, with a "Go to it" link to its row. If there are none, say so in one line.
+- Secondary: counts of media items by Media Status value.
+- **Read-only, like the settings-table box: never tick the "Link Added to Dev Tab" box.**
+- **Unverified and the main risk:** whether the checkbox's ticked/unticked state can be read. It may be a Docs checklist item, a smart chip, or something else; a checked checklist item may only show as struck-through text, which would not exist in an empty cell. **Spike first (item 8 below).** If the state cannot be read, a fallback is to ask Greg to have the template's column changed to a dropdown chip (for example Yes / No), which the Docs API can read the same way as the Credits chip. Ask Greg before assuming.
+- Open questions for Greg: (a) what are the Media Status options, and does "Completed" alone mean complete? (b) should it also flag rows that are ticked but have no Final Link? (c) is the tab name always exactly "Creative Brief"?
+- The mockups (`Main.png`, `StatusResultsB.png`) do **not** show this check yet. Add a "Media deliverables (Creative Brief tab)" checkbox to the setup screen and the callout to the results screen.
+
 Output: always shown in the sidebar. Ask (on both the setup and results screens) whether to also save the report as a new blueprint tab, a new Google Doc in the blueprint's folder, or neither. Wording for the "ready" count is still Greg's call ("Ready for dev team" vs. "Highlighted for QA or later").
 
 The "Status Check" settings-table reading needs a Sheets permission. For this tool read-only would be enough; Draft needs write (it creates tabs); Deploy only needs to read tab names. **Also decide the Drive scope for "save to a new Google Doc in the blueprint's folder"** (used by the Status Check and the Version Check). **Decide the Sheets scope for all three tools together** and list it for Greg before editing `appsscript.json`.
@@ -207,6 +217,7 @@ Put these in something like `Spikes.gs` and delete them afterward. Greg must run
 5. **Read settings-table checkboxes** (`getValue()` returns true/false) with the narrowest Sheets scope that works.
 6. **Global lookup of stamps:** confirm a top-level `var` in one `.gs` file is readable from another via `globalThis` (needed by 3.5).
 7. **Fetch the manifest** from raw.githubusercontent.com with `UrlFetchApp` inside a blueprint-bound script.
+8. **Read the Creative Brief media table:** with the Docs API, fetch the Creative Brief tab of a real blueprint, find the Media Deliverables table, and print for each row the Final Link text, the Media Status dropdown's display value, and whatever distinguishes a ticked "Link Added to Dev Tab (IDC)" box from an unticked one (compare two rows: one ticked, one not). This decides whether the media check is feasible as designed.
 
 ## 5. Test files (Google Drive)
 
