@@ -26,10 +26,9 @@
 //   dashboardTab10_, findDashLabel10_, LINKDOCS_SLOTS_10     (Code10.gs)
 //   pub10_                                                   (Code10.gs)
 //
-// SCOPES. Reads tab names with SpreadsheetApp.openById, which needs a Sheets
-// scope. appsscript.json has NOT been changed: Greg must approve the scope
-// first (see HANDOFF.md section 3.6). Until then the sidebar opens, but loading
-// the settings table fails with an authorization error.
+// SCOPES. Reads tab names with SpreadsheetApp.openById, which needs the Sheets
+// scope https://www.googleapis.com/auth/spreadsheets. Greg approved it on
+// 2026-11-03 (full scope, because Draft Settings Tables needs write access).
 //
 // FLAGS. Open questions are marked "DEFAULT:" in a comment.
 // ============================================================
