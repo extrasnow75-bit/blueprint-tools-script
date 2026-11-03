@@ -116,6 +116,10 @@ function onOpen() {
     .addSeparator()
     .addItem('Time Estimator',                         'showTimeEstimatorSidebar')
     .addSeparator()
+    // Position 8 in the final order (Draft Settings Tables, position 7, is not
+    // built yet and will go directly above this).
+    .addItem('Deploy Settings Tables',                 'showDeploySidebar11')
+    .addSeparator()
     .addItem('Specialty Tool: Add Module Dates &/or Holiday Modules',
                                                        'showModuleDatesSidebar8')
     .addSeparator()

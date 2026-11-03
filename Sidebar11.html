@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar11.html | Last updated on 2026-11-03 at 08:30 MST
+
+     UI for "Deploy Settings Tables" (Code11.gs). Built to
+     docs/dev-handoff/mockups/DeployB.png (activities grouped by module).
+     Flow: the sidebar finds the settings table, reads the Development tab and
+     shows its best match for every activity (a read-only preview). The user
+     fixes any match, then presses "Add links". -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_blank">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #333; padding: 14px 16px 24px; }
+    h3 { color: #0033a0; font-size: 15px; margin: 0 0 6px; }
+    .intro { font-size: 12px; color: #555; margin: 0 0 12px; }
+    .sec { color: #0033a0; font-size: 13px; font-weight: bold; margin: 0 0 6px; }
+    hr { border: 0; border-top: 2px solid #aab2c8; margin: 14px 0; }
+    .btn, .btn2 { display: block; width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 3px; font: bold 13px Arial, sans-serif; cursor: pointer; }
+    .btn  { background: #0033a0; color: #fff; border: 0; }
+    .btn2 { background: #fff; color: #0033a0; border: 2px solid #0033a0; margin: 0 0 8px; }
+    .btn:disabled { background: #9aa6c8; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #0033a0; outline-offset: 2px; }
+    .card { border: 1px solid #aab2c8; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; font-size: 12px; }
+    a { color: #0033a0; }
+    .linkbtn { background: none; border: 0; padding: 0; color: #0033a0; font: 12px Arial, sans-serif; text-decoration: underline; cursor: pointer; }
+    .inp, .sel { width: 100%; min-height: 36px; margin: 4px 0 2px; font: 12px Arial, sans-serif; border: 1px solid #767676; border-radius: 3px; padding: 4px 6px; background: #fff; color: #333; }
+    .bar { display: flex; height: 16px; border: 1px solid #aab2c8; border-radius: 3px; overflow: hidden; margin: 4px 0 6px; }
+    .bar i { display: block; height: 100%; }
+    .g { background: #b9e0c5; } .y { background: #ffe08a; } .r { background: #f2b8b8; }
+    .legend { font-size: 11px; color: #555; }
+    .legend span { display: inline-block; width: 10px; height: 10px; margin: 0 3px 0 8px; border: 1px solid #888; vertical-align: -1px; }
+    .legend span:first-child { margin-left: 0; }
+    details { border-top: 1px solid #dde1ea; }
+    details:last-of-type { border-bottom: 1px solid #dde1ea; }
+    summary { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-height: 44px; cursor: pointer; font-weight: bold; font-size: 13px; }
+    summary .st { font-size: 11px; font-weight: normal; white-space: nowrap; }
+    .st.ok { color: #1e6b2e; } .st.look { color: #8a1c1c; font-weight: bold; }
+    .act { padding: 8px 8px; margin: 0 -8px; }
+    .act.sg { background: #fff4ce; } .act.no { background: #fde7e7; }
+    .rt { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .rt b { font-size: 12px; }
+    .tool { font-size: 11px; color: #555; white-space: nowrap; }
+    .m { font-size: 11px; margin: 0; }
+    .m.ok { color: #1e6b2e; } .m.sg { color: #5c4400; } .m.no { color: #8a1c1c; font-weight: bold; } .m.sh { color: #555; }
+    .chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin: 0 0 8px; }
+    .chk input { margin: 2px 0 0; width: 16px; height: 16px; flex: none; }
+    .note { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #e8f0fe; color: #1a3a7a; }
+    .err  { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #fde7e7; color: #8a1c1c; border: 1px solid #8a1c1c; }
+    .ex { border: 1px dashed #555; border-radius: 3px; padding: 8px 10px; background: #fafafa; margin: 4px 0 10px; }
+    .ex .ln { color: #c00000; font-weight: bold; } .ex .ln u { color: #0033a0; }
+    .spin { font-size: 12px; color: #555; margin: 0 0 8px; }
+    ul { margin: 4px 0 6px; padding-left: 18px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<h3>Deploy Settings Tables</h3>
+<p class="intro">Matches each activity in the Development tab to a tab in the settings table, then adds a link to that tab on the activity’s tool line. Review the matches by module and fix any that need it.</p>
+
+<div id="loading" class="spin">Reading the blueprint and the settings table…</div>
+<div id="err" class="err" hidden role="alert"></div>
+
+<div id="app" hidden>
+  <p class="sec">Settings table</p>
+  <div class="card" id="tableCard"></div>
+  <div id="pick" hidden>
+    <label for="url" style="font-size:12px;font-weight:bold">Settings table link</label>
+    <input class="inp" id="url" type="text" autocomplete="off" placeholder="Paste the Google Sheets address">
+    <button class="btn2" type="button" id="loadBtn">Use this file</button>
+  </div>
+
+  <div id="body" hidden>
+    <hr>
+    <p class="sec">Match summary</p>
+    <div class="bar" id="bar" aria-hidden="true"></div>
+    <div class="legend" id="legend"></div>
+
+    <hr>
+    <p class="sec">By module</p>
+    <div id="mods"></div>
+
+    <div id="unusedBox" hidden>
+      <hr>
+      <p class="sec">Tabs not used by any activity</p>
+      <div id="unused"></div>
+      <p class="m sh">These stay as they are. The Course Settings tab and template tabs are never matched.</p>
+    </div>
+
+    <hr>
+    <p class="sec">What will be added</p>
+    <div class="ex"><span class="ln">Discussion ⏺ <u>Link to settings tab</u></span></div>
+    <p class="m sh" style="margin:-4px 0 10px">Only the words “Link to settings tab” get the link. Nothing else in the blueprint changes, and the settings table is only read.</p>
+    <label class="chk"><input type="checkbox" id="replaceOn"> <span id="replaceLbl">Replace links that are already there</span></label>
+
+    <div class="note" id="summary" aria-live="polite"></div>
+    <div id="spin" class="spin" hidden>Working…</div>
+    <button class="btn" type="button" id="applyBtn" disabled>Add links</button>
+    <button class="btn2" type="button" id="rescanBtn" style="margin-top:8px">Read the blueprint again</button>
+    <div id="result" aria-live="polite" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+var PV = null;            // last preview from the server
+var picks = {};           // activity id -> tab gid ('' = unlinked)
+var openMods = {};        // module label -> true when expanded
+var tableId = null;
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function showErr(msg) { var e = $('err'); e.hidden = !msg; e.textContent = msg || ''; }
+
+google.script.run.withSuccessHandler(onInit).withFailureHandler(function (e) {
+  $('loading').hidden = true; showErr('Could not start: ' + (e && e.message || e));
+}).getDeployInit11();
+
+function onInit(d) {
+  $('loading').hidden = true;
+  $('app').hidden = false;
+  if (!d.devOk) { showErr('This blueprint has no “Development” tab, so there is nothing to link.'); $('app').hidden = true; return; }
+  if (d.found && d.table) { tableId = d.table.id; renderTable(d.table, 'Found through the Dashboard link.'); runPreview(); return; }
+  $('tableCard').innerHTML = d.url
+    ? 'The Dashboard has a Settings Tables link, but it could not be read.<br><span class="m no">' + esc(d.error || '') + '</span>'
+    : 'No Settings Tables link was found on the Dashboard.';
+  $('pick').hidden = false;
+}
+
+function renderTable(t, how) {
+  $('tableCard').innerHTML = '<b>' + esc(t.name) + '</b><br>' + esc(how) + ' <button type="button" class="linkbtn" id="changeBtn">Change</button> · <a href="' + esc(t.url) + '">Open</a>';
+  $('pick').hidden = true;
+  $('changeBtn').addEventListener('click', function () { $('pick').hidden = false; $('url').focus(); });
+}
+
+$('loadBtn').addEventListener('click', function () {
+  var v = $('url').value.trim(); if (!v) return;
+  showErr(''); busy(true);
+  google.script.run.withSuccessHandler(function (t) {
+    busy(false); tableId = t.id; renderTable(t, 'Chosen by you.'); picks = {}; runPreview();
+  }).withFailureHandler(function (e) { busy(false); showErr(e && e.message || e); }).loadSettingsTable11(v);
+});
+
+function busy(on) { $('spin').hidden = !on; }
+
+function runPreview(keepResult) {
+  showErr(''); if (!keepResult) $('result').innerHTML = ''; $('loading').textContent = 'Reading the Development tab…'; $('loading').hidden = false;
+  google.script.run.withSuccessHandler(function (p) {
+    $('loading').hidden = true; PV = p;
+    picks = {};
+    p.modules.forEach(function (m) { m.activities.forEach(function (a) { if (a.gid) picks[a.id] = a.gid; }); });
+    $('body').hidden = false;
+    render();
+  }).withFailureHandler(function (e) { $('loading').hidden = true; showErr(e && e.message || e); }).previewDeploy11({ tableId: tableId });
+}
+$('rescanBtn').addEventListener('click', function () { runPreview(false); });
+
+function tabOptions(sel) {
+  var h = '<option value="">' + (sel ? 'Leave unlinked' : 'Choose a tab…') + '</option>';
+  PV.table.tabs.forEach(function (t) { h += '<option value="' + esc(t.gid) + '"' + (t.gid === sel ? ' selected' : '') + '>' + esc(t.name) + '</option>'; });
+  return h;
+}
+
+// An activity's current state, from what the user has picked.
+function stateOf(a) {
+  if (a.status === 'page' || a.status === 'nophrase') return 'skip';
+  var g = picks[a.id] || '';
+  if (!g) return 'none';
+  return (g === a.gid && a.status === 'exact') ? 'exact' : 'suggested';
+}
+
+function render() {
+  var cnt = { exact: 0, suggested: 0, none: 0, skip: 0 }, total = 0;
+  PV.modules.forEach(function (m) { m.activities.forEach(function (a) { var s = stateOf(a); cnt[s]++; if (s !== 'skip') total++; }); });
+  var pct = function (n) { return total ? (100 * n / total).toFixed(1) : 0; };
+  $('bar').innerHTML = '<i class="g" style="width:' + pct(cnt.exact) + '%"></i><i class="y" style="width:' + pct(cnt.suggested) + '%"></i><i class="r" style="width:' + pct(cnt.none) + '%"></i>';
+  $('legend').innerHTML = '<span class="g"></span>' + cnt.exact + ' exact <span class="y"></span>' + cnt.suggested + ' suggested <span class="r"></span>' + cnt.none + ' no match' + (cnt.skip ? '<br>' + cnt.skip + ' not linked (Page activities, or no “Link to settings tab” words)' : '');
+
+  var h = '';
+  PV.modules.forEach(function (m) {
+    var look = 0, n = 0;
+    m.activities.forEach(function (a) { var s = stateOf(a); if (s === 'skip') return; n++; if (s !== 'exact') look++; });
+    var open = openMods[m.label] || (look > 0 && openMods[m.label] === undefined);
+    h += '<details data-mod="' + esc(m.label) + '"' + (open ? ' open' : '') + '><summary><span>' + esc(m.label) + '</span><span class="st ' + (look ? 'look' : 'ok') + '">' +
+      (n === 0 ? 'nothing to link' : look ? '! ' + look + ' need' + (look === 1 ? 's' : '') + ' a look' : '✓ ' + n + ' of ' + n + ' matched') + '</span></summary>';
+    m.activities.forEach(function (a) {
+      var s = stateOf(a);
+      var cls = s === 'suggested' ? 'sg' : s === 'none' ? 'no' : '';
+      h += '<div class="act ' + cls + '"><div class="rt"><b>' + esc(a.title) + '</b><span class="tool">' + esc(a.tool) + '</span></div>';
+      if (s === 'skip') {
+        h += '<p class="m sh">' + esc(a.note) + '</p>';
+      } else {
+        h += '<select class="sel" data-id="' + esc(a.id) + '" aria-label="Settings tab for ' + esc(a.title) + '">' + tabOptions(picks[a.id] || '') + '</select>';
+        var msg = s === 'exact' ? '<p class="m ok">✓ ' + esc(a.note) + '</p>' : s === 'suggested' ? '<p class="m sg">' + esc(a.gid === picks[a.id] ? a.note : 'Picked by you.') + '</p>' : '<p class="m no">No tab chosen. This activity stays unlinked.</p>';
+        h += msg;
+        if (a.existing) h += '<p class="m sh">Already has a link' + (a.existing.indexOf('#gid=') !== -1 ? ' to a tab' : '') + '. <a href="' + esc(a.existing) + '">Open it</a></p>';
+      }
+      h += '</div>';
+    });
+    h += '</details>';
+  });
+  $('mods').innerHTML = h;
+  Array.prototype.forEach.call(document.querySelectorAll('#mods select'), function (s) {
+    s.addEventListener('change', function () { picks[s.getAttribute('data-id')] = s.value; render(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#mods details'), function (d) {
+    d.addEventListener('toggle', function () { openMods[d.getAttribute('data-mod')] = d.open; });
+  });
+
+  $('unusedBox').hidden = !PV.unusedTabs.length;
+  $('unused').innerHTML = PV.unusedTabs.map(function (t) { return '<div>' + esc(t) + '</div>'; }).join('');
+  $('replaceLbl').textContent = 'Replace links that are already there' + (PV.existingCount ? ' (' + PV.existingCount + ' found)' : '');
+  updateSummary();
+}
+
+function toWrite() {
+  var rep = $('replaceOn').checked, n = 0, held = 0;
+  PV.modules.forEach(function (m) { m.activities.forEach(function (a) {
+    if (!picks[a.id] || stateOf(a) === 'skip') return;
+    var same = a.existing && a.existing.indexOf('gid=' + picks[a.id]) !== -1 && a.existing.indexOf(PV.table.id) !== -1;
+    if (same) return;
+    if (a.existing && !rep) { held++; return; }
+    n++;
+  }); });
+  return { n: n, held: held };
+}
+
+function updateSummary() {
+  var w = toWrite(), total = 0, matched = 0;
+  PV.modules.forEach(function (m) { m.activities.forEach(function (a) { if (stateOf(a) === 'skip') return; total++; if (picks[a.id]) matched++; }); });
+  $('summary').textContent = matched + ' of ' + total + ' activities have a tab picked.' + (w.held ? ' ' + w.held + ' already have a link and will be kept.' : '');
+  $('applyBtn').textContent = w.n ? 'Add ' + w.n + ' link' + (w.n === 1 ? '' : 's') : 'Nothing to add';
+  $('applyBtn').disabled = !w.n;
+}
+$('replaceOn').addEventListener('change', updateSummary);
+
+$('applyBtn').addEventListener('click', function () {
+  var titles = {};
+  PV.modules.forEach(function (m) { m.activities.forEach(function (a) { titles[a.id] = a.title; }); });
+  $('applyBtn').disabled = true; $('spin').hidden = false; showErr('');
+  google.script.run.withSuccessHandler(function (r) {
+    $('spin').hidden = true;
+    var h = '<div class="note"><b>Done.</b><ul><li>' + r.added + ' link' + (r.added === 1 ? '' : 's') + ' added</li>' +
+      (r.replaced ? '<li>' + r.replaced + ' replaced</li>' : '') +
+      (r.same ? '<li>' + r.same + ' already pointed to that tab</li>' : '') +
+      (r.keptExisting ? '<li>' + r.keptExisting + ' kept as they were (existing link, “Replace” not ticked)</li>' : '') +
+      (r.skipped ? '<li>' + r.skipped + ' skipped</li>' : '') + '</ul></div>';
+    if (r.problems.length) h += '<div class="err"><b>Needs a look</b><ul>' + r.problems.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul></div>';
+    $('result').innerHTML = h;
+    runPreview(true);
+  }).withFailureHandler(function (e) { $('spin').hidden = true; updateSummary(); showErr(e && e.message || e); })
+    .applyDeploy11({ tableId: tableId, picks: picks, titles: titles, replace: $('replaceOn').checked });
+});
+</script>
+</body>
+</html>
