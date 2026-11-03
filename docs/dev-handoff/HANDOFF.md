@@ -1,6 +1,8 @@
 # Blueprint Tools: development handoff
 
-Written 2026-11-02 at the end of a long design conversation in Claude Chat. Everything below was decided or learned there. Nothing has been built yet. No code has been written for the new tools.
+Written 2026-11-02 at the end of a long design conversation in Claude Chat. Everything below was decided or learned there.
+
+**Status (updated 2026-11-02, Claude Code session):** Tool 1 (Link Project Documents) is BUILT but UNTESTED: `Code10.gs`, `Sidebar10.html`, menu item in `Code.gs`, and the throwaway `Spikes.gs`. The Drive scope was added to `appsscript.json` with Greg's OK (see 3.6). Tools 2 to 5 are not started. Two new tool ideas were added this session (sections 11 and 12), and one idea is parked (section 13). Everything else below is the original spec.
 
 Read this whole file, then `docs/dev-handoff/mockups/*.png` (sidebar mockups), then start at "Build order".
 
@@ -108,6 +110,16 @@ Shared tokens proposed for templates: `{{DEPT}}`, `{{COURSE_NUMBER}}`, `{{COURSE
 - Compare the catalog title to the typed course name. If it differs, show both side by side with a warning but still allow insertion. Normalize before comparing: ignore case, punctuation, "&" vs "and", and text in parentheses (the Syllabus title has "(AI)").
 - Record the catalog year or retrieval date in the preview. Older catalogs probably exist only as archived PDFs (ScholarWorks), not live pages; do not try to fetch older versions.
 
+**Implementation notes (added after the build).**
+- Files: `Code10.gs` (server), `Sidebar10.html` (UI), menu item `showLinkDocsSidebar10` first in `onOpen()`. Every place the handoff left a question open is marked `DEFAULT:` in the code; grep for it.
+- Flow: fill in Dept / Number / Name, press **Preview all changes**, review, press **Apply**. Apply stays disabled until a preview has run on the current inputs. Apply re-scans every document and applies only ticked items.
+- Dashboard "Course Documents" labels are plain paragraphs in the template; the link goes ON the existing label text (no new text). Google Folder links the parent folder.
+- Instructor Resources has two forms: template (heading `COURSE ### Instructor Guide`, then "Unpublished external link...") and finished (heading plus a body sentence with a linked phrase). Default: if a linked phrase exists in the body text under the heading, that is the link spot; otherwise the heading text is linked. Existing links are never replaced unless "Replace links" is ticked.
+- Identity: placeholder lines (`COURSE ###: Title`, `Course ###: Course Title`, `Syllabus: Course ###`, `COURSE XXX`) get the new identity; lines that already carry a code get only the code swapped. The Agenda and Instructor Guide placeholders are still unconfirmed, so only those two shapes are matched.
+- Catalog: the endpoint spike is still open, so the user pastes the description. The tool places it only where the "Add catalog description here" bullet still exists.
+- Known gaps: Syllabus titles of the form `... (AI) Syllabus` with no code are reported as "No title line recognized". The `^` anchor in `Body.findText` (used to find Dashboard labels) is unverified; `spikeLabelsSpike10` checks it.
+- Test results from Greg: pending.
+
 ### 3.2 Deploy Settings Tables (`Code11.gs` / `Sidebar11.html`)
 
 Mockups: `DeployA.png` (flat list), `DeployB.png` (by module). Greg liked the grouped/by-module direction; confirm which one before building.
@@ -211,7 +223,7 @@ Nothing else: no "what changed" notes, no per-file explanations. If everything i
 
 ### 3.6 Permissions summary (decide these together, before editing `appsscript.json`)
 
-Current scopes: `documents`, `script.container.ui`, `script.external_request`, plus the Docs v1 advanced service. A new scope changes the authorization prompt for every user of the script. Get Greg's OK on the exact list first. This table is from the design discussion, not from testing; confirm each row in a spike.
+Current scopes: `documents`, `drive` (added 2026-11-02 for Link Project Documents; Greg chose the full Drive scope, option b, over the Advanced Drive service with metadata-only), `script.container.ui`, `script.external_request`, plus the Docs v1 advanced service. A new scope changes the authorization prompt for every user of the script. Get Greg's OK on the exact list first. This table is from the design discussion, not from testing; confirm each row in a spike.
 
 | Tool | Needs | New scope? |
 |---|---|---|
@@ -296,13 +308,15 @@ Confirm each signature by reading the code before calling it; this list was made
 ## 7. Open questions for Greg
 
 1. **Answered:** Greg pastes code into the Apps Script editor himself. Do not set up `clasp` or run any push on his behalf. When you change files, tell him exactly which files to paste.
-2. Replace-old-title: replace only the identifier and keep extras like "(Incomplete)" and "Syllabus"? (Proposed, unconfirmed.)
-3. Does APPAI 505 have a settings table somewhere?
-4. Which Deploy layout: flat (A) or by module (B)?
+2. **Accepted as default (2026-11-02):** replace only the identifier in a filled-in title and keep extras like "(Incomplete)" and "Syllabus".
+3. **Answered:** APPAI 505's Dashboard links a Settings Tables sheet, but it points to the original, not to a copy in the test folder.
+4. Which Deploy layout: flat (A) or by module (B)? (Needed before tool 2.)
 5. "Ready for dev team" wording vs. "Highlighted for QA or later".
-6. Whether to also prefill End-of-Project Report fields from the Dashboard (First Taught, Faculty Developer, the five eCampus team roles). Offered, not requested; keep the first version to dept + number.
-7. Which Sheets scope (see 3.4). Greg must approve before `appsscript.json` changes.
+6. Whether to also prefill End-of-Project Report fields from the Dashboard. Offered, not requested; keep the first version to dept + number.
+7. Which Sheets scope (see 3.4 and 3.6). Now needed by tools 2, 3, 4 and the setup-data tool (section 11). Greg must approve before `appsscript.json` changes.
 8. Mixed-formatting rule below "yellow wins" (my proposal: count at the lowest stage).
+9. Results of the Link Project Documents tests and spikes (see section 10).
+10. Setup-data tool (section 11) and ownership tool (section 12): the questions listed there.
 
 ## 8. Mockups
 
@@ -320,7 +334,53 @@ Updated this session: `Main.png` and `StatusResultsB.png` now include the settin
 - Catalog name mismatch: warn, but still allow insertion.
 - Quickbase: dropped.
 
-## 10. Pending from Greg (added 2026-11-02)
+## 10. Pending from Greg (updated 2026-11-02)
 
-- **Multi-semester list spreadsheet (copy needed).** Greg will provide a copy (personal Drive, extrasnow75@gmail.com) when back at his desktop. Purpose: the new setup tool (Link Project Documents, or a sibling) finds the project's row in the spreadsheet and scrapes key information from it. Needed before designing this: which columns to read, how the project is identified (course code, title, or blueprint link), and whether it is a Sheet or an Excel upload. **Remind Greg at the start of the next session.**
-- Test results from Link Project Documents (Code10.gs, Sidebar10.html) and the three spikes in Spikes.gs.
+- **Run and report:** the Link Project Documents test checklist and the three spikes in `Spikes.gs` (labels with the `^` anchor, folder listing through `DriveApp`, catalog endpoint; for the catalog, the URL of the request in the browser's Network tab that returns a course description).
+- **Sheets scope decision** (see 3.6). Needed before tools 2, 3, 4 and section 11.
+- **Setup-data tool:** the original Google Sheet (not the .xlsx copy) or its ID, and the answers listed in section 11.
+- **Ownership tool:** answers listed in section 12.
+- Unfilled copies of the Instructor Guide, Agenda and Schedule of Deliverables, so their placeholders can be matched.
+
+## 11. Setup-data tool: read the project's row from the Multi-Semester List (idea, not started)
+
+Greg shared an Excel copy of the list in his personal Drive (read-only for Claude; nothing from it is stored in this repo, and the file contains faculty names, so do not paste rows here). The real tool needs the original Google Sheet.
+
+What the workbook looks like (columns and tabs only):
+- One tab per semester (Spring 2026, Summer 2026, Fall 2026, Spring 2027, Summer 2027, Fall 2027, Fall 2025), plus history tabs, an IDC capacity tab and a small extra tab. About 900 rows by 35 columns each. The tab is the **development** semester, not the semester the course is taught.
+- Row 1 headers include: Course Title, Project Type, OPDP, Crs Dev Shell Creator, Status, Project Start Date (holds values such as "Cycle 1"), First taught (values such as `SP27 15wk`, `FA26 7W1`, `SU27 10wks`, `n/a`), Copy Date Overlap, FD Meeting Pref., College, Assigned IDC, IDC / QA / Build / MM / CAS (flags, not names), Dev Team Priority, Notes.
+- The project key is column C, shaped `DEPT NUM-Faculty name`. Some rows hold several codes or several faculty (for example `ENGL 101/102-...`).
+- Checked against the APPAI 505 Dashboard: `Next taught` equals column J, and `Cycle: Summer Cycle 1 (2026)` equals the tab name plus column I.
+- CS 321 is in the Fall 2026 tab and APPAI 505 is in the Summer 2026 tab.
+
+Candidate mapping to the Dashboard: Next taught = First taught; Cycle = tab name plus Project Start Date; Course Length (weeks) from the `7W1` / `7W2` / `15wk` / `10wks` / `14wk` suffix; Course title feeds Link Project Documents' Course name; Project Type and the person fields are chips.
+
+People chips: the Docs API can insert a person chip only from an email address, not a name (not yet tested). Greg says the IDC is usually the blueprint's owner, so the script can read the owner's email from Drive (`File.getOwner()`; covered by the Drive scope). Do this BEFORE any ownership transfer (section 12). Faculty developer and other names stay manual unless a directory lookup is approved (new scope, would need Greg's OK).
+
+Needs Greg's answers: which fields to scrape; where they are written (Dashboard, a preview in the sidebar, or both); whether a course in two tabs asks or takes the newest; the original sheet's ID and who has view access; the Sheets scope (read-only is enough). Proposed file: `Code15.gs` / `Sidebar15.html`, or folded into Link Project Documents. Ask Greg.
+
+## 12. Ownership transfer tool (idea, not started)
+
+Today the IDC moves ownership of the project folder and documents to shared eCampus accounts by hand at the end of a CDD cycle. Rules depend on the course type (Master, Program, Faculty). They come from an internal eCampus document in Greg's Drive; **do not copy that document's text or the account addresses into this public repo.** Keep the rules and addresses in a local config block that Greg fills in when he pastes the script (blank placeholders in the repo).
+
+Design points:
+- Roles that appear in the rules: a central development account, a vetting account, a maintenance account, plus the Program Coordinator/Chair and the Faculty Developer. Greg says files for the last two can be handled manually, so the tool skips and lists them.
+- Course type probably comes from the Project Type column in section 11.
+- `File.setOwner` / `Folder.setOwner` exist in `DriveApp` (full Drive scope already added). Untested inside the Boise State domain. A transfer of a folder moves the folder only, not its contents. Non-Google files (PDF, mp4) cannot be transferred this way. Large transfers can take a day. Only the current owner (or an admin) can transfer. Possible admin policy limits are unknown.
+- It is hard to undo (the old owner stays an editor; mistakes go through a request process). So: list every file with its current owner and its target, skip what cannot move, change nothing until the user confirms, and keep it separate from Link Project Documents.
+- Order: fill the IDC chip from the blueprint's owner first, transfer the blueprint last (the sidebar runs inside it).
+- A spike is needed first: transfer one throwaway doc inside the Boise State domain. Greg runs it.
+- Proposed file: `Code16.gs` / `Sidebar16.html`.
+
+## 13. Parked: project work station notebook (back burner)
+
+Greg's plan document describes a Gemini Notebook "project work station" per project. Findings: consumer notebooks have no API; a separate Google Cloud NotebookLM Enterprise API has `notebooks.create`, but whether Boise State's Gemini Notebook is that product, and whether the licence and a Cloud project are available, is unverified; notebooks are not Drive files, so "create it in a chosen folder" does not apply. A no-new-scope fallback is a "Notebook Sources" subfolder of Drive shortcuts to the project and template documents (needs a test of whether the app imports a shortcut's target). Not planned for now.
+
+## 14. Next steps (proposed order)
+
+1. Greg runs the Link Project Documents tests and spikes and reports back.
+2. Fix whatever the tests find in `Code10.gs` / `Sidebar10.html`.
+3. Greg decides the Sheets scope and Deploy layout; then build tool 2 (Deploy Settings Tables, `Code11`).
+4. Tool 3 (Draft Settings Tables, `Code12`), then tool 4 (Development Status Check, `Code13`), then tool 5 (Version Check, `Code14`).
+5. Setup-data tool (section 11) can start once Greg supplies the sheet and answers; it shares the Sheets scope decision and may come earlier than tool 3.
+6. Ownership tool (section 12) after its spike.
