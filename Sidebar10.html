@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-02 at 18:55 MST
+
+     UI for "Link Project Documents" (Code10.gs). Built to
+     docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
+     "Preview all changes", review sections 3 and 4, press Apply. Apply stays
+     disabled until a preview has been run on the current inputs. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_blank">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #333; padding: 14px 16px 24px; }
+    h3 { color: #0033a0; font-size: 15px; margin: 0 0 6px; }
+    .intro { font-size: 12px; color: #555; margin: 0 0 12px; }
+    .sec { color: #0033a0; font-size: 13px; font-weight: bold; margin: 0 0 6px; }
+    hr { border: 0; border-top: 2px solid #aab2c8; margin: 14px 0; }
+    .btn, .btn2 { display: block; width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 3px; font: bold 13px Arial, sans-serif; cursor: pointer; }
+    .btn  { background: #0033a0; color: #fff; border: 0; }
+    .btn2 { background: #fff; color: #0033a0; border: 2px solid #0033a0; margin: 0 0 8px; }
+    .btn:disabled { background: #9aa6c8; cursor: not-allowed; }
+    .btn:focus-visible, .btn2:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #0033a0; outline-offset: 2px; }
+    .card { border: 1px solid #aab2c8; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; font-size: 12px; }
+    a { color: #0033a0; }
+    .linkbtn { background: none; border: 0; padding: 0; color: #0033a0; font: 12px Arial, sans-serif; text-decoration: underline; cursor: pointer; }
+    .lbl { display: block; font-size: 12px; font-weight: bold; margin: 8px 0 0; }
+    .row { padding: 8px 0; border-top: 1px solid #dde1ea; }
+    .rt { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .rt b { font-size: 12px; }
+    .tool { font-size: 11px; color: #555; white-space: nowrap; }
+    .sel, .inp { width: 100%; min-height: 36px; margin: 4px 0 2px; font: 12px Arial, sans-serif; border: 1px solid #767676; border-radius: 3px; padding: 4px 6px; background: #fff; color: #333; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .m { font-size: 11px; margin: 0; }
+    .m.ok { color: #1e6b2e; } .m.sg { color: #5c4400; } .m.no { color: #8a1c1c; font-weight: bold; } .m.sh { color: #555; }
+    .rev { background: #fff4ce; margin: 0 -8px; padding: 8px; }
+    .chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin: 0 0 8px; }
+    .chk input { margin: 2px 0 0; width: 16px; height: 16px; flex: none; }
+    .chk i { display: block; font-style: normal; font-size: 11px; color: #555; }
+    .note { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #e8f0fe; color: #1a3a7a; }
+    .warn { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #fff4ce; color: #5c4400; border: 1px solid #7a5c00; }
+    .warn b { display: block; }
+    .err  { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #fde7e7; color: #8a1c1c; border: 1px solid #8a1c1c; }
+    .prev { border: 1px dashed #555; border-radius: 3px; padding: 8px 10px; font-size: 13px; margin: 6px 0 4px; background: #fafafa; }
+    .prev b { color: #0033a0; }
+    .ta { width: 100%; min-height: 96px; margin: 4px 0 6px; font: 12px Arial, sans-serif; border: 1px solid #767676; border-radius: 3px; padding: 6px; background: #fff; color: #333; }
+    .doc { padding: 8px 0; border-top: 1px solid #dde1ea; }
+    .doc .ch { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; }
+    .doc .ch input { margin: 2px 0 0; width: 16px; height: 16px; flex: none; }
+    .chg { font-size: 11px; margin: 4px 0 0 24px; color: #333; }
+    .chg del { color: #8a1c1c; } .chg ins { color: #1e6b2e; text-decoration: none; font-weight: bold; }
+    .chg .k { color: #555; }
+    .dim { color: #777; }
+    .sub { margin: 6px 0 0 24px; padding: 6px 8px; border: 1px solid #dde1ea; border-radius: 3px; font-size: 11px; background: #f7f8fb; }
+    .sub .chk { margin: 0 0 4px; }
+    .items { margin: 4px 0 0 24px; font-size: 11px; }
+    .items div { padding: 3px 0; border-top: 1px dotted #dde1ea; word-break: break-word; }
+    .spin { display: none; font-size: 12px; color: #555; margin: 0 0 8px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<h3>Link Project Documents</h3>
+<p class="intro">Sets up a new project: fills in the course title across the project documents, adds the catalog description, and links the documents on the Dashboard.</p>
+
+<div id="loading" class="spin" style="display:block">Reading the blueprint and its folder…</div>
+
+<div id="app" hidden>
+<p class="sec">1. Course</p>
+<div class="two">
+  <div><label class="lbl" for="dept">Dept</label><input class="inp" id="dept" type="text" autocomplete="off"></div>
+  <div><label class="lbl" for="num">Course number</label><input class="inp" id="num" type="text" autocomplete="off"></div>
+</div>
+<label class="lbl" for="cname">Course name</label>
+<input class="inp" id="cname" type="text" autocomplete="off">
+<div class="prev" aria-live="polite">Titles will read:<br><b id="titlePrev">…</b></div>
+<p class="m sh" id="levelNote"></p>
+
+<hr>
+<p class="sec">2. Catalog description</p>
+<div class="card" id="catCard"></div>
+<label class="lbl" for="catName">Course name as the catalog shows it (optional)</label>
+<input class="inp" id="catName" type="text" autocomplete="off">
+<div id="catWarn" class="warn" hidden></div>
+<label class="lbl" for="desc">Description to add to the Design tab</label>
+<textarea class="ta" id="desc" placeholder="Paste the catalog description here."></textarea>
+<label class="chk"><input type="checkbox" id="catOn" checked> <span>Add it under Course Information (replaces “Add catalog description here”)</span></label>
+<p class="m sh" id="catStatus">The catalog can’t be read automatically yet, so paste the description above. The tool still previews it and places it.</p>
+
+<hr>
+<p class="sec">3. Documents to update</p>
+<p class="intro" style="margin:0 0 6px">Each document is checked for the title. Nothing changes until you press Apply.</p>
+<div id="docs"><p class="m sh">Press “Preview all changes” to see what would change in each document.</p></div>
+
+<hr>
+<p class="sec">4. Link the documents</p>
+<div class="card" id="folderCard"></div>
+<div id="slots"></div>
+<div id="linkPrev"></div>
+<label class="chk" style="margin-top:10px"><input type="checkbox" id="devOn" checked> <span>Development › Instructor Resources (Instructor Guide and Course Suggestions links)</span></label>
+<label class="chk"><input type="checkbox" id="replaceOn"> <span id="replaceLbl">Replace links that are already there</span></label>
+<p class="intro" style="margin:4px 0 12px">Not Drive files, so left for the team to add: Panopto Folder, Canvas Course, Creative Brief.</p>
+
+<hr>
+<div class="note" id="summary" aria-live="polite">Press “Preview all changes” first.</div>
+<div id="err" class="err" hidden role="alert"></div>
+<div id="spin" class="spin">Working…</div>
+<button class="btn2" type="button" id="previewBtn">Preview all changes</button>
+<button class="btn" type="button" id="applyBtn" disabled>Apply</button>
+<div id="result" aria-live="polite" style="margin-top:12px"></div>
+</div>
+
+<script>
+var INIT = null, PV = null, dirty = true;
+var slotState = {};   // key -> {fileId, url, skip}
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+google.script.run.withSuccessHandler(onInit).withFailureHandler(function (e) {
+  $('loading').textContent = 'Could not start: ' + (e && e.message || e);
+}).getLinkDocsInit10();
+
+function onInit(d) {
+  INIT = d;
+  $('loading').style.display = 'none';
+  $('app').hidden = false;
+  $('dept').value = d.identity.dept; $('num').value = d.identity.number; $('cname').value = d.identity.name;
+  renderFolder(d.folder, d.folderError);
+  ['dept', 'num', 'cname'].forEach(function (id) { $(id).addEventListener('input', function () { markDirty(); renderIdentity(); }); });
+  $('catName').addEventListener('input', renderCatalog);
+  $('desc').addEventListener('input', function () { updateSummary(); });
+  ['catOn', 'devOn', 'replaceOn'].forEach(function (id) { $(id).addEventListener('change', updateSummary); });
+  $('previewBtn').addEventListener('click', doPreview);
+  $('applyBtn').addEventListener('click', doApply);
+  renderIdentity();
+}
+
+function markDirty() {
+  dirty = true; $('applyBtn').disabled = true;
+  $('summary').textContent = 'Inputs changed. Press “Preview all changes” again.';
+}
+
+// ── 1. Course ──
+function identity() { return { dept: $('dept').value, number: $('num').value, name: $('cname').value }; }
+function renderIdentity() {
+  var i = identity(), id = (i.dept.trim() + ' ' + i.number.trim()).trim();
+  $('titlePrev').textContent = id ? (id.toUpperCase() + (i.name.trim() ? ': ' + i.name.trim() : '')) : '…';
+  renderCatalog();
+}
+
+// ── 2. Catalog ──
+// Same normalising as normTitle9_ (case, "&" vs "and", punctuation), plus
+// parenthetical text dropped, per the handoff.
+function normName(s) {
+  return String(s || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function renderCatalog() {
+  var i = identity(), n = parseInt(String(i.number).replace(/\D/g, ''), 10), id = (i.dept.trim() + ' ' + i.number.trim()).toUpperCase();
+  var grad = !isNaN(n) && n >= 500;
+  var main = grad ? ['Graduate', 'https://www.boisestate.edu/graduatecatalog/#/home'] : ['Undergraduate', 'https://www.boisestate.edu/registrar-catalog/#/home'];
+  var other = grad ? ['undergraduate', 'https://www.boisestate.edu/registrar-catalog/#/home'] : ['graduate', 'https://www.boisestate.edu/graduatecatalog/#/home'];
+  $('levelNote').textContent = isNaN(n) ? '' : (grad ? 'Number 500 or above, so the graduate catalog will be checked.' : 'Number below 500, so the undergraduate catalog will be checked.');
+  $('catCard').innerHTML = '<strong>' + main[0] + ' Catalog</strong><br>' +
+    'Open the <a href="' + main[1] + '">' + main[0].toLowerCase() + ' catalog</a>, search for ' + esc(id || 'the course') +
+    ', and paste its description below. <a href="' + other[1] + '">Check the ' + other[0] + ' catalog instead</a>.';
+  var cat = $('catName').value.trim(), mine = i.name.trim();
+  var w = $('catWarn');
+  if (cat && mine && normName(cat) !== normName(mine)) {
+    w.hidden = false;
+    w.innerHTML = '<b>The catalog’s course name is different</b>Project: ' + diffWords(mine, cat) + '<br>Catalog: ' + diffWords(cat, mine) +
+      '<br>You can still add the description.';
+  } else { w.hidden = true; }
+}
+function diffWords(a, b) {
+  var set = {}; normName(b).split(' ').forEach(function (x) { set[x] = 1; });
+  return a.split(/\s+/).map(function (w) { var n = normName(w); return n && !set[n] ? '<u>' + esc(w) + '</u>' : esc(w); }).join(' ');
+}
+
+// ── 4. Folder and slots ──
+function renderFolder(f, error) {
+  if (!f) {
+    $('folderCard').innerHTML = '<div class="m no">Could not read the blueprint’s folder. ' + esc(error || '') + '</div>' + pickFolderHtml();
+    $('slots').innerHTML = '';
+    wirePick();
+    return;
+  }
+  INIT.folder = f;
+  $('folderCard').innerHTML = '<strong>' + esc(f.name) + '</strong><br>' + f.count + ' file' + (f.count === 1 ? '' : 's') +
+    ' found next to this blueprint. <button type="button" class="linkbtn" id="pickBtn">Pick a different folder</button>' +
+    '<div id="pickBox" hidden></div>';
+  $('pickBtn').addEventListener('click', function () {
+    var b = $('pickBox'); b.hidden = !b.hidden; if (!b.hidden) { b.innerHTML = pickFolderHtml(); wirePick(); }
+  });
+  slotState = {};
+  var confident = [], review = [];
+  f.slots.forEach(function (s) {
+    slotState[s.key] = { fileId: s.guess || '', url: '', skip: false };
+    (s.matches === 1 ? confident : review).push(s);
+  });
+  var html = '';
+  review.forEach(function (s) { html += slotRow(s, true); });
+  if (confident.length) {
+    html += '<div class="row"><div class="rt"><b>' + esc(confident.map(function (s) { return s.short; }).join(', ')) + '</b></div>' +
+      '<p class="m ok">✓ ' + confident.length + ' matched on name and type. <button type="button" class="linkbtn" id="showConf">Show</button></p>' +
+      '<div id="confRows" hidden>' + confident.map(function (s) { return slotRow(s, false); }).join('') + '</div></div>';
+  }
+  html += '<div class="row"><div class="rt"><b>Google Folder</b><span class="tool">Folder</span></div><p class="m sh">The folder above. Added automatically' +
+    (f.folderHasLabel ? '.' : ' (no “Google Folder” label found on the Dashboard, so it will be skipped).') + '</p></div>';
+  $('slots').innerHTML = html;
+  if ($('showConf')) $('showConf').addEventListener('click', function () { var c = $('confRows'); c.hidden = !c.hidden; this.textContent = c.hidden ? 'Show' : 'Hide'; });
+  f.slots.forEach(function (s) {
+    var sel = document.querySelector('[data-sel="' + s.key + '"]'), url = document.querySelector('[data-url="' + s.key + '"]'), sk = document.querySelector('[data-skip="' + s.key + '"]');
+    if (sel) sel.addEventListener('change', function () { slotState[s.key].fileId = sel.value; markDirty(); });
+    if (url) url.addEventListener('input', function () { slotState[s.key].url = url.value; markDirty(); });
+    if (sk) sk.addEventListener('change', function () { slotState[s.key].skip = sk.checked; markDirty(); });
+  });
+}
+function pickFolderHtml() {
+  return '<label class="lbl" for="pickUrl">Paste the folder’s link</label><input class="inp" id="pickUrl" type="text" placeholder="https://drive.google.com/drive/folders/…">' +
+    '<button type="button" class="btn2" id="pickGo" style="margin-top:6px">Use this folder</button><div id="pickErr" class="m no"></div>';
+}
+function wirePick() {
+  var go = $('pickGo'); if (!go) return;
+  go.addEventListener('click', function () {
+    $('pickErr').textContent = '';
+    google.script.run.withSuccessHandler(function (f) { renderFolder(f); markDirty(); })
+      .withFailureHandler(function (e) { $('pickErr').textContent = e && e.message || String(e); })
+      .loadLinkDocsFolder10($('pickUrl').value);
+  });
+}
+function slotRow(s, flagged) {
+  var opts = '<option value="">' + (s.options.length ? 'No file chosen' : 'No file found') + '</option>' +
+    s.options.map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === s.guess ? ' selected' : '') + '>' + esc(o.name) + '</option>'; }).join('');
+  var msg = s.matches === 0 ? (s.options.length ? '<p class="m no">Nothing in the folder matches by name. Pick one or paste a URL.</p>' : '<p class="m no">Nothing in the folder matches.</p>')
+          : (s.matches > 1 ? '<p class="m sg">' + s.matches + ' files match. Please confirm.</p>' : '<p class="m ok">✓ Matched on name and type.</p>');
+  if (s.optional && s.matches === 0) msg = '<p class="m sh">No file found. Optional, so it stays blank unless you pick or paste one.</p>';
+  var ex = s.existing ? '<p class="m sh">Dashboard already links this label.</p>' : (s.hasLabel ? '' : '<p class="m sg">No “' + esc(s.short) + '” label found on the Dashboard.</p>');
+  return '<div class="row' + (flagged && !(s.optional && s.matches === 0) ? ' rev' : '') + '"><div class="rt"><b>' + esc(s.label) + '</b><span class="tool">' + (s.type === 'sheet' ? 'Sheet' : 'Doc') + '</span></div>' +
+    '<select class="sel" data-sel="' + s.key + '" aria-label="' + esc(s.label) + ' file">' + opts + '</select>' +
+    '<input class="inp" type="text" data-url="' + s.key + '" placeholder="Paste a URL (optional)" aria-label="' + esc(s.label) + ' URL">' +
+    msg + ex +
+    (s.optional ? '<label class="chk" style="margin:6px 0 0"><input type="checkbox" data-skip="' + s.key + '"> <span>Skip it. This course doesn’t have one.</span></label>' : '') + '</div>';
+}
+
+// ── state, preview, apply ──
+function docState() {
+  var out = {};
+  document.querySelectorAll('[data-doc]').forEach(function (cb) {
+    var k = cb.getAttribute('data-doc'); out[k] = out[k] || { titleOn: false, sampleOn: false, othersOn: false };
+    out[k].titleOn = cb.checked;
+  });
+  document.querySelectorAll('[data-sample]').forEach(function (cb) { var k = cb.getAttribute('data-sample'); out[k] = out[k] || {}; out[k].sampleOn = cb.checked; });
+  var oa = $('othersAll');
+  Object.keys(out).forEach(function (k) { out[k].othersOn = !!(oa && oa.checked); });
+  return out;
+}
+function collectState() {
+  return {
+    identity: identity(), slots: slotState, folderUrl: INIT.folder ? INIT.folder.url : null,
+    docs: docState(),
+    catalog: { on: $('catOn').checked, text: $('desc').value },
+    devLinks: $('devOn').checked, replaceLinks: $('replaceOn').checked
+  };
+}
+function busy(on) { $('spin').style.display = on ? 'block' : 'none'; $('previewBtn').disabled = on; if (on) $('applyBtn').disabled = true; }
+function showErr(m) { var e = $('err'); e.hidden = !m; e.textContent = m || ''; }
+
+function doPreview() {
+  showErr(''); $('result').innerHTML = ''; busy(true);
+  google.script.run.withSuccessHandler(function (p) {
+    busy(false); PV = p; dirty = false; renderPreview(); $('applyBtn').disabled = false; updateSummary();
+  }).withFailureHandler(function (e) { busy(false); showErr(e && e.message || String(e)); }).previewLinkDocs10(collectState());
+}
+
+function renderPreview() {
+  var html = '', othersAll = [];
+  PV.docs.forEach(function (d) {
+    var titles = d.items.filter(function (i) { return i.kind === 'title'; });
+    var samples = d.items.filter(function (i) { return i.kind === 'sample'; });
+    d.items.filter(function (i) { return i.kind === 'other'; }).forEach(function (i) { othersAll.push({ doc: d.label, it: i }); });
+    if (d.status !== 'ok') {
+      html += '<div class="doc"><label class="ch"><input type="checkbox" disabled><span><b class="dim">' + esc(d.label) + '</b></span></label>' +
+        '<p class="chg"><span class="m ' + (d.status === 'error' ? 'no' : 'sh') + '">' + esc(d.message) + '</span></p></div>';
+      return;
+    }
+    var changing = titles.filter(function (i) { return !i.noop; }).length;
+    html += '<div class="doc"><label class="ch"><input type="checkbox" data-doc="' + d.key + '" checked><span><b>' + esc(d.label) + '</b></span></label>';
+    html += '<p class="chg">' + titles.map(function (i) {
+      return '<span class="k">' + esc(i.where) + '</span><br>' + (i.noop
+        ? '<span class="dim">Already says ' + esc(i.before) + ' No change.</span>'
+        : '<del>' + esc(i.before) + '</del><br>→ <ins>' + esc(i.after) + '</ins>') +
+        (i.mode === 'replace' ? '<br><span class="k">Only the course code changes. The rest of the line stays.</span>' : '') +
+        (i.nameDiffers ? '<br><span class="m sg">The name on this line differs from the Course name above. Left as is.</span>' : '');
+    }).join('<br>') + '</p>';
+    if (changing === 0) html += '<p class="chg"><span class="k">Nothing to change in the title.</span></p>';
+    if (samples.length) {
+      html += '<div class="sub"><label class="chk"><input type="checkbox" data-sample="' + d.key + '" checked><span><b>Sample announcement</b><i>“Welcome to Course Name.” becomes the course name (' + samples.length + ' place' + (samples.length === 1 ? '' : 's') + ')</i></span></label></div>';
+    }
+    html += '</div>';
+  });
+  if (othersAll.length) {
+    html += '<div class="doc" style="border-bottom:1px solid #dde1ea"><label class="ch"><input type="checkbox" id="othersAll"><span><b>Other matches (' + othersAll.length + ' found, not changed)</b></span></label>' +
+      '<p class="chg"><button type="button" class="linkbtn" id="showOthers">Show</button> <span class="k">Same wording as the old code, but not the title itself, such as link text. Tick to replace them too.</span></p>' +
+      '<div class="items" id="othersList" hidden>' + othersAll.slice(0, 40).map(function (o) { return '<div><span class="k">' + esc(o.doc) + ' · ' + esc(o.it.where) + '</span><br>' + esc(o.it.before) + '</div>'; }).join('') +
+      (othersAll.length > 40 ? '<div class="k">…and ' + (othersAll.length - 40) + ' more.</div>' : '') + '</div></div>';
+  }
+  $('docs').innerHTML = html;
+  if ($('showOthers')) $('showOthers').addEventListener('click', function () { var l = $('othersList'); l.hidden = !l.hidden; this.textContent = l.hidden ? 'Show' : 'Hide'; });
+  $('docs').querySelectorAll('input').forEach(function (c) { c.addEventListener('change', updateSummary); });
+
+  // Catalog status line
+  var c = PV.catalog;
+  $('catStatus').textContent = !c ? '' : (c.found
+    ? 'The “Add catalog description here” bullet was found in the Design tab. Line breaks in the description are joined into one line. Pasted ' + INIT.today + '.'
+    : 'The “Add catalog description here” bullet was NOT found in the Design tab (already filled in?). Nothing will be added.');
+
+  // Link preview
+  var rep = 0, lp = '';
+  function line(l, where) {
+    var t = { add: ['ok', 'Will add a link'], same: ['sh', 'Already linked to this file'], replace: ['sg', 'Already has a different link'], nolabel: ['no', 'Label not found, skipped'] }[l.status];
+    if (l.status === 'replace') rep++;
+    return '<p class="m ' + t[0] + '">' + esc(where) + ' › ' + esc(l.label) + ': ' + t[1] + (l.spot === 'heading' ? ' (on the heading)' : '') + '</p>';
+  }
+  PV.links.forEach(function (l) { lp += line(l, 'Dashboard'); });
+  PV.devLinks.forEach(function (l) { lp += line(l, 'Development'); });
+  $('linkPrev').innerHTML = lp ? '<div class="row"><b style="font-size:12px">Link changes</b>' + lp + '</div>' : '';
+  $('replaceLbl').textContent = 'Replace links that are already there (' + rep + ' found)';
+}
+
+function updateSummary() {
+  if (!PV || dirty) return;
+  var ds = docState(), docs = 0;
+  PV.docs.forEach(function (d) {
+    if (d.status !== 'ok' || !ds[d.key]) return;
+    var n = d.items.filter(function (i) {
+      return !i.noop && ((i.kind === 'title' && ds[d.key].titleOn) || (i.kind === 'sample' && ds[d.key].sampleOn) || (i.kind === 'other' && ds[d.key].othersOn));
+    }).length;
+    if (n) docs++;
+  });
+  var cat = PV.catalog && PV.catalog.found && $('catOn').checked && $('desc').value.trim() ? 1 : 0;
+  var rep = $('replaceOn').checked, links = 0;
+  PV.links.forEach(function (l) { if (l.status === 'add' || (rep && l.status === 'replace')) links++; });
+  if ($('devOn').checked) PV.devLinks.forEach(function (l) { if (l.status === 'add' || (rep && l.status === 'replace')) links++; });
+  $('summary').textContent = 'Ready to change ' + docs + ' document' + (docs === 1 ? '' : 's') + ', add ' + cat + ' catalog description' + (cat === 1 ? '' : 's') + ', and add ' + links + ' link' + (links === 1 ? '' : 's') + '.';
+}
+
+function doApply() {
+  if (dirty) return;
+  showErr(''); busy(true);
+  google.script.run.withSuccessHandler(function (r) {
+    busy(false);
+    $('result').innerHTML = '<p class="sec">Done</p>' + r.report.map(function (x) { return '<p class="m ' + (x.ok ? 'ok' : 'no') + '">' + (x.ok ? '✓ ' : '✗ ') + esc(x.text) + '</p>'; }).join('') +
+      '<p class="m sh" style="margin-top:6px">Press “Preview all changes” to check the result.</p>';
+    dirty = true; $('applyBtn').disabled = true; $('summary').textContent = 'Applied. Preview again to re-check.';
+  }).withFailureHandler(function (e) { busy(false); $('applyBtn').disabled = false; showErr(e && e.message || String(e)); }).applyLinkDocs10(collectState());
+}
+</script>
+</body>
+</html>

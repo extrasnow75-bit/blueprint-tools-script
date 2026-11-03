@@ -93,6 +93,11 @@ const MAX_MODULES = 52;
 function onOpen() {
   DocumentApp.getUi()
     .createMenu('🎓 Blueprint Tools')
+    // Position 1: sets up the project (links documents, fills in the course
+    // identity) before any of the tools below build into the blueprint.
+    // See docs/dev-handoff/HANDOFF.md section 3 for the full menu order.
+    .addItem('Link Project Documents',                 'showLinkDocsSidebar10')
+    .addSeparator()
     .addItem('Add Activity Titles, Tools, Due Date Headers, & Times', 'showSidebar')
     // Position 2, directly under the tool that creates the headings and slots
     // it writes into. Replaces "Add Module Titles & Module Dates (Beta)", whose
