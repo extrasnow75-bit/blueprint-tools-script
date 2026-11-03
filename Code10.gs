@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 07:02 MST
+// Last updated on 2026-11-03 at 07:13 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -150,7 +150,8 @@ function previewLinkDocs10(state) {
     docs: plan.docs,
     catalog: plan.catalog,
     links: plan.links,
-    devLinks: plan.devLinks
+    devLinks: plan.devLinks,
+    schedLinks: plan.schedLinks
   });
 }
 
@@ -222,6 +223,16 @@ function applyLinkDocs10(state) {
         report.push({ ok: false, text: 'Development tab: could not link “' + l.label + '”. ' + (e && e.message || e) });
       }
     });
+  }
+  if (state.schedLinks) {
+    var did = 0, bad = 0;
+    for (var i = linkPlan.sched.length - 1; i >= 0; i--) {
+      var sl = linkPlan.sched[i];
+      if (!(sl.status === 'add' || (sl.status === 'replace' && state.replaceLinks))) continue;
+      try { applyScheduleLink10_(sl); did++; } catch (e) { bad++; }
+    }
+    try { if (linkPlan._schedDoc) linkPlan._schedDoc.saveAndClose(); } catch (e2) { /* nothing to save */ }
+    if (did || bad) report.push({ ok: !bad, text: 'Schedule of Deliverables: ' + did + ' link' + (did === 1 ? '' : 's') + ' added' + (bad ? ', ' + bad + ' failed.' : '.') });
   }
   return { report: report };
 }
@@ -296,7 +307,8 @@ function buildPlan10_(state, forApply) {
     docs: docs,
     catalog: catalog,
     links: linkPlan.dash,
-    devLinks: linkPlan.dev
+    devLinks: linkPlan.dev,
+    schedLinks: linkPlan.sched
   };
 }
 
@@ -406,6 +418,21 @@ function scanDoc10_(doc, slotKey, id, opts) {
     // "Course Title:". Template B has a title line (handled above); Template D
     // has neither, so it reports "No title line recognized".
     if (slotKey === 'schedule') scanScheduleTable10_(first.body, id, items);
+    // Syllabus subtitle: a standalone "Course Title" / "[Course Name]" placeholder
+    // paragraph near the top gets the course name. Only when that placeholder is
+    // there (Greg: "only what there are placeholders for"); templates vary by
+    // department, so nothing is guessed from other wording.
+    if (slotKey === 'syllabus' && id.name) {
+      paras.forEach(function (p) {
+        if (/^\s*\[?Course (?:Title|Name)\]?\s*$/i.test(p.text)) {
+          var pt = p.el, ptxt = p.text, lead = ptxt.match(/^\s*/)[0].length, trail = ptxt.length - ptxt.replace(/\s+$/, '').length;
+          items.push({
+            kind: 'title', where: 'Subtitle', before: snip10_(ptxt), after: snip10_(id.name), mode: 'placeholder', noop: false,
+            _run: function () { swapRange10_(pt, lead, ptxt.length - 1 - trail, id.name); }
+          });
+        }
+      });
+    }
     // Syllabus: catalog description under "Course Description", if the syllabus
     // still has the placeholder instructions. Skipped when the text is already in.
     if (slotKey === 'syllabus' && opts.catalogText) {
@@ -765,7 +792,63 @@ function buildLinkPlan10_(state, doc) {
       dev.push(e);
     });
   }
-  return { dash: dash, dev: dev };
+  var sched = { entries: [], doc: null };
+  if (state.schedLinks) {
+    try { sched = planScheduleLinks10_(state, doc, cleanIdentity10_(state.identity), { folder: state.folderUrl, syllabus: urls.syllabus, guide: urls.guide }); }
+    catch (eS) { sched = { entries: [], doc: null }; }
+  }
+  return { dash: dash, dev: dev, sched: sched.entries, _schedDoc: sched.doc };
+}
+
+/**
+ * Links inside the Schedule of Deliverables (Greg: yes to both):
+ *  - Template A: each "<<link Blueprint here>>" placeholder becomes
+ *    "<CODE> Blueprint" (DEFAULT wording) linked to the blueprint.
+ *  - Template E: the "DEPT ### Blueprint / Syllabus / Instructor Guide /
+ *    Google Drive folder" lines are linked when a file is known. Other labels
+ *    (Agreement, Scoping Doc, Course Outline ...) are left alone.
+ * Templates B, C and D are untouched. Never replaces an existing link unless asked.
+ */
+function planScheduleLinks10_(state, active, ident, urls) {
+  var out = { entries: [], doc: null };
+  var sel = (state.slots && state.slots.schedule) || {};
+  if (sel.skip) return out;
+  var docId = docIdForSlot10_(sel);
+  if (!docId) return out;
+  try { var mime = DriveApp.getFileById(docId).getMimeType(); if (mime && mime !== MIME_DOC_10) return out; } catch (e0) { /* try to open anyway */ }
+  var d;
+  try { d = DocumentApp.openById(docId); } catch (e) { return out; }
+  out.doc = d;
+  var blueprintUrl = 'https://docs.google.com/document/d/' + active.getId() + '/edit';
+  var map = { 'Google Drive folder': urls.folder, 'Blueprint': blueprintUrl, 'Syllabus': urls.syllabus, 'Instructor Guide': urls.guide };
+  collectTabs(d).forEach(function (t) {
+    findAll10_(t.body, '<<link Blueprint here>>').forEach(function (r) {
+      out.entries.push({ label: 'Blueprint', placeholder: true, url: blueprintUrl, existing: null, status: 'add',
+                         _el: r.getElement().asText(), _s: r.getStartOffset(), _e: r.getEndOffsetInclusive(),
+                         _newText: ident.id + ' Blueprint' });
+    });
+    topParas10_(t.body).forEach(function (p) {
+      var m = /^\s*[A-Za-z]{2,8}\s*(?:###|\d{3}[A-Za-z]?)\s*-?\s*(Google Drive folder|Blueprint|Syllabus|Instructor Guide)\b/.exec(p.text);
+      if (!m || !map[m[1]]) return;
+      var txt = p.text.replace(/\s+$/, '');
+      if (!txt) return;
+      var existing = p.el.getLinkUrl(0) || null, url = map[m[1]];
+      out.entries.push({ label: m[1], url: url, existing: existing,
+                         status: !existing ? 'add' : (sameUrl10_(existing, url) ? 'same' : 'replace'),
+                         _el: p.el, _s: 0, _e: txt.length - 1 });
+    });
+  });
+  return out;
+}
+
+/** Applies one planned Schedule link (placeholder text is swapped for the label first). */
+function applyScheduleLink10_(l) {
+  if (l._newText) {
+    swapRange10_(l._el, l._s, l._e, l._newText);
+    l._el.setLinkUrl(l._s, l._s + l._newText.length - 1, l.url);
+  } else {
+    l._el.setLinkUrl(l._s, l._e, l.url);
+  }
 }
 
 function linkEntry10_(label, url, lab) {

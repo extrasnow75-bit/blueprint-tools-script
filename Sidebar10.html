@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 07:02 MST
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 07:13 MST
 
      UI for "Link Project Documents" (Code10.gs). Built to
      docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
@@ -102,6 +102,7 @@
 <div id="slots"></div>
 <div id="linkPrev"></div>
 <label class="chk" style="margin-top:10px"><input type="checkbox" id="devOn" checked> <span>Development › Instructor Resources (Instructor Guide and Course Suggestions links)</span></label>
+<label class="chk"><input type="checkbox" id="schedOn" checked> <span>Schedule of Deliverables (blueprint link and document labels, where the template has them)</span></label>
 <label class="chk"><input type="checkbox" id="replaceOn"> <span id="replaceLbl">Replace links that are already there</span></label>
 <p class="intro" style="margin:4px 0 12px">Not Drive files, so left for the team to add: Panopto Folder, Canvas Course, Creative Brief.</p>
 
@@ -135,7 +136,7 @@ function onInit(d) {
   ['dept', 'num', 'cname'].forEach(function (id) { $(id).addEventListener('input', function () { if (id !== 'cname') catResult = null; markDirty(); renderIdentity(); }); });
   $('catName').addEventListener('input', renderCatalog);
   $('desc').addEventListener('input', function () { updateSummary(); });
-  ['catOn', 'devOn', 'replaceOn'].forEach(function (id) { $(id).addEventListener('change', updateSummary); });
+  ['catOn', 'devOn', 'schedOn', 'replaceOn'].forEach(function (id) { $(id).addEventListener('change', updateSummary); });
   $('catLookup').addEventListener('click', function () { lookupCatalog(''); });
   $('previewBtn').addEventListener('click', doPreview);
   $('applyBtn').addEventListener('click', doApply);
@@ -303,7 +304,7 @@ function collectState() {
     docs: docState(),
     catalog: { on: $('catOn').checked, text: $('desc').value, prereq: $('prereq').value, prereqOn: $('prereqOn').checked,
                source: (catResult && catResult.ok) ? { label: catResult.sourceLabel, url: catResult.sourceUrl } : null },
-    devLinks: $('devOn').checked, replaceLinks: $('replaceOn').checked
+    devLinks: $('devOn').checked, schedLinks: $('schedOn').checked, replaceLinks: $('replaceOn').checked
   };
 }
 function busy(on) { $('spin').style.display = on ? 'block' : 'none'; $('previewBtn').disabled = on; if (on) $('applyBtn').disabled = true; }
@@ -382,6 +383,9 @@ function renderPreview() {
   }
   PV.links.forEach(function (l) { lp += line(l, 'Dashboard'); });
   PV.devLinks.forEach(function (l) { lp += line(l, 'Development'); });
+  var phs = (PV.schedLinks || []).filter(function (l) { return l.placeholder; });
+  if (phs.length) lp += '<p class="m ok">Schedule › ' + phs.length + ' “link Blueprint here” placeholder' + (phs.length === 1 ? '' : 's') + ' will become “' + esc($('dept').value.trim().toUpperCase() + ' ' + $('num').value.trim().toUpperCase()) + ' Blueprint” links</p>';
+  (PV.schedLinks || []).filter(function (l) { return !l.placeholder; }).forEach(function (l) { lp += line(l, 'Schedule'); });
   $('linkPrev').innerHTML = lp ? '<div class="row"><b style="font-size:12px">Link changes</b>' + lp + '</div>' : '';
   $('replaceLbl').textContent = 'Replace links that are already there (' + rep + ' found)';
 }
@@ -400,6 +404,7 @@ function updateSummary() {
   var rep = $('replaceOn').checked, links = 0;
   PV.links.forEach(function (l) { if (l.status === 'add' || (rep && l.status === 'replace')) links++; });
   if ($('devOn').checked) PV.devLinks.forEach(function (l) { if (l.status === 'add' || (rep && l.status === 'replace')) links++; });
+  if ($('schedOn').checked) (PV.schedLinks || []).forEach(function (l) { if (l.status === 'add' || (rep && l.status === 'replace')) links++; });
   $('summary').textContent = 'Ready to change ' + docs + ' document' + (docs === 1 ? '' : 's') + ', add ' + cat + ' catalog description' + (cat === 1 ? '' : 's') + ', and add ' + links + ' link' + (links === 1 ? '' : 's') + '.';
 }
 
