@@ -319,3 +319,8 @@ Updated this session: `Main.png` and `StatusResultsB.png` now include the settin
 - Graduate catalog for course numbers 500 and up.
 - Catalog name mismatch: warn, but still allow insertion.
 - Quickbase: dropped.
+
+## 10. Pending from Greg (added 2026-11-02)
+
+- **Multi-semester list spreadsheet (copy needed).** Greg will provide a copy (personal Drive, extrasnow75@gmail.com) when back at his desktop. Purpose: the new setup tool (Link Project Documents, or a sibling) finds the project's row in the spreadsheet and scrapes key information from it. Needed before designing this: which columns to read, how the project is identified (course code, title, or blueprint link), and whether it is a Sheet or an Excel upload. **Remind Greg at the start of the next session.**
+- Test results from Link Project Documents (Code10.gs, Sidebar10.html) and the three spikes in Spikes.gs.
