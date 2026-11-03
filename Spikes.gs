@@ -53,28 +53,33 @@ function spikeFolderSpike10() {
 }
 
 /**
- * Spike C (catalog endpoint). Fetches the two catalog home pages and a few
- * guesses at a data endpoint, and logs status and the start of each response.
- * The catalogs are hash-routed single-page apps, so the home HTML is probably
- * just a shell. THE REAL ANSWER is in the browser: open a course page in the
- * catalog, open DevTools > Network > Fetch/XHR, reload, and look for the request
- * whose response contains the course description. Copy that request's URL and
- * paste it to Claude Code. This function only checks the cheap guesses.
+ * Spike C (catalog). The catalogs run on Kuali (found in Greg's Network tab).
+ * This checks the two things the lookup depends on:
+ *   1. Does /api/v1/catalog/public/catalogs list the catalogs, and what are
+ *      their names and IDs? (Needed to find the graduate catalog's ID and to
+ *      confirm "newest undergraduate / graduate" discovery.)
+ *   2. Does a search for a course return its description? Tries CS 321
+ *      (undergraduate) and APPAI 505 (graduate) in every catalog whose name
+ *      mentions "graduate".
+ * Copy everything it logs back to Claude Code.
  */
 function spikeCatalogSpike10() {
-  var urls = [
-    'https://www.boisestate.edu/registrar-catalog/',
-    'https://www.boisestate.edu/graduatecatalog/',
-    'https://boisestate.kuali.co/api/v1/catalog/public/catalogs',
-    'https://boisestate.kuali.co/api/v1/catalog/courses'
-  ];
-  urls.forEach(function (u) {
-    try {
-      var r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
-      var body = r.getContentText();
-      Logger.log('%s -> %s, %s chars, type %s\n%s', u, r.getResponseCode(), body.length, r.getHeaders()['Content-Type'], body.slice(0, 400));
-      var scripts = body.match(/<script[^>]+src="[^"]+"/g);
-      if (scripts) Logger.log('  script tags: %s', scripts.slice(0, 6).join(' ; '));
-    } catch (e) { Logger.log('%s -> ERROR %s', u, e.message); }
+  var base = 'https://boisestate.kuali.co/api/v1/catalog/';
+  var r = UrlFetchApp.fetch(base + 'public/catalogs', { muteHttpExceptions: true, followRedirects: true });
+  Logger.log('public/catalogs -> %s, %s chars', r.getResponseCode(), r.getContentText().length);
+  var list = [];
+  try { list = JSON.parse(r.getContentText()); } catch (e) { Logger.log('Not JSON: %s', r.getContentText().slice(0, 400)); return; }
+  Logger.log('First entry keys: %s', list.length ? Object.keys(list[0]).join(', ') : '(empty)');
+  list.forEach(function (c) {
+    Logger.log('CATALOG | %s | id=%s | %s', c.name || c.title || c.fullName, c._id || c.id,
+               ['activeDate', 'archived', 'status', 'startDate', 'endDate'].map(function (k) { return k + '=' + c[k]; }).join(' '));
+  });
+  list.forEach(function (c) {
+    var name = String(c.name || c.title || '');
+    if (!/graduate/i.test(name)) return;
+    var q = /\bundergraduate\b/i.test(name) ? 'cs 321' : 'appai 505';
+    var s = UrlFetchApp.fetch(base + 'search/' + (c._id || c.id) + '?q=' + encodeURIComponent(q) + '&limit=6', { muteHttpExceptions: true });
+    var body = s.getContentText();
+    Logger.log('SEARCH "%s" in %s -> %s: %s', q, name, s.getResponseCode(), body.slice(0, 500));
   });
 }

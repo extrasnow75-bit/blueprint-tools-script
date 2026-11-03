@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-02 at 18:55 MST
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 00:51 MST
 
      UI for "Link Project Documents" (Code10.gs). Built to
      docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
@@ -79,13 +79,14 @@
 <hr>
 <p class="sec">2. Catalog description</p>
 <div class="card" id="catCard"></div>
+<button class="btn2" type="button" id="catLookup">Look up in the catalog</button>
 <label class="lbl" for="catName">Course name as the catalog shows it (optional)</label>
 <input class="inp" id="catName" type="text" autocomplete="off">
 <div id="catWarn" class="warn" hidden></div>
 <label class="lbl" for="desc">Description to add to the Design tab</label>
 <textarea class="ta" id="desc" placeholder="Paste the catalog description here."></textarea>
 <label class="chk"><input type="checkbox" id="catOn" checked> <span>Add it under Course Information (replaces “Add catalog description here”)</span></label>
-<p class="m sh" id="catStatus">The catalog can’t be read automatically yet, so paste the description above. The tool still previews it and places it.</p>
+<p class="m sh" id="catStatus">Press “Look up in the catalog” to fetch it, or paste the description above. The tool previews it before placing it.</p>
 
 <hr>
 <p class="sec">3. Documents to update</p>
@@ -113,6 +114,7 @@
 <script>
 var INIT = null, PV = null, dirty = true;
 var slotState = {};   // key -> {fileId, url, skip}
+var catResult = null; // last catalog lookup (see fetchCatalogCourse10 in Code10.gs)
 
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -127,10 +129,11 @@ function onInit(d) {
   $('app').hidden = false;
   $('dept').value = d.identity.dept; $('num').value = d.identity.number; $('cname').value = d.identity.name;
   renderFolder(d.folder, d.folderError);
-  ['dept', 'num', 'cname'].forEach(function (id) { $(id).addEventListener('input', function () { markDirty(); renderIdentity(); }); });
+  ['dept', 'num', 'cname'].forEach(function (id) { $(id).addEventListener('input', function () { if (id !== 'cname') catResult = null; markDirty(); renderIdentity(); }); });
   $('catName').addEventListener('input', renderCatalog);
   $('desc').addEventListener('input', function () { updateSummary(); });
   ['catOn', 'devOn', 'replaceOn'].forEach(function (id) { $(id).addEventListener('change', updateSummary); });
+  $('catLookup').addEventListener('click', function () { lookupCatalog(''); });
   $('previewBtn').addEventListener('click', doPreview);
   $('applyBtn').addEventListener('click', doApply);
   renderIdentity();
@@ -150,6 +153,22 @@ function renderIdentity() {
 }
 
 // ── 2. Catalog ──
+function lookupCatalog(level) {
+  var i = identity();
+  $('catStatus').textContent = 'Looking up the course in the catalog…';
+  google.script.run.withSuccessHandler(function (r) {
+    catResult = r;
+    if (r.ok) {
+      $('catName').value = r.title;
+      if (!$('desc').value.trim()) $('desc').value = r.description;
+    }
+    $('catStatus').textContent = r.ok ? 'Found in the catalog. Edit the description if you need to.' : '';
+    renderCatalog(); updateSummary();
+  }).withFailureHandler(function (e) {
+    catResult = { ok: false, levelName: '', message: 'Lookup failed: ' + (e && e.message || e) + ' Paste the description instead.' };
+    $('catStatus').textContent = ''; renderCatalog();
+  }).fetchCatalogCourse10(i.dept, i.number, level || '');
+}
 // Same normalising as normTitle9_ (case, "&" vs "and", punctuation), plus
 // parenthetical text dropped, per the handoff.
 function normName(s) {
@@ -161,9 +180,27 @@ function renderCatalog() {
   var main = grad ? ['Graduate', 'https://www.boisestate.edu/graduatecatalog/#/home'] : ['Undergraduate', 'https://www.boisestate.edu/registrar-catalog/#/home'];
   var other = grad ? ['undergraduate', 'https://www.boisestate.edu/registrar-catalog/#/home'] : ['graduate', 'https://www.boisestate.edu/graduatecatalog/#/home'];
   $('levelNote').textContent = isNaN(n) ? '' : (grad ? 'Number 500 or above, so the graduate catalog will be checked.' : 'Number below 500, so the undergraduate catalog will be checked.');
-  $('catCard').innerHTML = '<strong>' + main[0] + ' Catalog</strong><br>' +
-    'Open the <a href="' + main[1] + '">' + main[0].toLowerCase() + ' catalog</a>, search for ' + esc(id || 'the course') +
-    ', and paste its description below. <a href="' + other[1] + '">Check the ' + other[0] + ' catalog instead</a>.';
+  var head = '<strong>' + main[0] + ' Catalog</strong>';
+  var otherBtn = ' <button type="button" class="linkbtn" id="catOther">Check the ' + other[0] + ' catalog instead</button>';
+  var html;
+  if (catResult && catResult.ok) {
+    head = '<strong>' + esc(catResult.levelName) + ' Catalog</strong>' + (catResult.year ? ' · ' + esc(catResult.year) : '');
+    html = head + '<br>Found: ' + esc(catResult.code) + '.' +
+      (catResult.levelName === 'Graduate' ? otherBtn.replace(other[0], 'undergraduate') : otherBtn.replace(other[0], 'graduate'));
+    if ($('desc').value.trim() !== catResult.description) html += '<br><button type="button" class="linkbtn" id="catUse">Use the catalog’s description</button>';
+  } else if (catResult) {
+    head = '<strong>' + esc(catResult.levelName || main[0]) + ' Catalog</strong>';
+    html = head + '<br>' + esc(catResult.message || 'Not found.') +
+      (catResult.levelName === 'Graduate' ? otherBtn.replace(other[0], 'undergraduate') : otherBtn.replace(other[0], 'graduate'));
+  } else {
+    html = head + '<br>Press “Look up in the catalog”, or open the <a href="' + main[1] + '">' + main[0].toLowerCase() +
+      ' catalog</a>, search for ' + esc(id || 'the course') + ', and paste its description below.';
+  }
+  $('catCard').innerHTML = html;
+  if ($('catOther')) $('catOther').addEventListener('click', function () {
+    lookupCatalog(catResult && catResult.level === 'grad' ? 'undergrad' : (catResult && catResult.level === 'undergrad' ? 'grad' : (grad ? 'undergrad' : 'grad')));
+  });
+  if ($('catUse')) $('catUse').addEventListener('click', function () { $('desc').value = catResult.description; renderCatalog(); updateSummary(); });
   var cat = $('catName').value.trim(), mine = i.name.trim();
   var w = $('catWarn');
   if (cat && mine && normName(cat) !== normName(mine)) {

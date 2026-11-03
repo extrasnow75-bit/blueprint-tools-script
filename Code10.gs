@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-02 at 18:40 MST
+// Last updated on 2026-11-03 at 00:51 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -726,6 +726,98 @@ function isHeading10_(para, level) {
 }
 
 
+// ── CATALOG LOOKUP (Kuali) ───────────────────────────────────
+// Found by Greg in the browser's Network tab (2026-11-02): the catalogs run on
+// Kuali, and a search request returns course JSON with no sign-in:
+//   https://boisestate.kuali.co/api/v1/catalog/search/<catalogId>?q=cs%20321&limit=6
+// Each result has: code ("CS321"), subjectCode.name ("CS"), number ("321"),
+// title, description, pid, type ("courses" | "programs" | "experiences").
+// Needs only script.external_request, which the project already has.
+//
+// UNVERIFIED: how the catalog IDs are discovered. Catalog IDs change every
+// academic year, so the code asks /api/v1/catalog/public/catalogs for the list
+// and picks the newest one whose name says undergraduate or graduate. The shape
+// of that list is a guess until spikeCatalogSpike10 (Spikes.gs) has been run.
+// If discovery fails it falls back to the IDs below. Update the fallbacks yearly
+// until the spike confirms discovery works.
+var KUALI_BASE_10 = 'https://boisestate.kuali.co/api/v1/catalog/';
+var CATALOG_FALLBACK_IDS_10 = {
+  undergrad: '68d5535c7e5bba5930769e2d',   // 2026-2027 Undergraduate Catalog (seen in Greg's Network tab)
+  grad: ''                                   // not known yet; filled in after the spike
+};
+
+/**
+ * Looks one course up in the catalog. `level` is 'undergrad' | 'grad', or empty
+ * for the automatic choice (course number 500 and above is graduate).
+ * Never throws for "not found"; returns {ok:false, message}.
+ * DEFAULT: older catalog years are not searched (they are archived PDFs).
+ */
+function fetchCatalogCourse10(dept, number, level) {
+  dept = String(dept || '').trim().toUpperCase();
+  number = String(number || '').trim().toUpperCase();
+  if (!dept || !number) return { ok: false, message: 'Enter the department and course number first.' };
+  var n = parseInt(number.replace(/\D/g, ''), 10);
+  var lvl = (level === 'grad' || level === 'undergrad') ? level : (n >= 500 ? 'grad' : 'undergrad');
+  var out = { ok: false, level: lvl, levelName: lvl === 'grad' ? 'Graduate' : 'Undergraduate' };
+  try {
+    var cat = catalogFor10_(lvl);
+    if (!cat.id) { out.message = 'The ' + out.levelName.toLowerCase() + ' catalog could not be found automatically. Paste the description instead.'; return out; }
+    out.catalogName = cat.name; out.year = cat.year;
+    var url = KUALI_BASE_10 + 'search/' + cat.id + '?q=' + encodeURIComponent(dept + ' ' + number) + '&limit=20';
+    var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+    if (resp.getResponseCode() !== 200) { out.message = 'The catalog answered with error ' + resp.getResponseCode() + '. Paste the description instead.'; return out; }
+    var list = JSON.parse(resp.getContentText());
+    var want = (dept + number).replace(/[\s/-]+/g, '');
+    var hit = null;
+    for (var i = 0; i < list.length && !hit; i++) {
+      var it = list[i];
+      if (it.type !== 'courses') continue;
+      var code = String((it.subjectCode && it.subjectCode.name || '') + (it.number || '')).toUpperCase().replace(/[\s/-]+/g, '');
+      if (code === want || String(it.code || '').toUpperCase().replace(/[\s/-]+/g, '') === want) hit = it;
+    }
+    if (!hit) { out.message = dept + ' ' + number + ' was not found in the ' + out.levelName.toLowerCase() + ' catalog.'; return out; }
+    out.ok = true;
+    out.title = String(hit.title || '').trim();
+    out.description = cleanCatalogText10_(hit.description);
+    out.code = dept + ' ' + number;
+    return out;
+  } catch (e) {
+    out.message = 'Could not reach the catalog (' + (e && e.message || e) + '). Paste the description instead.';
+    return out;
+  }
+}
+
+/** Newest catalog whose name says undergraduate (or graduate); falls back to the fixed IDs. */
+function catalogFor10_(lvl) {
+  try {
+    var resp = UrlFetchApp.fetch(KUALI_BASE_10 + 'public/catalogs', { muteHttpExceptions: true, followRedirects: true });
+    if (resp.getResponseCode() === 200) {
+      var list = JSON.parse(resp.getContentText()), best = null;
+      (Array.isArray(list) ? list : []).forEach(function (c) {
+        var name = String(c.name || c.title || c.fullName || '');
+        var isUg = /\bundergraduate\b/i.test(name), isGr = /\bgraduate\b/i.test(name) && !isUg;
+        if ((lvl === 'undergrad' && !isUg) || (lvl === 'grad' && !isGr)) return;
+        var ym = name.match(/(\d{4})\s*[-–—]\s*(\d{2,4})/);
+        var start = ym ? parseInt(ym[1], 10) : 0;
+        if (!best || start > best.start) {
+          best = { id: c._id || c.id, name: name, start: start,
+                   year: ym ? ym[1] + '–' + ym[2].slice(-2) : '' };
+        }
+      });
+      if (best && best.id) return best;
+    }
+  } catch (e) { /* fall through to the fixed IDs */ }
+  var fid = CATALOG_FALLBACK_IDS_10[lvl];
+  return { id: fid, name: '', year: lvl === 'undergrad' ? '2026–27' : '' };
+}
+
+/** Strips HTML tags and the trailing newline the catalog leaves on descriptions. */
+function cleanCatalogText10_(t) {
+  return String(t || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim();
+}
+
+
 // ── CATALOG DESCRIPTION ──────────────────────────────────────
 
 /**
@@ -733,9 +825,8 @@ function isHeading10_(para, level) {
  * description here" bullet in the Design tab.
  * DEFAULT: if that bullet is not there (a finished course), nothing is added;
  * the sidebar says so. It never writes over a description that is already in.
- * SPIKE 4 (catalog endpoint) is still open, so the description is always pasted
- * by the user. When the spike finds a usable endpoint, fetch it before this
- * point and pass the text in.
+ * The text comes from the sidebar: either fetched by fetchCatalogCourse10 (the
+ * user pressed "Look up in the catalog") or pasted by the user.
  */
 function planCatalog10_(doc, cat) {
   var spot = findCatalogSpot10_(doc);
