@@ -4,7 +4,7 @@
 // Compares the script files in THIS document with the released versions on the
 // GitHub master branch, and says which files to paste again.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 11:30 MST
+// Last updated on 2026-11-03 at 12:15 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.5. UI: Sidebar14.html, a pop-up
@@ -37,7 +37,7 @@
 // SCOPES. UrlFetchApp: script.external_request (already present).
 // ============================================================
 
-var BP_VER_Code14 = '2026-11-03 11:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code14 = '2026-11-03 12:15';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var MANIFEST_URL_14 = 'https://raw.githubusercontent.com/extrasnow75-bit/blueprint-tools-script/master/version-manifest.json';
 var MAX_PROBE_14 = 40;
@@ -46,9 +46,9 @@ var STAMP_HTML_RE_14 = /Last updated on (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2})/;
 
 function showVersionDialog14() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar14').setWidth(460).setHeight(440);
-  // DEFAULT: modal (blocks the document while open, like a light box). Switch to
-  // showModelessDialog if Greg wants to keep editing while it is open.
-  DocumentApp.getUi().showModalDialog(html, 'Blueprint Tools Version Check');
+  // Modeless (Greg agreed 2026-11-03): the document stays usable while the dialog is open, so the list can be worked through while pasting files. The blocking form is
+  // showModalDialog.
+  DocumentApp.getUi().showModelessDialog(html, 'Blueprint Tools Version Check');
 }
 
 /**

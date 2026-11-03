@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 11:30 MST
+// Last updated on 2026-11-03 at 12:15 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,14 +45,14 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-03 11:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-03 12:15';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
   untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)',
   purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Built in Canvas'
 };
-// DEFAULT: "ready for the dev team" = green, purple, yellow or struck through
+// Greg chose the wording "Ready for the Dev Team" (2026-11-03). Ready = green, purple, yellow or struck through
 // (the StatusResultsB mockup's wording). Greg may prefer "Highlighted for QA or
 // later"; only STAGE_READY_13 and the sidebar label would change.
 var STAGE_READY_13 = { green: true, purple: true, revised: true, built: true };
@@ -590,7 +590,7 @@ function reportLines13_(r) {
   }
   if (r.checks.stage) {
     add('Course totals', 2);
-    add(r.totals.ready + ' of ' + r.totals.activities + ' activities are ready for the dev team.');
+    add(r.totals.ready + ' of ' + r.totals.activities + ' activities are Ready for the Dev Team.');
     Object.keys(STAGE_LABEL_13).forEach(function (k) { add(STAGE_LABEL_13[k] + ': ' + r.totals.stages[k]); });
   }
   if (r.checks.links) add('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected);

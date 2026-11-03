@@ -212,7 +212,7 @@ function render(r) {
     }).join('');
   }
   if (r.checks.stage) {
-    h += '<hr><p class="sec">Course totals</p><div class="hero"><p class="big"><b>' + r.totals.ready + ' of ' + r.totals.activities + '</b> activities are ready for the dev team</p>' + bar(r.totals.stages, r.totals.activities) +
+    h += '<hr><p class="sec">Course totals</p><div class="hero"><p class="big"><b>' + r.totals.ready + ' of ' + r.totals.activities + '</b> activities are Ready for the Dev Team</p>' + bar(r.totals.stages, r.totals.activities) +
       '<p class="m sh">Ready = green, purple, yellow, or struck through. Not ready = text added but not highlighted, or template text still there.</p></div><div class="stages">' +
       ORDER.map(function (k) { return '<div class="stg"><b>' + r.totals.stages[k] + '</b>' + esc(LABEL[k]) + '</div>'; }).join('') + '</div>';
   }
@@ -228,7 +228,7 @@ function render(r) {
     }
     if (r.checks.stage) {
       var n = m.activities.length;
-      h += '<p class="lbl2">Ready for dev team</p><p style="margin:0"><b>' + m.ready + ' of ' + n + '</b></p>' + bar(m.counts, n);
+      h += '<p class="lbl2">Ready for the Dev Team</p><p style="margin:0"><b>' + m.ready + ' of ' + n + '</b></p>' + bar(m.counts, n);
       var notReady = [];
       if (m.counts.untouched) notReady.push(m.counts.untouched + ' still template text');
       if (m.counts.drafted) notReady.push(m.counts.drafted + ' drafted but not highlighted');
