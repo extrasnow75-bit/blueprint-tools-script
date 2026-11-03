@@ -152,6 +152,8 @@ Mockup: `DraftTabs.png`. Also `A1Title.png`.
 - **The tool must never tick the "Check when settings are finalized:" box.** If a template tab arrives ticked, warn; do not untick it.
 - A "Split off" control (to pull one activity out of a group) was proposed but not mocked up.
 
+**Built (2026-11-03, branch `draft-settings-tables`, which also contains the Deploy work; untested in Apps Script).** `Code12.gs` / `Sidebar12.html`, menu item directly above Deploy. Finds the settings table like Deploy does (reuses `getDeployInit11` / `loadSettingsTable11`). Modes: one per kind of activity (default; groups by tool plus the title with "Topic N"/"Week N" labels and numbers removed), one per Canvas tool, one per activity. Names are editable (max 100, unique, case-insensitive, live check), each row has a checkbox and a Show list of its activities, and "Add another tab" adds a custom tab copied from a chosen template. Template tabs are found by name (contains "Template" plus assignment / discussion / classic / new). Page activities and tool lines with no tool chosen are skipped. Copies the whole tab with `Sheet.copyTo` and sets only its name; no cell is edited, A1 stays as the template has it (option A). A name that already exists is flagged and skipped; existing tabs are never touched. If the template's "Check when settings are finalized:" box is ticked, the tool warns before and after and leaves it ticked (never changes the box). DEFAULT: template tab names are guessed from their wording; confirm against the real settings table.
+
 ### 3.4 Development Status Check (`Code13.gs` / `Sidebar13.html`)
 
 Mockups: `Main.png` (setup), `StatusResultsB.png` (results; Greg picked B), `StatusResultsA.png` (alternative, not chosen).

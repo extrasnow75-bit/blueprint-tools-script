@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar12.html | Last updated on 2026-11-03 at 09:10 MST
+
+     UI for "Draft Settings Tables" (Code12.gs). Built to
+     docs/dev-handoff/mockups/DraftTabs.png. Flow: find the settings table, pick
+     how many tabs, edit the proposed tab names, press "Create tabs". Nothing is
+     created until then. Cell A1 and every other cell stay as the template has
+     them; only the new tab's name is set. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_blank">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #333; padding: 14px 16px 24px; }
+    h3 { color: #0033a0; font-size: 15px; margin: 0 0 6px; }
+    .intro { font-size: 12px; color: #555; margin: 0 0 12px; }
+    .sec { color: #0033a0; font-size: 13px; font-weight: bold; margin: 0 0 6px; }
+    hr { border: 0; border-top: 2px solid #aab2c8; margin: 14px 0; }
+    .btn, .btn2 { display: block; width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 3px; font: bold 13px Arial, sans-serif; cursor: pointer; }
+    .btn  { background: #0033a0; color: #fff; border: 0; }
+    .btn2 { background: #fff; color: #0033a0; border: 2px solid #0033a0; margin: 0 0 8px; }
+    .btn:disabled { background: #9aa6c8; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #0033a0; outline-offset: 2px; }
+    .card { border: 1px solid #aab2c8; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; font-size: 12px; }
+    a { color: #0033a0; }
+    .linkbtn { background: none; border: 0; padding: 0; color: #0033a0; font: 12px Arial, sans-serif; text-decoration: underline; cursor: pointer; }
+    .inp, .sel { width: 100%; min-height: 36px; margin: 4px 0 2px; font: 12px Arial, sans-serif; border: 1px solid #767676; border-radius: 3px; padding: 4px 6px; background: #fff; color: #333; }
+    .bar { display: flex; height: 16px; border: 1px solid #aab2c8; border-radius: 3px; overflow: hidden; margin: 4px 0 6px; }
+    .bar i { display: block; height: 100%; }
+    .g { background: #b9e0c5; } .y { background: #ffe08a; } .r { background: #f2b8b8; }
+    .legend { font-size: 11px; color: #555; }
+    .legend span { display: inline-block; width: 10px; height: 10px; margin: 0 3px 0 8px; border: 1px solid #888; vertical-align: -1px; }
+    .legend span:first-child { margin-left: 0; }
+    details { border-top: 1px solid #dde1ea; }
+    details:last-of-type { border-bottom: 1px solid #dde1ea; }
+    summary { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-height: 44px; cursor: pointer; font-weight: bold; font-size: 13px; }
+    summary .st { font-size: 11px; font-weight: normal; white-space: nowrap; }
+    .st.ok { color: #1e6b2e; } .st.look { color: #8a1c1c; font-weight: bold; }
+    .act { padding: 8px 8px; margin: 0 -8px; }
+    .act.sg { background: #fff4ce; } .act.no { background: #fde7e7; }
+    .rt { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .rt b { font-size: 12px; }
+    .tool { font-size: 11px; color: #555; white-space: nowrap; }
+    .m { font-size: 11px; margin: 0; }
+    .m.ok { color: #1e6b2e; } .m.sg { color: #5c4400; } .m.no { color: #8a1c1c; font-weight: bold; } .m.sh { color: #555; }
+    .chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin: 0 0 8px; }
+    .chk input { margin: 2px 0 0; width: 16px; height: 16px; flex: none; }
+    .note { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #e8f0fe; color: #1a3a7a; }
+    .err  { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #fde7e7; color: #8a1c1c; border: 1px solid #8a1c1c; }
+    .ex { border: 1px dashed #555; border-radius: 3px; padding: 8px 10px; background: #fafafa; margin: 4px 0 10px; }
+    .ex .ln { color: #c00000; font-weight: bold; } .ex .ln u { color: #0033a0; }
+    .spin { font-size: 12px; color: #555; margin: 0 0 8px; }
+    .nm { display:flex; gap:8px; align-items:center; margin:6px 0 2px; }
+    .nm input[type=checkbox] { width:18px; height:18px; flex:none; margin:0; }
+    .nm .inp { margin:0; font-weight:bold; }
+    .rowx { padding:6px 0; border-top:1px solid #dde1ea; }
+    .rowx .m { margin-left:26px; }
+    .rowx.bad .inp { border-color:#8a1c1c; background:#fde7e7; }
+    .radio { display:flex; gap:8px; align-items:flex-start; margin:0 0 8px; font-size:12px; }
+    .radio input { margin:2px 0 0; width:16px; height:16px; flex:none; }
+    .radio i { display:block; font-style:normal; font-size:11px; color:#555; }
+    .lst { margin:2px 0 0 26px; padding-left:16px; font-size:11px; color:#444; }
+    ul { margin: 4px 0 6px; padding-left: 18px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<h3>Draft Settings Tables</h3>
+<p class="intro">Adds tabs to your settings table for the Assignments, Discussions, and Quizzes in the Development tab. Each new tab is a copy of the matching template tab. Activities that are alike share one tab.</p>
+
+<div id="loading" class="spin">Reading the blueprint and the settings table…</div>
+<div id="err" class="err" hidden role="alert"></div>
+
+<div id="app" hidden>
+  <p class="sec">Settings table</p>
+  <div class="card" id="tableCard"></div>
+  <div id="pick" hidden>
+    <label for="url" style="font-size:12px;font-weight:bold">Settings table link</label>
+    <input class="inp" id="url" type="text" autocomplete="off" placeholder="Paste the Google Sheets address">
+    <button class="btn2" type="button" id="loadBtn">Use this file</button>
+  </div>
+
+  <div id="body" hidden>
+    <hr>
+    <p class="sec">How many tabs?</p>
+    <label class="radio"><input type="radio" name="mode" value="kind" checked><span><b>One per kind of activity (recommended)</b><i>Activities with similar titles share a tab, such as every Weekly Quiz.</i></span></label>
+    <label class="radio"><input type="radio" name="mode" value="tool"><span><b>One per Canvas tool</b><i>Fewest tabs: Assignment, Discussion, and Quiz.</i></span></label>
+    <label class="radio"><input type="radio" name="mode" value="activity"><span><b>One per activity</b><i>Most tabs. Every activity gets its own.</i></span></label>
+
+    <hr>
+    <p class="sec">Settings Table Tab Names</p>
+    <p class="m" id="count" style="font-size:12px;margin:0 0 4px"></p>
+    <p class="intro" style="margin:0 0 6px">Edit any name. Names stop at 100 characters and can’t repeat.</p>
+    <div id="warns"></div>
+    <div id="rows"></div>
+    <button class="btn2" type="button" id="addBtn" style="margin-top:10px">+ Add another tab (exam, evaluation, survey…)</button>
+
+    <div class="note">Existing tabs are never changed. Only new tabs are added at the end, and no cell in them is edited. Filling the tabs in stays manual.</div>
+    <div class="note" id="summary" aria-live="polite"></div>
+    <div id="spin" class="spin" hidden>Creating tabs…</div>
+    <button class="btn" type="button" id="createBtn" disabled>Create tabs</button>
+    <div id="result" aria-live="polite" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+var PV = null, tableId = null;
+var rows = [];     // {key, name, tool, templateGid, templateName, count, activities, on, exists, noTemplate, custom}
+var customN = 0;
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function showErr(msg) { var e = $('err'); e.hidden = !msg; e.textContent = msg || ''; }
+function mode() { return document.querySelector('input[name=mode]:checked').value; }
+
+google.script.run.withSuccessHandler(onInit).withFailureHandler(function (e) {
+  $('loading').hidden = true; showErr('Could not start: ' + (e && e.message || e));
+}).getDeployInit11();
+
+function onInit(d) {
+  $('loading').hidden = true; $('app').hidden = false;
+  if (!d.devOk) { showErr('This blueprint has no “Development” tab, so there is nothing to draft from.'); $('app').hidden = true; return; }
+  if (d.found && d.table) { tableId = d.table.id; renderTable(d.table, 'Found through the Dashboard link.'); runPreview(); return; }
+  $('tableCard').innerHTML = d.url
+    ? 'The Dashboard has a Settings Tables link, but it could not be read.<br><span class="m no">' + esc(d.error || '') + '</span>'
+    : 'No Settings Tables link was found on the Dashboard.';
+  $('pick').hidden = false;
+}
+
+function renderTable(t, how) {
+  $('tableCard').innerHTML = '<b>' + esc(t.name) + '</b><br>' + esc(how) + ' ' + t.tabs.length + ' tabs. <button type="button" class="linkbtn" id="changeBtn">Choose a different file</button> · <a href="' + esc(t.url) + '">Open</a>';
+  $('pick').hidden = true;
+  $('changeBtn').addEventListener('click', function () { $('pick').hidden = false; $('url').focus(); });
+}
+
+$('loadBtn').addEventListener('click', function () {
+  var v = $('url').value.trim(); if (!v) return;
+  showErr('');
+  google.script.run.withSuccessHandler(function (t) { tableId = t.id; renderTable(t, 'Chosen by you.'); runPreview(); })
+    .withFailureHandler(function (e) { showErr(e && e.message || e); }).loadSettingsTable11(v);
+});
+
+Array.prototype.forEach.call(document.querySelectorAll('input[name=mode]'), function (r) {
+  r.addEventListener('change', function () {
+    if (rows.some(function (x) { return x.custom; }) && !confirm('Changing this removes the tabs you added yourself. Continue?')) { return; }
+    runPreview();
+  });
+});
+
+function runPreview() {
+  showErr(''); $('result').innerHTML = ''; $('loading').textContent = 'Reading the Development tab…'; $('loading').hidden = false;
+  google.script.run.withSuccessHandler(function (p) {
+    $('loading').hidden = true; PV = p; customN = 0;
+    rows = p.proposals.map(function (x) { x.on = !x.exists && !x.noTemplate; x.custom = false; x.open = false; return x; });
+    $('body').hidden = false; render();
+  }).withFailureHandler(function (e) { $('loading').hidden = true; showErr(e && e.message || e); })
+    .previewDraft12({ tableId: tableId, mode: mode() });
+}
+
+function templateOptions(sel) {
+  return PV.templates.map(function (t) { return '<option value="' + esc(t.gid) + '"' + (t.gid === sel ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('');
+}
+
+// Names that are empty, too long, or repeated (or already used by an existing tab).
+function problemOf(i) {
+  var r = rows[i]; if (!r.on) return '';
+  var n = r.name.trim(), low = n.toLowerCase();
+  if (!n) return 'Give this tab a name.';
+  if (n.length > 100) return 'Names stop at 100 characters.';
+  if (PV.existing.some(function (e) { return e.toLowerCase() === low; })) return 'A tab with this name already exists.';
+  for (var j = 0; j < rows.length; j++) if (j !== i && rows[j].on && rows[j].name.trim().toLowerCase() === low) return 'Another new tab has this name.';
+  if (!r.templateGid) return 'No template tab chosen.';
+  return '';
+}
+
+function render() {
+  var h = '';
+  rows.forEach(function (r, i) {
+    var bad = problemOf(i);
+    h += '<div class="rowx' + (bad ? ' bad' : '') + '"><div class="nm"><input type="checkbox" data-i="' + i + '" class="on"' + (r.on ? ' checked' : '') + (r.exists || r.noTemplate ? ' disabled' : '') + ' aria-label="Create this tab">' +
+      '<input class="inp nmi" data-i="' + i + '" type="text" maxlength="100" value="' + esc(r.name) + '" aria-label="Tab name"></div>';
+    if (r.custom) {
+      h += '<p class="m sh">Copy of <select class="sel tsel" data-i="' + i + '" style="width:auto;min-height:30px">' + templateOptions(r.templateGid) + '</select></p>';
+    } else if (r.exists) {
+      h += '<p class="m no">A tab with this name already exists, so it is left as it is.</p>';
+    } else if (r.noTemplate) {
+      h += '<p class="m no">No template tab found for ' + esc(r.tool) + '.</p>';
+    } else {
+      h += '<p class="m sh">' + esc(r.templateName) + ' · used by ' + r.count + ' activit' + (r.count === 1 ? 'y' : 'ies') + ' · <button type="button" class="linkbtn show" data-i="' + i + '">' + (r.open ? 'Hide' : 'Show') + '</button></p>';
+      if (r.open) h += '<ul class="lst">' + r.activities.map(function (a) { return '<li>' + esc(a) + '</li>'; }).join('') + '</ul>';
+    }
+    if (bad) h += '<p class="m no" role="alert">' + esc(bad) + '</p>';
+    h += '</div>';
+  });
+  if (!rows.length) h = '<p class="m sh">No activities to make tabs for. Page activities have no settings tab.</p>';
+  $('rows').innerHTML = h;
+
+  Array.prototype.forEach.call(document.querySelectorAll('#rows .on'), function (c) { c.addEventListener('change', function () { rows[+c.dataset.i].on = c.checked; render(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#rows .nmi'), function (t) {
+    t.addEventListener('input', function () { rows[+t.dataset.i].name = t.value; updateSummary(); });
+    t.addEventListener('change', render);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#rows .tsel'), function (s) { s.addEventListener('change', function () { rows[+s.dataset.i].templateGid = s.value; updateSummary(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#rows .show'), function (b) { b.addEventListener('click', function () { rows[+b.dataset.i].open = !rows[+b.dataset.i].open; render(); }); });
+
+  var skipNote = [];
+  if (PV.skipped.page) skipNote.push(PV.skipped.page + ' Page activit' + (PV.skipped.page === 1 ? 'y' : 'ies') + ' (no settings tab)');
+  if (PV.skipped.unknown) skipNote.push(PV.skipped.unknown + ' with no tool chosen yet');
+  var w = PV.warnings.map(function (x) { return '<div class="err" style="background:#fff4ce;color:#5c4400;border-color:#7a5c00">' + esc(x) + '</div>'; }).join('');
+  $('warns').innerHTML = w;
+  updateSummary(skipNote);
+}
+
+function updateSummary(skipNote) {
+  var n = 0, bad = 0;
+  rows.forEach(function (r, i) { if (r.on) { n++; if (problemOf(i)) bad++; } });
+  var base = n + ' tab' + (n === 1 ? '' : 's') + ' will be created for ' + PV.activityCount + ' activities.';
+  $('count').innerHTML = '<b>' + n + ' tab' + (n === 1 ? '' : 's') + '</b> will be created for ' + PV.activityCount + ' activities.';
+  $('summary').textContent = base + (skipNote && skipNote.length ? ' Not counted: ' + skipNote.join(', ') + '.' : '') + (bad ? ' Fix the names marked in red first.' : '');
+  $('createBtn').textContent = n ? 'Create ' + n + ' tab' + (n === 1 ? '' : 's') : 'Nothing to create';
+  $('createBtn').disabled = !n || bad > 0;
+}
+
+$('addBtn').addEventListener('click', function () {
+  if (!PV.templates.length) { showErr('This settings table has no template tab to copy.'); return; }
+  customN++;
+  rows.push({ key: 'custom' + customN, name: '', tool: '', templateGid: PV.templates[0].gid, templateName: PV.templates[0].name, count: 0, activities: [], on: true, exists: false, noTemplate: false, custom: true });
+  render();
+  var inputs = document.querySelectorAll('#rows .nmi'); inputs[inputs.length - 1].focus();
+});
+
+$('createBtn').addEventListener('click', function () {
+  var tabs = [];
+  rows.forEach(function (r) { if (r.on) tabs.push({ name: r.name.trim(), templateGid: r.templateGid }); });
+  if (!tabs.length) return;
+  $('createBtn').disabled = true; $('spin').hidden = false; showErr('');
+  google.script.run.withSuccessHandler(function (r) {
+    $('spin').hidden = true;
+    var h = '<div class="note"><b>' + r.created.length + ' tab' + (r.created.length === 1 ? '' : 's') + ' created.</b><ul>' +
+      r.created.map(function (c) { return '<li><a href="' + esc(c.url) + '">' + esc(c.name) + '</a></li>'; }).join('') + '</ul>Fill the tabs in by hand, then run Deploy Settings Tables to link them.</div>';
+    if (r.warnings.length) h += '<div class="err" style="background:#fff4ce;color:#5c4400;border-color:#7a5c00"><b>Please check</b><ul>' + r.warnings.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+    if (r.skipped.length) h += '<div class="err"><b>Not created</b><ul>' + r.skipped.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+    $('result').innerHTML = h;
+    google.script.run.withSuccessHandler(function (t) { renderTable(t, 'Settings table.'); runPreview2(); }).loadSettingsTable11(tableId);
+  }).withFailureHandler(function (e) { $('spin').hidden = true; updateSummary(); showErr(e && e.message || e); })
+    .applyDraft12({ tableId: tableId, tabs: tabs });
+});
+
+// Re-read after creating, without clearing the result message.
+function runPreview2() {
+  google.script.run.withSuccessHandler(function (p) {
+    PV = p; customN = 0;
+    rows = p.proposals.map(function (x) { x.on = false; x.custom = false; x.open = false; return x; });
+    render();
+  }).previewDraft12({ tableId: tableId, mode: mode() });
+}
+</script>
+</body>
+</html>
