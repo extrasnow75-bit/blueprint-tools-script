@@ -151,7 +151,10 @@ Time target per module = credits × 37.5 to credits × 45 hours ÷ weeks ÷ modu
 - Secondary: counts of media items by Media Status value.
 - **Read-only, like the settings-table box: never tick the "Link Added to Dev Tab" box.**
 - **Unverified and the main risk:** whether the checkbox's ticked/unticked state can be read. It may be a Docs checklist item, a smart chip, or something else; a checked checklist item may only show as struck-through text, which would not exist in an empty cell. **Spike first (item 8 below).** If the state cannot be read, a fallback is to ask Greg to have the template's column changed to a dropdown chip (for example Yes / No), which the Docs API can read the same way as the Credits chip. Ask Greg before assuming.
-- Open questions for Greg: (a) what are the Media Status options, and does "Completed" alone mean complete? (b) should it also flag rows that are ticked but have no Final Link? (c) is the tab name always exactly "Creative Brief"?
+- **Answered by Greg (2026-11-02):**
+  - Media Status dropdown options are exactly: **Not Started, In progress, Under review, Completed, Cancelled.** "Completed" means the item is done. Treat **Cancelled** as out of scope (never flag a Cancelled item).
+  - **Also flag rows that are ticked "Link Added to Dev Tab" but have no Final Link.** Greg says this would be unusual, so show it as a smaller secondary warning, not in the headline callout.
+  - The tab is **always named exactly "Creative Brief."**
 - The mockups (`Main.png`, `StatusResultsB.png`) do **not** show this check yet. Add a "Media deliverables (Creative Brief tab)" checkbox to the setup screen and the callout to the results screen.
 
 Output: always shown in the sidebar. Ask (on both the setup and results screens) whether to also save the report as a new blueprint tab, a new Google Doc in the blueprint's folder, or neither. Wording for the "ready" count is still Greg's call ("Ready for dev team" vs. "Highlighted for QA or later").
