@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 06:54 MST
+// Last updated on 2026-11-03 at 06:57 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -416,7 +416,7 @@ function scanDoc10_(doc, slotKey, id, opts) {
         var already = t.body.getText().indexOf(opts.catalogText.slice(0, 50)) !== -1;
         items.push({
           kind: 'catalogdesc', where: 'Course Description section',
-          before: '(placeholder instructions only)', after: snip10_(opts.catalogText) + (opts.source ? ' (Source: ' + opts.source.label + ')' : ''),
+          before: '(placeholder instructions only)', after: snip10_(opts.catalogText) + (opts.source ? ' (' + opts.source.label + ')' : ''),
           noop: already,
           _run: function () { insertCatalogParagraph10_(el, opts.catalogText, opts.source); }
         });
@@ -888,9 +888,15 @@ function fetchCatalogCourse10(dept, number, level) {
     // "Where it is from": a label like "2026-2027 Undergraduate Catalog" linked to
     // this course's own catalog page (the page URL carries the course's pid,
     // e.g. .../registrar-catalog/#/courses/SJ0xQ8I98, seen in Greg's browser).
-    out.sourceLabel = (cat.yearLong ? cat.yearLong + ' ' : '') + out.levelName + ' Catalog';
+    // Greg's example: "2026-2027 Undergraduate Catalog: CS321 - Data Structures",
+    // linked to https://www.boisestate.edu/registrar-catalog/#/courses/SJ0xQ8I98?q=...&bc=true&...
+    // The query part mirrors the address the catalog itself produced for him.
+    var entryCode = String(hit.code || (dept + number)).trim();
+    out.sourceLabel = (cat.yearLong ? cat.yearLong + ' ' : '') + out.levelName + ' Catalog: ' + entryCode + ' - ' + out.title;
     out.sourceUrl = (lvl === 'grad' ? 'https://www.boisestate.edu/graduatecatalog/' : 'https://www.boisestate.edu/registrar-catalog/') +
-                    '#/courses/' + encodeURIComponent(hit.pid);
+                    '#/courses/' + encodeURIComponent(hit.pid) +
+                    '?q=' + encodeURIComponent(dept + ' ' + number) + '&limit=20&skip=0&bc=true&bcCurrent=' +
+                    encodeURIComponent(out.title) + '&bcItemType=courses';
     out.prerequisites = '';
     // The search result has no prerequisites. The course-detail request does
     // (seen in Greg's Network tab: fields prerequisites [HTML], credits.value,
@@ -996,17 +1002,17 @@ function applyCatalog10_(doc, plan, text, prereq, source) {
 /** Only a plain label and an https link are ever written. */
 function cleanSource10_(src) {
   if (!src || !src.label || !/^https:\/\/www\.boisestate\.edu\//i.test(String(src.url || ''))) return null;
-  return { label: String(src.label).replace(/\s+/g, ' ').trim().slice(0, 80), url: String(src.url) };
+  return { label: String(src.label).replace(/\s+/g, ' ').trim().slice(0, 160), url: String(src.url) };
 }
 
 /**
- * Adds " (Source: <label>)" at the end of a Text element, with the link on the
+ * Adds " (<label>)" at the end of a Text element, with the link on the
  * label only. DEFAULT wording; Greg asked for "an embedded link saying where it
  * is from, like 2026-2027 Undergraduate Catalog".
  */
 function appendSourceLink10_(textEl, source) {
   if (!source) return;
-  var prefix = ' (Source: ';
+  var prefix = ' (';
   var start = textEl.getText().length;
   textEl.appendText(prefix + source.label + ')');
   var ls = start + prefix.length;

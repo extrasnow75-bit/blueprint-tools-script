@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 06:54 MST
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 06:57 MST
 
      UI for "Link Project Documents" (Code10.gs). Built to
      docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
@@ -368,7 +368,7 @@ function renderPreview() {
   // Catalog status line
   var c = PV.catalog;
   $('catStatus').textContent = !c ? '' : (c.found
-    ? 'The “Add catalog description here” bullet was found in the Design tab. Line breaks in the description are joined into one line.' + (catResult && catResult.ok ? ' It ends with a linked “(Source: ' + catResult.sourceLabel + ')”.' : ' No source link, because the description was pasted. Pasted ' + INIT.today + '.')
+    ? 'The “Add catalog description here” bullet was found in the Design tab. Line breaks in the description are joined into one line.' + (catResult && catResult.ok ? ' It ends with a linked “(' + catResult.sourceLabel + ')”.' : ' No source link, because the description was pasted. Pasted ' + INIT.today + '.')
     : 'The “Add catalog description here” bullet was NOT found in the Design tab (already filled in?). Nothing will be added.');
 
   // Link preview
