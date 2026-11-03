@@ -1,6 +1,6 @@
 // ============================================================
 // Blueprint Tools — Spikes.gs   (THROWAWAY: delete this file after the spikes)
-// Last updated on 2026-11-03 at 01:17 MST
+// Last updated on 2026-11-03 at 01:21 MST
 // ------------------------------------------------------------
 // Read-only checks for Link Project Documents. Nothing here writes to any
 // document or file. Run each function from the Apps Script editor (pick it in
@@ -82,33 +82,4 @@ function spikeCatalogSpike10() {
     var body = s.getContentText();
     Logger.log('SEARCH "%s" in %s -> %s: %s', q, name, s.getResponseCode(), body.slice(0, 500));
   });
-}
-
-// ── Template folder (official Schedule of Deliverables templates) ──
-var TEMPLATE_FOLDER_ID_SPIKE10 = '1wOG_dOIZdQMT3w0JSwiNC8t4BRoMlqCC';
-
-/** Read-only. Lists the template folder: name, type, id. Copy the log back to Claude Code. */
-function spikeTemplateFolderSpike10() {
-  var folder = DriveApp.getFolderById(TEMPLATE_FOLDER_ID_SPIKE10);
-  Logger.log('Folder: %s', folder.getName());
-  var it = folder.getFiles();
-  while (it.hasNext()) { var f = it.next(); Logger.log('%s | %s | %s', f.getName(), f.getMimeType(), f.getId()); }
-}
-
-/**
- * Makes ONE copy: the first file whose name starts with "Template A", into this
- * blueprint's folder, named "SPIKE copy - delete me". Tests whether a copy works
- * for you (the icon beside the template names may mean copying is restricted).
- * Delete the copy afterward.
- */
-function spikeTemplateCopySpike10() {
-  var src = null, it = DriveApp.getFolderById(TEMPLATE_FOLDER_ID_SPIKE10).getFiles();
-  while (it.hasNext() && !src) { var f = it.next(); if (/^Template A/i.test(f.getName())) src = f; }
-  if (!src) { Logger.log('No file starting with "Template A" found.'); return; }
-  var parents = DriveApp.getFileById(DocumentApp.getActiveDocument().getId()).getParents();
-  if (!parents.hasNext()) { Logger.log('The blueprint has no parent folder.'); return; }
-  try {
-    var copy = src.makeCopy('SPIKE copy - delete me', parents.next());
-    Logger.log('Copied OK: %s (%s)', copy.getName(), copy.getUrl());
-  } catch (e) { Logger.log('Copy FAILED: %s', e.message); }
 }
