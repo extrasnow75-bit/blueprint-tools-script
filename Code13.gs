@@ -1,0 +1,614 @@
+// ============================================================
+// Blueprint Tools — Code13.gs
+// Development Status Check
+// Reads the blueprint and reports where each activity stands: review stage
+// (untouched, drafted, green, purple, yellow, struck through), settings-table
+// links on tool lines, Home / Syllabus / Instructor Resources, module time vs.
+// the credit-hour guideline, settings-table tabs marked finalized, and Media
+// Deliverables that are Completed but not yet added to the Dev tab.
+// ------------------------------------------------------------
+// Last updated on 2026-11-03 at 10:30 MST
+// ------------------------------------------------------------
+//
+// Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
+// StatusResultsB.png (results). UI: Sidebar13.html.
+//
+// READ-ONLY. The check never edits the blueprint or the settings table. In
+// particular it NEVER ticks "Check when settings are finalized:" or "Link Added
+// to Dev Tab (IDC)". The only writes are the optional "save the report" outputs
+// (a new tab in the blueprint, or a new Google Doc in the blueprint's folder),
+// and only when the user asks for them.
+//
+// GAS FLAT NAMESPACE. Every name in this file ends in 13 (or 13_ for private
+// helpers). Reuses, does NOT redefine:
+//   collectTabs, flattenDocsTabs_, TOOL_MARKER, CANVAS_TOOL_OPTIONS (Code.gs)
+//   getDevelopmentTabBody, extractDocId                             (Code2.gs)
+//   runTimeEstimator                                                (Code3.gs)
+//   scanDevStructure9_                                              (Code9.gs)
+//   dashboardTab10_, locateInstructorResource10_                    (Code10.gs)
+//   getDeployInit11, loadSettingsTable11                            (Code11.gs)
+//
+// SCOPES. Docs advanced service (already enabled) for the Creative Brief table;
+// SpreadsheetApp for the finalized boxes (Sheets scope approved 2026-11-03);
+// DriveApp for "save as a new Google Doc in the blueprint's folder" (existing
+// drive scope).
+//
+// FLAGS. Things Greg has not confirmed, or that need a real blueprint to check,
+// are marked "DEFAULT:" or "UNVERIFIED:" in a comment. Grep for them. Run
+// spikeStatusSpike13 (Spikes.gs) first: it prints the highlight colours, the
+// Home / Syllabus regions and the Media Deliverables checkbox data this file
+// relies on.
+// ============================================================
+
+
+// ── CONSTANTS ────────────────────────────────────────────────
+
+// Review stages, lowest first. 'revised' (yellow) is handled separately: any
+// yellow makes an activity Revised (Greg's rule).
+var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
+var STAGE_LABEL_13 = {
+  untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)',
+  purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Built in Canvas'
+};
+// DEFAULT: "ready for the dev team" = green, purple, yellow or struck through
+// (the StatusResultsB mockup's wording). Greg may prefer "Highlighted for QA or
+// later"; only STAGE_READY_13 and the sidebar label would change.
+var STAGE_READY_13 = { green: true, purple: true, revised: true, built: true };
+
+var PLACEHOLDER_REF_RE_13 = /refer to the template blueprint customization/i;
+var FINALIZE_RE_13 = /settings are finalized/i;
+var MEDIA_STATUSES_13 = ['Not Started', 'In progress', 'Under review', 'Completed', 'Cancelled'];
+
+
+// ── MENU ENTRY / SIDEBAR API ─────────────────────────────────
+
+function showStatusSidebar13() {
+  var html = HtmlService.createHtmlOutputFromFile('Sidebar13')
+    .setTitle('Development Status Check')
+    .setWidth(320);
+  DocumentApp.getUi().showSidebar(html);
+}
+
+/**
+ * Setup screen data: credits and course length from the Dashboard (editable in
+ * the sidebar), how many numbered modules there are, and the settings table.
+ */
+function getStatusInit13() {
+  var doc = DocumentApp.getActiveDocument();
+  var out = { devOk: !!getDevelopmentTabBody(doc), course: {}, modules: 0, table: null, tableError: null, tableUrl: null, hasBrief: false };
+  var dash = dashboardTab10_(doc).body;
+  out.course = {
+    credits: parseNumber13_(readDashField13_(dash, /^\s*credits?\b/i)),
+    weeks: parseNumber13_(readDashField13_(dash, /^\s*course\s*length\b/i)),
+    modulesPerWeek: 1,
+    creditsText: readDashField13_(dash, /^\s*credits?\b/i) || '',
+    weeksText: readDashField13_(dash, /^\s*course\s*length\b/i) || ''
+  };
+  if (out.devOk) {
+    try { out.modules = scanDevStructure9_(getDevelopmentTabBody(doc)).length; } catch (e) { /* shown as 0 */ }
+  }
+  var tabs = collectTabs(doc);
+  for (var i = 0; i < tabs.length; i++) if (/^\s*creative brief\s*$/i.test(tabs[i].title)) out.hasBrief = true;
+  var d = getDeployInit11();
+  out.table = d.table; out.tableError = d.error; out.tableUrl = d.url;
+  return out;
+}
+
+/**
+ * Runs the check. Read-only.
+ * @param {Object} opts  { credits, weeks, modulesPerWeek, tableId,
+ *   tabGids: string[], checks: {stage, links, home, time, finalized, media} }
+ * @returns {Object} the report (see buildReport13_ for the shape)
+ */
+function runStatusCheck13(opts) {
+  var doc = DocumentApp.getActiveDocument();
+  var checks = opts.checks || {};
+  var devBody = getDevelopmentTabBody(doc);
+  if (!devBody) throw new Error('Could not find a “Development” tab in this blueprint.');
+
+  var report = {
+    when: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMM d, h:mm a'),
+    blueprint: doc.getName(),
+    checks: checks,
+    modules: [], totals: { activities: 0, ready: 0, stages: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, linksPresent: 0, linksExpected: 0 },
+    home: null, syllabus: null, resources: null, finalized: null, media: null, time: null, notes: []
+  };
+
+  // Modules and activities.
+  var mods = scanDevStructure9_(devBody);
+  mods.forEach(function (m) {
+    var mod = { label: m.displayLabel || ('Module ' + m.num), activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, time: null };
+    m.activities.forEach(function (slot) {
+      var tool = readToolLine13_(devBody, slot.h4);
+      var a = { title: slot.title, tool: tool.tool, stage: null, link: 'na' };
+      if (checks.stage) {
+        a.stage = stageOfSlot13_(slot, tool);
+        mod.counts[a.stage]++;
+        if (STAGE_READY_13[a.stage]) mod.ready++;
+        report.totals.stages[a.stage]++;
+      }
+      if (checks.links && tool.tool && tool.tool !== 'Page') {
+        // "Any link attribute counts, not the wording" (Greg): a link anywhere
+        // on the tool line is enough; placeholder text without a link is missing.
+        a.link = tool.hasLink ? 'ok' : 'missing';
+        report.totals.linksExpected++;
+        if (tool.hasLink) report.totals.linksPresent++;
+      }
+      mod.activities.push(a);
+    });
+    report.totals.activities += mod.activities.length;
+    report.totals.ready += mod.ready;
+    report.modules.push(mod);
+  });
+
+  // Home, Syllabus, Instructor Resources.
+  if (checks.home) {
+    var regions = homeSyllabusRegions13_(devBody);
+    report.home = describeRegion13_(regions.home, false);
+    report.syllabus = describeRegion13_(regions.syllabus, true);
+    var g = locateInstructorResource10_(devBody, /Instructor Guide/i);
+    var s = locateInstructorResource10_(devBody, /Course Suggestions?/i);
+    report.resources = {
+      guide: g ? (g.existing ? 'linked' : 'no link') : 'not found',
+      suggestions: s ? (s.existing ? 'linked' : 'no link') : 'not found'
+    };
+  }
+
+  // Module time vs. credit-hour guideline (reuses the Time Estimator).
+  if (checks.time) {
+    var credits = Number(opts.credits), weeks = Number(opts.weeks), mpw = Number(opts.modulesPerWeek) || 1;
+    if (!credits || !weeks) {
+      report.notes.push('Module time was skipped: credits and course length are both needed.');
+    } else {
+      var te = runTimeEstimator(credits, weeks, mpw);
+      if (te.error) {
+        report.notes.push('Module time was skipped: ' + te.error);
+      } else {
+        report.time = { min: te.minTarget, max: te.maxTarget, missing: te.missing || [] };
+        te.modules.forEach(function (tm, i) {
+          var mod = report.modules[i];
+          if (mod && String(mod.label).toLowerCase().indexOf(String(tm.name).toLowerCase()) === 0) mod.time = { total: tm.total, status: tm.status };
+          else if (mod && !mod.time) mod.time = { total: tm.total, status: tm.status };
+        });
+      }
+    }
+  }
+
+  // Settings-table tabs marked finalized (read only).
+  if (checks.finalized && opts.tableId) {
+    try { report.finalized = finalizedReport13_(opts.tableId, opts.tabGids || []); }
+    catch (e) { report.notes.push('Settings table tabs could not be read: ' + (e && e.message || e)); }
+  }
+
+  // Media deliverables (Creative Brief tab).
+  if (checks.media) {
+    try { report.media = mediaReport13_(doc); }
+    catch (e) { report.notes.push('Media deliverables could not be read: ' + (e && e.message || e)); }
+  }
+
+  return report;
+}
+
+/**
+ * Optional output. dest: 'tab' (a new tab in this blueprint) or 'doc' (a new
+ * Google Doc in the blueprint's folder). Never touches existing content.
+ * @returns {{url: string, label: string}}
+ */
+function saveStatusReport13(report, dest) {
+  var lines = reportLines13_(report);
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  var title = 'Status Check ' + stamp;
+  var doc = DocumentApp.getActiveDocument();
+  if (dest === 'tab') {
+    if (typeof doc.addTab !== 'function') throw new Error('This version of Apps Script cannot add a tab from a script. Use “new Google Doc” instead.');
+    var tab = doc.addTab(title);
+    var body = tab.asDocumentTab().getBody();
+    body.clear();
+    writeLines13_(body, lines);
+    return { url: doc.getUrl(), label: 'New tab “' + title + '” in this blueprint' };
+  }
+  if (dest === 'doc') {
+    var nd = DocumentApp.create(report.blueprint + ' - ' + title);
+    writeLines13_(nd.getBody(), lines);
+    nd.saveAndClose();
+    try {
+      var parents = DriveApp.getFileById(doc.getId()).getParents();
+      if (parents.hasNext()) DriveApp.getFileById(nd.getId()).moveTo(parents.next());
+    } catch (e) { /* stays in My Drive; the label says where it is */ }
+    return { url: nd.getUrl(), label: 'New Google Doc “' + nd.getName() + '”' };
+  }
+  throw new Error('Unknown save option.');
+}
+
+function writeLines13_(body, lines) {
+  lines.forEach(function (l) {
+    var p = body.appendParagraph(l.text);
+    if (l.h) p.setHeading(l.h === 1 ? DocumentApp.ParagraphHeading.HEADING1 : DocumentApp.ParagraphHeading.HEADING2);
+    else p.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+  });
+}
+
+
+// ── ACTIVITY STAGE ───────────────────────────────────────────
+
+/** Tool line under an activity heading: tool name, any link on it, its paragraph. */
+function readToolLine13_(body, h4) {
+  var out = { tool: '', hasLink: false, el: null };
+  var H = DocumentApp.ParagraphHeading;
+  var start = body.getChildIndex(h4), n = body.getNumChildren();
+  for (var i = start + 1; i < Math.min(start + 8, n); i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var para = child.asParagraph(), h = para.getHeading();
+    if (h === H.HEADING2 || h === H.HEADING3 || h === H.HEADING4) break;
+    var text = para.getText(), trimmed = text.trim();
+    if (text.indexOf(TOOL_MARKER) === -1 && text.indexOf('Link to settings tab') === -1 && CANVAS_TOOL_OPTIONS.indexOf(trimmed) === -1) continue;
+    var cut = text.search(new RegExp('\\s*(?:' + TOOL_MARKER + '|;)'));
+    out.tool = (cut === -1 ? trimmed : text.slice(0, cut)).trim();
+    out.el = para.editAsText();
+    out.hasLink = anyLink13_(out.el);
+    return out;
+  }
+  return out;
+}
+
+function anyLink13_(textEl) {
+  var idx = textEl.getTextAttributeIndices();
+  for (var i = 0; i < idx.length; i++) if (textEl.getLinkUrl(idx[i])) return true;
+  return false;
+}
+
+/**
+ * Stage of one activity slot.
+ * DEFAULT: untouched = no content under the heading (the directions placeholder
+ * is still there or nothing is). Otherwise the stage comes from the highlight on
+ * the activity's CONTENT text; if the content has no readable text (tables only),
+ * the heading and tool line are used. Any yellow = Revised; otherwise the lowest
+ * stage found (Greg confirmed yellow; "lowest" is my proposal, not confirmed).
+ */
+function stageOfSlot13_(slot, tool) {
+  if (!slot.content.length) return 'untouched';
+  var segs = [];
+  slot.content.forEach(function (el) { collectSegments13_(el, segs); });
+  if (!segs.length) {
+    collectSegments13_(slot.h4, segs);
+    if (tool.el) collectSegments13_(tool.el, segs);
+  }
+  return stageFromSegments13_(segs);
+}
+
+/** Pushes {bg, strike} for each non-blank run of text inside an element. */
+function collectSegments13_(el, out) {
+  var T = DocumentApp.ElementType, type = el.getType();
+  var t = null;
+  if (type === T.TEXT) t = el.asText();
+  else if (type === T.PARAGRAPH) t = el.asParagraph().editAsText();
+  else if (type === T.LIST_ITEM) t = el.asListItem().editAsText();
+  if (t) {
+    var text = t.getText();
+    if (!text) return;
+    var idx = t.getTextAttributeIndices();
+    for (var i = 0; i < idx.length; i++) {
+      var end = i + 1 < idx.length ? idx[i + 1] : text.length;
+      if (!text.substring(idx[i], end).trim()) continue;
+      out.push({ bg: t.getBackgroundColor(idx[i]), strike: !!t.isStrikethrough(idx[i]) });
+    }
+    return;
+  }
+  if (type === T.TABLE || type === T.TABLE_ROW || type === T.TABLE_CELL) {
+    for (var c = 0; c < el.getNumChildren(); c++) collectSegments13_(el.getChild(c), out);
+  }
+}
+
+function stageFromSegments13_(segs) {
+  if (!segs.length) return 'drafted';
+  var lowest = STAGE_ORDER_13.length, yellow = false;
+  segs.forEach(function (s) {
+    var st = s.strike ? 'built' : stageOfColor13_(s.bg);
+    if (st === 'revised') { yellow = true; return; }
+    var rank = STAGE_ORDER_13.indexOf(st);
+    if (rank < lowest) lowest = rank;
+  });
+  if (yellow) return 'revised';
+  return STAGE_ORDER_13[lowest] || 'drafted';
+}
+
+/**
+ * Highlight colour to stage, by hue rather than exact hex, because the exact
+ * hexes QA uses are not written down anywhere. UNVERIFIED: run spikeStatusSpike13
+ * and check that every colour in the blueprint is classified the way you expect.
+ * Cyan (the Design Map note highlight) and anything unrecognised count as
+ * "drafted", not as a review stage.
+ */
+function stageOfColor13_(hex) {
+  var c = hueOf13_(hex);
+  if (!c) return 'drafted';
+  var h = c.h;
+  if (h >= 40 && h < 70) return 'revised';     // yellow
+  if (h >= 75 && h < 165) return 'green';
+  if (h >= 245 && h < 325) return 'purple';
+  return 'drafted';                              // cyan, orange, red, pink, grey ...
+}
+
+function hueOf13_(hex) {
+  var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+  if (!m) return null;
+  var r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+  var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min, l = (max + min) / 2;
+  if (d < 0.08 || l > 0.985) return null;        // white / grey: not a highlight
+  var h;
+  if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+  h *= 60; if (h < 0) h += 360;
+  return { h: h, l: l };
+}
+
+
+// ── HOME / SYLLABUS ──────────────────────────────────────────
+
+/**
+ * Finds the Home and Syllabus sections in the Development tab. Each starts with
+ * a single-cell header table ("Home (Course Navigation Menu Link)", "Syllabus
+ * (Course Navigation Menu Link)") and runs to the next header table or H2.
+ * UNVERIFIED: read from the template copy; the spike prints what it finds.
+ */
+function homeSyllabusRegions13_(body) {
+  var T = DocumentApp.ElementType, H = DocumentApp.ParagraphHeading;
+  var out = { home: null, syllabus: null }, cur = null, n = body.getNumChildren();
+  for (var i = 0; i < n; i++) {
+    var c = body.getChild(i), type = c.getType();
+    if (type === T.TABLE) {
+      var txt = c.asTable().getText().trim();
+      if (/^home\b/i.test(txt))          { cur = out.home = { elements: [] }; continue; }
+      if (/^syllabus\b/i.test(txt))      { cur = out.syllabus = { elements: [] }; continue; }
+      if (/^modules\b/i.test(txt))       { cur = null; if (out.home || out.syllabus) break; continue; }
+    }
+    if (type === T.PARAGRAPH && c.asParagraph().getHeading() === H.HEADING2) { if (cur) cur = null; if (out.syllabus) break; continue; }
+    if (cur) cur.elements.push(c);
+  }
+  return out;
+}
+
+/** Whether a section has text, a link, and which stage it is at. */
+function describeRegion13_(region, isSyllabus) {
+  if (!region) return { found: false };
+  var text = '', link = false, segs = [];
+  region.elements.forEach(function (el) {
+    var t = null, ty = el.getType(), T = DocumentApp.ElementType;
+    if (ty === T.PARAGRAPH) t = el.asParagraph().editAsText(); else if (ty === T.LIST_ITEM) t = el.asListItem().editAsText();
+    if (t) { text += '\n' + t.getText(); if (!link && t.getText() && anyLink13_(t)) link = true; }
+    collectSegments13_(el, segs);
+  });
+  var real = text.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s && !/select syllabus format/i.test(s); }).join(' ');
+  var untouched = !real || PLACEHOLDER_REF_RE_13.test(real);
+  var res = { found: true, untouched: untouched, stage: untouched ? 'untouched' : stageFromSegments13_(segs) };
+  if (isSyllabus) res.format = untouched ? '' : (link ? 'linked document' : 'written in place');
+  return res;
+}
+
+/** "Credits" / "Course Length" value on the Dashboard: the cell beside the label, or text after it. */
+function readDashField13_(dashBody, labelRe) {
+  var T = DocumentApp.ElementType, tables = [];
+  (function walk(el) {
+    for (var i = 0; i < el.getNumChildren(); i++) {
+      var c = el.getChild(i);
+      if (c.getType() === T.TABLE) tables.push(c.asTable());
+      else if (c.getType() === T.TABLE_CELL) walk(c);
+    }
+  })(dashBody);
+  for (var t = 0; t < tables.length; t++) {
+    var tb = tables[t];
+    for (var r = 0; r < tb.getNumRows(); r++) {
+      var row = tb.getRow(r);
+      for (var c = 0; c < row.getNumCells(); c++) {
+        var txt = row.getCell(c).getText().trim();
+        if (!labelRe.test(txt)) continue;
+        var rest = txt.replace(/^[^:]*:?\s*/, '').trim();
+        if (rest && rest !== txt) return rest;
+        if (c + 1 < row.getNumCells()) return row.getCell(c + 1).getText().trim();
+        if (r + 1 < tb.getNumRows() && tb.getRow(r + 1).getNumCells() > c) return tb.getRow(r + 1).getCell(c).getText().trim();
+      }
+    }
+  }
+  return '';
+}
+
+function parseNumber13_(s) {
+  var m = String(s || '').match(/\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : null;
+}
+
+
+// ── SETTINGS TABLE: FINALIZED BOXES (read only) ──────────────
+
+/**
+ * For each chosen tab: 'ticked', 'unticked', or 'none' (no "settings are
+ * finalized" row or no checkbox beside it). READ ONLY: never writes a cell.
+ * "none" tabs are listed but not counted as unfinished (Greg's rule).
+ */
+function finalizedReport13_(tableId, gids) {
+  var ss = SpreadsheetApp.openById(extractDocId(tableId) || tableId);
+  var want = {}; gids.forEach(function (g) { want[String(g)] = true; });
+  var tabs = [], ticked = 0, counted = 0;
+  ss.getSheets().forEach(function (sh) {
+    if (!want[String(sh.getSheetId())]) return;
+    var state = finalizedState13_(sh);
+    tabs.push({ name: sh.getName(), state: state, gid: String(sh.getSheetId()) });
+    if (state !== 'none') { counted++; if (state === 'ticked') ticked++; }
+  });
+  return { ticked: ticked, counted: counted, tabs: tabs, url: 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/edit' };
+}
+
+function finalizedState13_(sheet) {
+  var vals = sheet.getDataRange().getValues();
+  for (var r = 0; r < vals.length; r++) {
+    for (var c = 0; c < vals[r].length; c++) {
+      if (typeof vals[r][c] !== 'string' || !FINALIZE_RE_13.test(vals[r][c])) continue;
+      for (var k = c; k < vals[r].length; k++) if (typeof vals[r][k] === 'boolean') return vals[r][k] ? 'ticked' : 'unticked';
+      if (r + 1 < vals.length) for (var k2 = c; k2 < vals[r + 1].length; k2++) if (typeof vals[r + 1][k2] === 'boolean') return vals[r + 1][k2] ? 'ticked' : 'unticked';
+      return 'none';
+    }
+  }
+  return 'none';
+}
+
+
+// ── MEDIA DELIVERABLES (Creative Brief tab) ──────────────────
+
+/**
+ * Reads the Media Deliverables table on the "Creative Brief" tab through the
+ * Docs API. Columns are found by header text, not position.
+ * UNVERIFIED (main risk, see HANDOFF 3.4): whether a ticked "Link Added to Dev
+ * Tab (IDC)" box can be read. This assumes a Docs checklist item, whose ticked
+ * state shows as strikethrough on the paragraph's closing newline. If no
+ * checklist item is found the row's box is reported as "unknown" and the row is
+ * NOT flagged, so a failed read can never produce a false alarm.
+ * The box is never written.
+ */
+function mediaReport13_(doc) {
+  var structured = Docs.Documents.get(doc.getId(), { includeTabsContent: true });
+  var tab = null;
+  flattenDocsTabs_(structured).forEach(function (t) {
+    if (!tab && /^\s*creative brief\s*$/i.test((t.tabProperties || {}).title || '')) tab = t;
+  });
+  if (!tab) return { found: false, reason: 'no tab named “Creative Brief”' };
+  var tabUrl = doc.getUrl() + '?tab=' + encodeURIComponent(tab.tabProperties.tabId);
+  var content = ((tab.documentTab || {}).body || {}).content || [];
+
+  var table = null, seen = false;
+  for (var i = 0; i < content.length; i++) {
+    var el = content[i];
+    if (el.paragraph && /media deliverables/i.test(paraText13_(el.paragraph))) { seen = true; continue; }
+    if (seen && el.table) { table = el.table; break; }
+  }
+  if (!table) return { found: false, reason: 'no table under a “Media Deliverables” heading', tabUrl: tabUrl };
+
+  var rows = table.tableRows || [];
+  if (!rows.length) return { found: false, reason: 'the Media Deliverables table is empty', tabUrl: tabUrl };
+  var head = rows[0].tableCells.map(function (c) { return cellText13_(c); });
+  function col(re) { for (var k = 0; k < head.length; k++) if (re.test(head[k])) return k; return -1; }
+  var cType = col(/media\s*type/i), cTitle = col(/^\s*title/i), cLink = col(/final\s*link/i), cDev = col(/link\s*added/i), cStat = col(/media\s*status/i);
+  if (cLink < 0 || cDev < 0 || cStat < 0) {
+    return { found: false, reason: 'could not find the Final Link, Link Added, and Media Status columns by their headers', tabUrl: tabUrl };
+  }
+
+  var out = { found: true, tabUrl: tabUrl, items: 0, byStatus: {}, flagged: [], reverse: [], unknownBox: 0 };
+  for (var r = 1; r < rows.length; r++) {
+    var cells = rows[r].tableCells;
+    var title = cTitle >= 0 ? cellText13_(cells[cTitle]) : '';
+    var type = cType >= 0 ? cellText13_(cells[cType]) : '';
+    if (!title && !type && !cellText13_(cells[cStat])) continue;      // blank row
+    var status = statusOf13_(cells[cStat]);
+    var hasFinal = cellHasLink13_(cells[cLink]);
+    var box = checkboxState13_(cells[cDev]);                         // 'ticked' | 'unticked' | 'unknown'
+    out.items++;
+    var key = status || '(no status)';
+    out.byStatus[key] = (out.byStatus[key] || 0) + 1;
+    if (status === 'Cancelled') continue;                             // out of scope (Greg)
+    if (box === 'unknown') out.unknownBox++;
+    var item = { type: type, title: title, row: r + 1 };
+    if (status === 'Completed' && hasFinal && box === 'unticked') out.flagged.push(item);
+    if (box === 'ticked' && !hasFinal) out.reverse.push(item);
+  }
+  return out;
+}
+
+function paraText13_(p) {
+  return (p.elements || []).map(function (e) { return e.textRun ? e.textRun.content : ''; }).join('');
+}
+
+/** All text in a Docs API table cell. */
+function cellText13_(cell) {
+  var s = '';
+  (cell.content || []).forEach(function (blk) {
+    if (blk.paragraph) s += paraText13_(blk.paragraph) + ' ';
+  });
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+/** Media Status is a dropdown chip: match it by its known option names anywhere in the cell. */
+function statusOf13_(cell) {
+  var hay = JSON.stringify(cell || {});
+  for (var i = 0; i < MEDIA_STATUSES_13.length; i++) {
+    if (new RegExp(MEDIA_STATUSES_13[i].replace(/ /g, '\\s*'), 'i').test(hay)) return MEDIA_STATUSES_13[i];
+  }
+  return '';
+}
+
+function cellHasLink13_(cell) {
+  var found = false;
+  (cell.content || []).forEach(function (blk) {
+    if (!blk.paragraph) return;
+    (blk.paragraph.elements || []).forEach(function (e) {
+      if (e.richLink) found = true;
+      if (e.textRun) {
+        if ((e.textRun.textStyle || {}).link) found = true;
+        if (/https?:\/\//i.test(e.textRun.content || '')) found = true;
+      }
+    });
+  });
+  return found;
+}
+
+/** Checklist item: ticked shows as strikethrough on the paragraph's closing newline. */
+function checkboxState13_(cell) {
+  var state = 'unknown';
+  (cell.content || []).forEach(function (blk) {
+    var p = blk.paragraph;
+    if (!p || !p.bullet) return;
+    var els = p.elements || [], last = els[els.length - 1];
+    var struck = false;
+    els.forEach(function (e) { if (e.textRun && (e.textRun.textStyle || {}).strikethrough) struck = true; });
+    if (last && last.textRun && (last.textRun.textStyle || {}).strikethrough) struck = true;
+    state = struck ? 'ticked' : 'unticked';
+  });
+  return state;
+}
+
+
+// ── SAVED REPORT TEXT ────────────────────────────────────────
+
+function reportLines13_(r) {
+  var L = [], add = function (t, h) { L.push({ text: t, h: h || 0 }); };
+  add('Development Status Check', 1);
+  add(r.blueprint + ' · checked ' + r.when + ' · ' + r.totals.activities + ' activities · ' + r.modules.length + ' modules');
+  if (r.media && r.media.found && r.media.flagged.length) add('ACTION: ' + r.media.flagged.length + ' completed media item(s) have a Final Link but are not ticked “Link Added to Dev Tab”.');
+  if (r.home) {
+    add('Home and Syllabus', 2);
+    add('Home: ' + regionText13_(r.home, false));
+    add('Syllabus: ' + regionText13_(r.syllabus, true));
+    add('Instructor Guide: ' + r.resources.guide + ' · Course Suggestions: ' + r.resources.suggestions);
+  }
+  if (r.checks.stage) {
+    add('Course totals', 2);
+    add(r.totals.ready + ' of ' + r.totals.activities + ' activities are ready for the dev team.');
+    Object.keys(STAGE_LABEL_13).forEach(function (k) { add(STAGE_LABEL_13[k] + ': ' + r.totals.stages[k]); });
+  }
+  if (r.checks.links) add('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected);
+  r.modules.forEach(function (m) {
+    add(m.label, 2);
+    if (m.time) add('Time: ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' + (r.time ? ' · target ' + r.time.min + ' – ' + r.time.max : ''));
+    if (r.checks.stage) add('Ready: ' + m.ready + ' of ' + m.activities.length);
+    m.activities.forEach(function (a) {
+      add('• ' + a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ' — ' + STAGE_LABEL_13[a.stage] : '') + (a.link === 'missing' ? ' — NO settings table link' : ''));
+    });
+  });
+  if (r.finalized) {
+    add('Settings table tabs', 2);
+    add(r.finalized.ticked + ' of ' + r.finalized.counted + ' tabs marked finalized.');
+    r.finalized.tabs.forEach(function (t) { add('• ' + t.name + ': ' + (t.state === 'none' ? 'no finalize box found' : t.state)); });
+  }
+  if (r.media && r.media.found) {
+    add('Media deliverables', 2);
+    add(r.media.flagged.length ? 'Completed with a Final Link but not ticked “Link Added to Dev Tab”:' : 'No completed media is waiting to be added to the Dev tab.');
+    r.media.flagged.forEach(function (i) { add('• ' + i.type + ' — ' + i.title); });
+    r.media.reverse.forEach(function (i) { add('• Ticked but no Final Link: ' + i.type + ' — ' + i.title); });
+    Object.keys(r.media.byStatus).forEach(function (k) { if (k !== 'Cancelled') add(k + ': ' + r.media.byStatus[k]); });
+  }
+  r.notes.forEach(function (n) { add('Note: ' + n); });
+  return L;
+}
+
+function regionText13_(reg, isSyllabus) {
+  if (!reg || !reg.found) return 'section not found';
+  return STAGE_LABEL_13[reg.stage] + (isSyllabus && reg.format ? ' · ' + reg.format : '');
+}

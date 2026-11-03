@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-03 at 10:30 MST
+
+     UI for "Development Status Check" (Code13.gs). Setup screen built to
+     docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
+     report order Greg confirmed (HANDOFF 3.4). READ-ONLY: the check changes
+     nothing in the blueprint or the settings table. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_blank">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #333; padding: 14px 16px 24px; }
+    h3 { color: #0033a0; font-size: 15px; margin: 0 0 6px; }
+    .intro { font-size: 12px; color: #555; margin: 0 0 12px; }
+    .sec { color: #0033a0; font-size: 13px; font-weight: bold; margin: 0 0 6px; }
+    hr { border: 0; border-top: 2px solid #aab2c8; margin: 14px 0; }
+    .btn, .btn2 { display: block; width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 3px; font: bold 13px Arial, sans-serif; cursor: pointer; }
+    .btn  { background: #0033a0; color: #fff; border: 0; }
+    .btn2 { background: #fff; color: #0033a0; border: 2px solid #0033a0; margin: 0 0 8px; }
+    .btn:disabled { background: #9aa6c8; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #0033a0; outline-offset: 2px; }
+    .card { border: 1px solid #aab2c8; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; font-size: 12px; }
+    a { color: #0033a0; }
+    .linkbtn { background: none; border: 0; padding: 0; color: #0033a0; font: 12px Arial, sans-serif; text-decoration: underline; cursor: pointer; }
+    .inp, .sel { width: 100%; min-height: 36px; margin: 4px 0 2px; font: 12px Arial, sans-serif; border: 1px solid #767676; border-radius: 3px; padding: 4px 6px; background: #fff; color: #333; }
+    .bar { display: flex; height: 16px; border: 1px solid #aab2c8; border-radius: 3px; overflow: hidden; margin: 4px 0 6px; }
+    .bar i { display: block; height: 100%; }
+    .g { background: #b9e0c5; } .y { background: #ffe08a; } .r { background: #f2b8b8; }
+    .legend { font-size: 11px; color: #555; }
+    .legend span { display: inline-block; width: 10px; height: 10px; margin: 0 3px 0 8px; border: 1px solid #888; vertical-align: -1px; }
+    .legend span:first-child { margin-left: 0; }
+    details { border-top: 1px solid #dde1ea; }
+    details:last-of-type { border-bottom: 1px solid #dde1ea; }
+    summary { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-height: 44px; cursor: pointer; font-weight: bold; font-size: 13px; }
+    summary .st { font-size: 11px; font-weight: normal; white-space: nowrap; }
+    .st.ok { color: #1e6b2e; } .st.look { color: #8a1c1c; font-weight: bold; }
+    .act { padding: 8px 8px; margin: 0 -8px; }
+    .act.sg { background: #fff4ce; } .act.no { background: #fde7e7; }
+    .rt { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .rt b { font-size: 12px; }
+    .tool { font-size: 11px; color: #555; white-space: nowrap; }
+    .m { font-size: 11px; margin: 0; }
+    .m.ok { color: #1e6b2e; } .m.sg { color: #5c4400; } .m.no { color: #8a1c1c; font-weight: bold; } .m.sh { color: #555; }
+    .chk { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin: 0 0 8px; }
+    .chk input { margin: 2px 0 0; width: 16px; height: 16px; flex: none; }
+    .note { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #e8f0fe; color: #1a3a7a; }
+    .err  { font-size: 12px; border-radius: 3px; padding: 8px 10px; margin: 0 0 10px; background: #fde7e7; color: #8a1c1c; border: 1px solid #8a1c1c; }
+    .ex { border: 1px dashed #555; border-radius: 3px; padding: 8px 10px; background: #fafafa; margin: 4px 0 10px; }
+    .ex .ln { color: #c00000; font-weight: bold; } .ex .ln u { color: #0033a0; }
+    .spin { font-size: 12px; color: #555; margin: 0 0 8px; }
+    .kv { display:flex; justify-content:space-between; gap:8px; font-size:12px; padding:2px 0; }
+    .kv b { white-space:nowrap; }
+    .num { width:70px; min-height:30px; margin:0; text-align:right; }
+    .big { font-size:15px; margin:0 0 6px; } .big b { font-size:20px; color:#0033a0; }
+    .hero { border:2px solid #0033a0; border-radius:4px; padding:10px; margin:0 0 10px; }
+    .stages { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0 0 10px; }
+    .stg { border:1px solid #aab2c8; border-radius:3px; padding:6px 8px; font-size:11px; }
+    .stg b { font-size:18px; margin-right:4px; }
+    .pill { display:inline-block; border-radius:12px; padding:1px 8px; font-size:11px; font-weight:bold; border:1px solid; }
+    .pill.ok { background:#e6f4ea; color:#1e6b2e; border-color:#1e6b2e; } .pill.under { background:#fff4ce; color:#5c4400; border-color:#7a5c00; } .pill.over { background:#fde7e7; color:#8a1c1c; border-color:#8a1c1c; } .pill.none { background:#f1f1f1; color:#555; border-color:#999; }
+    .alert { border:2px solid #8a1c1c; background:#fde7e7; border-radius:4px; padding:10px; margin:0 0 10px; color:#5c1111; }
+    .alert.fine { border-color:#1e6b2e; background:#e6f4ea; color:#1e3d26; }
+    .alert li { margin:2px 0; }
+    .sbar { display:flex; height:14px; border:1px solid #aab2c8; border-radius:3px; overflow:hidden; margin:4px 0; background:#fff; }
+    .sbar i { display:block; height:100%; }
+    .c-untouched { background:#ccc; } .c-drafted { background:#fff; } .c-green { background:#b9e0c5; } .c-purple { background:#d9d2e9; } .c-revised { background:#ffe14d; } .c-built { background:repeating-linear-gradient(45deg,#666,#666 2px,#fff 2px,#fff 5px); }
+    .mod { border:1px solid #aab2c8; border-radius:3px; margin:0 0 10px; padding:8px 10px; }
+    .mod h4 { margin:0 0 4px; font-size:14px; }
+    .lbl2 { font-size:10px; font-weight:bold; letter-spacing:.04em; color:#555; text-transform:uppercase; margin:6px 0 0; }
+    .rowa { padding:5px 0; border-top:1px dotted #dde1ea; font-size:12px; }
+    .rowa .t { color:#c00000; font-weight:bold; font-size:11px; }
+    .tag { font-size:11px; color:#333; }
+    .bad { color:#8a1c1c; font-weight:bold; }
+    ul { margin: 4px 0 6px; padding-left: 18px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<h3>Development Status Check</h3>
+<div id="loading" class="spin">Reading the blueprint…</div>
+<div id="err" class="err" hidden role="alert"></div>
+
+<div id="setup" hidden>
+  <p class="intro">Counts every activity in the Development tab by review stage, checks links and content, and compares each module’s time to the credit-hour guideline. It only reads; nothing in the blueprint changes.</p>
+  <p class="sec">Course</p>
+  <div class="card">
+    <div class="kv"><span>Credits</span><input class="inp num" id="credits" type="number" min="1" max="12" step="0.5" aria-label="Credits"></div>
+    <div class="kv"><span>Course length (weeks)</span><input class="inp num" id="weeks" type="number" min="1" max="52" aria-label="Course length in weeks"></div>
+    <div class="kv"><span>Modules per week</span><input class="inp num" id="mpw" type="number" min="1" max="7" value="1" aria-label="Modules per week"></div>
+    <div class="kv"><span>Numbered modules found</span><b id="modCount"></b></div>
+    <div class="kv"><span>Time target per module</span><b id="target">—</b></div>
+  </div>
+  <p class="m sh" id="courseNote">Credits and course length are read from the Dashboard tab. If a value is blank, type it in.</p>
+  <hr>
+  <p class="sec">Checks to run</p>
+  <label class="chk"><input type="checkbox" id="kStage" checked> <span>Review stage of each activity (untouched, drafted, green, purple, yellow, struck through)</span></label>
+  <label class="chk"><input type="checkbox" id="kHome" checked> <span>Home, Syllabus, Instructor Guide and Course Suggestions</span></label>
+  <label class="chk"><input type="checkbox" id="kLinks" checked> <span>Settings table link on each Assignment, Discussion, and Quiz</span></label>
+  <label class="chk"><input type="checkbox" id="kTime" checked> <span>Module time vs. guideline</span></label>
+  <label class="chk"><input type="checkbox" id="kFin" checked> <span>Settings table tabs marked “Check when settings are finalized”</span></label>
+  <label class="chk"><input type="checkbox" id="kMedia" checked> <span>Media deliverables (Creative Brief tab)</span></label>
+  <p class="m sh" id="briefNote" hidden>No tab named “Creative Brief” was found, so the media check will report that.</p>
+  <div id="tabsBox">
+    <hr>
+    <p class="sec">Settings table tabs to count</p>
+    <div class="card" id="tableCard"></div>
+    <div id="pick" hidden>
+      <input class="inp" id="url" type="text" autocomplete="off" placeholder="Paste the Google Sheets address" aria-label="Settings table link">
+      <button class="btn2" type="button" id="loadBtn">Use this file</button>
+    </div>
+    <div id="tabs"></div>
+    <p class="m sh">Tabs with “Template” in the name start unchecked. Tick any tab to include it, or untick any tab to leave it out.</p>
+  </div>
+  <hr>
+  <p class="sec">Also save the report to</p>
+  <label class="radio"><input type="radio" name="save" value="" checked><span>Just show it here</span></label>
+  <label class="radio"><input type="radio" name="save" value="tab"><span>A new tab in this blueprint</span></label>
+  <label class="radio"><input type="radio" name="save" value="doc"><span>A new Google Doc in the blueprint’s folder</span></label>
+  <div id="spin" class="spin" hidden>Checking… this can take a minute on a large blueprint.</div>
+  <button class="btn" type="button" id="runBtn">Run the check</button>
+</div>
+
+<div id="results" hidden></div>
+
+<script>
+var INIT = null, REPORT = null, tableId = null, tableTabs = [];
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function showErr(m) { var e = $('err'); e.hidden = !m; e.textContent = m || ''; }
+
+google.script.run.withSuccessHandler(onInit).withFailureHandler(function (e) { $('loading').hidden = true; showErr('Could not start: ' + (e && e.message || e)); }).getStatusInit13();
+
+function onInit(d) {
+  INIT = d; $('loading').hidden = true;
+  if (!d.devOk) { showErr('This blueprint has no “Development” tab.'); return; }
+  $('setup').hidden = false;
+  $('credits').value = d.course.credits || ''; $('weeks').value = d.course.weeks || '';
+  $('modCount').textContent = d.modules;
+  if (!d.course.credits || !d.course.weeks) $('courseNote').textContent = 'Credits or course length could not be read from the Dashboard' + (d.course.creditsText ? ' (Credits shows “' + d.course.creditsText + '”)' : '') + '. Type them in, or untick “Module time”.';
+  $('briefNote').hidden = d.hasBrief;
+  ['credits', 'weeks', 'mpw'].forEach(function (id) { $(id).addEventListener('input', target); }); target();
+  if (d.table) { tableId = d.table.id; setTable(d.table, 'Found through the Dashboard link.'); }
+  else { $('tableCard').textContent = d.tableUrl ? 'The Dashboard’s Settings Tables link could not be read.' : 'No Settings Tables link was found on the Dashboard.'; $('pick').hidden = false; }
+}
+
+function target() {
+  var c = +$('credits').value, w = +$('weeks').value, m = +$('mpw').value || 1;
+  function q(x) { return Math.ceil(x * 4 - 1e-9) / 4; }
+  function f(h) { var w = Math.floor(h), fr = Math.round((h - w) * 4); return (w || '') + ['', '¼', '½', '¾'][fr] || String(w); }
+  $('target').textContent = (c && w) ? f(q(c * 37.5 / w / m)) + ' – ' + f(q(c * 45 / w / m)) + ' hrs' : '—';
+}
+
+function setTable(t, how) {
+  tableTabs = t.tabs;
+  $('tableCard').innerHTML = '<b>' + esc(t.name) + '</b><br>' + esc(how) + ' ' + t.tabs.length + ' tabs. <button type="button" class="linkbtn" id="chg">Choose a different file</button>';
+  $('chg').addEventListener('click', function () { $('pick').hidden = false; });
+  $('pick').hidden = true;
+  $('tabs').innerHTML = t.tabs.map(function (x) {
+    var tpl = /template/i.test(x.name);
+    return '<label class="chk"><input type="checkbox" class="tb" value="' + esc(x.gid) + '"' + (tpl ? '' : ' checked') + '> <span>' + esc(x.name) + (tpl ? ' <span class="dim">(Template)</span>' : '') + '</span></label>';
+  }).join('');
+}
+$('loadBtn').addEventListener('click', function () {
+  var v = $('url').value.trim(); if (!v) return; showErr('');
+  google.script.run.withSuccessHandler(function (t) { tableId = t.id; setTable(t, 'Chosen by you.'); }).withFailureHandler(function (e) { showErr(e && e.message || e); }).loadSettingsTable11(v);
+});
+
+$('runBtn').addEventListener('click', function () {
+  showErr('');
+  var checks = { stage: $('kStage').checked, home: $('kHome').checked, links: $('kLinks').checked, time: $('kTime').checked, finalized: $('kFin').checked, media: $('kMedia').checked };
+  var gids = Array.prototype.map.call(document.querySelectorAll('.tb:checked'), function (c) { return c.value; });
+  var save = document.querySelector('input[name=save]:checked').value;
+  $('runBtn').disabled = true; $('spin').hidden = false;
+  google.script.run.withSuccessHandler(function (r) {
+    REPORT = r; $('spin').hidden = true; $('runBtn').disabled = false;
+    $('setup').hidden = true; render(r);
+    if (save) saveIt(save);
+  }).withFailureHandler(function (e) { $('spin').hidden = true; $('runBtn').disabled = false; showErr(e && e.message || e); })
+    .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks });
+});
+
+function saveIt(dest) {
+  var box = $('saveMsg'); box.innerHTML = 'Saving…';
+  google.script.run.withSuccessHandler(function (s) { box.innerHTML = 'Saved: <a href="' + esc(s.url) + '">' + esc(s.label) + '</a>'; })
+    .withFailureHandler(function (e) { box.innerHTML = '<span class="bad">Could not save: ' + esc(e && e.message || e) + '</span>'; })
+    .saveStatusReport13(REPORT, dest);
+}
+
+var LABEL = { untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)', purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Built in Canvas' };
+var ORDER = ['untouched', 'drafted', 'green', 'purple', 'revised', 'built'];
+
+function bar(counts, total) {
+  if (!total) return '';
+  return '<div class="sbar" aria-hidden="true">' + ['purple', 'green', 'revised', 'built', 'drafted', 'untouched'].map(function (k) { return counts[k] ? '<i class="c-' + k + '" style="width:' + (100 * counts[k] / total) + '%"></i>' : ''; }).join('') + '</div>';
+}
+function region(r, syl) {
+  if (!r || !r.found) return '<span class="bad">Section not found in the Development tab.</span>';
+  return esc(LABEL[r.stage]) + (syl && r.format ? ' · ' + esc(r.format) : '') + (r.untouched ? ' <span class="dim">(template text only)</span>' : '');
+}
+
+function render(r) {
+  var h = '<h3>Status Check Results</h3><p class="intro">' + esc(r.when) + ' · ' + r.totals.activities + ' activities · ' + r.modules.length + ' modules</p>';
+  if (r.media && r.media.found && r.media.flagged.length) h += '<div class="m bad" style="margin:0 0 8px">⚠ ' + r.media.flagged.length + ' completed media item' + (r.media.flagged.length === 1 ? '' : 's') + ' not yet added to the Dev tab (see Media deliverables, below).</div>';
+  if (r.home) {
+    h += '<hr><p class="sec">Home</p><p style="margin:0">' + region(r.home, false) + '</p>';
+    h += '<p class="sec" style="margin-top:10px">Syllabus</p><p style="margin:0">' + region(r.syllabus, true) + '</p>';
+    h += '<p class="sec" style="margin-top:10px">Instructor Resources</p>' + ['guide', 'suggestions'].map(function (k) {
+      var v = r.resources[k], name = k === 'guide' ? 'Instructor Guide' : 'Course Suggestions';
+      return '<div class="kv"><span>' + name + '</span><b class="' + (v === 'linked' ? '' : 'bad') + '">' + (v === 'linked' ? '✓ linked' : '✕ ' + esc(v)) + '</b></div>';
+    }).join('');
+  }
+  if (r.checks.stage) {
+    h += '<hr><p class="sec">Course totals</p><div class="hero"><p class="big"><b>' + r.totals.ready + ' of ' + r.totals.activities + '</b> activities are ready for the dev team</p>' + bar(r.totals.stages, r.totals.activities) +
+      '<p class="m sh">Ready = green, purple, yellow, or struck through. Not ready = text added but not highlighted, or template text still there.</p></div><div class="stages">' +
+      ORDER.map(function (k) { return '<div class="stg"><b>' + r.totals.stages[k] + '</b>' + esc(LABEL[k]) + '</div>'; }).join('') + '</div>';
+  }
+  if (r.checks.links) h += '<div class="kv"><span>Settings table links present</span><b>' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '</b></div>';
+
+  h += '<hr><p class="sec">Module by module</p>';
+  if (r.time) h += '<p class="m sh">Time target per module: ' + esc(r.time.min) + ' – ' + esc(r.time.max) + ' hrs</p>';
+  r.modules.forEach(function (m, mi) {
+    h += '<div class="mod"><h4>' + esc(m.label) + '</h4>';
+    if (m.time) {
+      var s = m.time.status, pill = s.type === 'ok' ? '<span class="pill ok">✓ Within target range</span>' : s.type === 'under' ? '<span class="pill under">▼ Under target by ' + esc(s.diff) + '</span>' : '<span class="pill over">▲ Over target by ' + esc(s.diff) + '</span>';
+      h += '<p class="lbl2">Time estimate</p><p style="margin:0"><b style="font-size:16px">' + esc(m.time.total) + '</b> ' + pill + '</p>';
+    }
+    if (r.checks.stage) {
+      var n = m.activities.length;
+      h += '<p class="lbl2">Ready for dev team</p><p style="margin:0"><b>' + m.ready + ' of ' + n + '</b></p>' + bar(m.counts, n);
+      var notReady = [];
+      if (m.counts.untouched) notReady.push(m.counts.untouched + ' still template text');
+      if (m.counts.drafted) notReady.push(m.counts.drafted + ' drafted but not highlighted');
+      h += '<p class="m sh">' + (notReady.length ? 'Not ready: ' + notReady.join(', ') + '.' : 'All ' + n + ' are green, purple, yellow, or struck through.') + '</p>';
+    }
+    h += '<details><summary style="min-height:36px">Show activities</summary>' + m.activities.map(function (a) {
+      var tag = a.stage ? esc(LABEL[a.stage]) : '';
+      var link = a.link === 'ok' ? ' · ✓ linked' : a.link === 'missing' ? ' · <span class="bad">✕ no settings table link</span>' : (a.tool === 'Page' ? ' · no settings tab needed' : '');
+      return '<div class="rowa"><b>' + esc(a.title) + '</b><br><span class="t">' + esc(a.tool || '') + '</span><span class="tag">' + link + '</span>' + (tag ? '<br><span class="tag">' + tag + '</span>' : '') + '</div>';
+    }).join('') + '</details></div>';
+  });
+  if (r.time && r.time.missing.length) h += '<p class="m sh">' + r.time.missing.length + ' activit' + (r.time.missing.length === 1 ? 'y has' : 'ies have') + ' no time entered (counted as 0).</p>';
+
+  if (r.finalized) {
+    h += '<hr><p class="sec">Settings table tabs</p><p style="margin:0 0 4px"><b>' + r.finalized.ticked + ' of ' + r.finalized.counted + '</b> tabs are marked finalized.</p>' +
+      r.finalized.tabs.map(function (t) { return '<div class="kv"><span>' + esc(t.name) + '</span><b class="' + (t.state === 'unticked' ? 'bad' : '') + '">' + (t.state === 'ticked' ? '✓ finalized' : t.state === 'unticked' ? '✕ not finalized' : 'no finalize box found') + '</b></div>'; }).join('');
+  }
+  if (r.media) {
+    h += '<hr><p class="sec">Media deliverables (Creative Brief tab)</p>';
+    var md = r.media;
+    if (!md.found) h += '<p class="m sh">Not checked: ' + esc(md.reason) + '.</p>';
+    else {
+      if (md.flagged.length) h += '<div class="alert"><b>' + md.flagged.length + ' completed item' + (md.flagged.length === 1 ? '' : 's') + ' not yet added to the Dev tab</b><ul>' + md.flagged.map(function (i) { return '<li>' + esc(i.type) + ' — ' + esc(i.title) + ' (row ' + i.row + ')</li>'; }).join('') + '</ul><a href="' + esc(md.tabUrl) + '">Go to the Creative Brief tab</a></div>';
+      else h += '<div class="alert fine">No completed media is waiting to be added to the Dev tab.</div>';
+      if (md.reverse.length) h += '<div class="warn" style="font-size:12px;border-radius:3px;padding:8px 10px;margin:0 0 10px;background:#fff4ce;color:#5c4400;border:1px solid #7a5c00">Ticked “Link Added to Dev Tab” but no Final Link:<ul>' + md.reverse.map(function (i) { return '<li>' + esc(i.type) + ' — ' + esc(i.title) + '</li>'; }).join('') + '</ul></div>';
+      if (md.unknownBox) h += '<p class="m sh">' + md.unknownBox + ' row' + (md.unknownBox === 1 ? '' : 's') + ' had no readable “Link Added” box, so ' + (md.unknownBox === 1 ? 'it was' : 'they were') + ' not checked.</p>';
+      h += Object.keys(md.byStatus).filter(function (k) { return k !== 'Cancelled'; }).map(function (k) { return '<div class="kv"><span>' + esc(k) + '</span><b>' + md.byStatus[k] + '</b></div>'; }).join('');
+    }
+  }
+  if (r.notes.length) h += '<hr>' + r.notes.map(function (n) { return '<p class="m no">' + esc(n) + '</p>'; }).join('');
+  h += '<hr><div id="saveMsg" class="m"></div>' +
+    '<button class="btn2" type="button" id="saveTab">Save as a new tab in this blueprint</button>' +
+    '<button class="btn2" type="button" id="saveDoc">Save as a new Google Doc in the blueprint’s folder</button>' +
+    '<button class="btn" type="button" id="again">Run again</button>';
+  $('results').innerHTML = h; $('results').hidden = false; window.scrollTo(0, 0);
+  $('saveTab').addEventListener('click', function () { saveIt('tab'); });
+  $('saveDoc').addEventListener('click', function () { saveIt('doc'); });
+  $('again').addEventListener('click', function () { $('results').hidden = true; $('setup').hidden = false; });
+}
+</script>
+</body>
+</html>

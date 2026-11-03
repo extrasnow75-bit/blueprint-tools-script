@@ -124,6 +124,8 @@ function onOpen() {
     .addItem('Specialty Tool: Add Module Dates &/or Holiday Modules',
                                                        'showModuleDatesSidebar8')
     .addSeparator()
+    .addItem('Development Status Check',               'showStatusSidebar13')
+    .addSeparator()
     .addItem('KB Article',                             'showKbArticle')
     .addToUi();
 }

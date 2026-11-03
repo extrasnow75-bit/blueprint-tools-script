@@ -83,3 +83,65 @@ function spikeCatalogSpike10() {
     Logger.log('SEARCH "%s" in %s -> %s: %s', q, name, s.getResponseCode(), body.slice(0, 500));
   });
 }
+
+
+/**
+ * Spike D (for Development Status Check, Code13.gs). READ-ONLY. Run it from a
+ * blueprint's script project. It prints:
+ *  1. every highlight colour used in the Development tab, with how Code13
+ *     classifies it and how many text runs use it (so you can confirm green,
+ *     purple and yellow are what you expect);
+ *  2. the Home and Syllabus sections it finds;
+ *  3. what it reads for Credits and Course Length on the Dashboard;
+ *  4. the raw checkbox / status / link data of the first rows of the Creative
+ *     Brief "Media Deliverables" table.
+ * Copy the log back to Claude Code.
+ */
+function spikeStatusSpike13() {
+  var doc = DocumentApp.getActiveDocument();
+  var body = getDevelopmentTabBody(doc);
+  var counts = {}, strikes = 0, runs = 0;
+  (function walk(el) {
+    var T = DocumentApp.ElementType, ty = el.getType(), t = null;
+    if (ty === T.PARAGRAPH) t = el.asParagraph().editAsText(); else if (ty === T.LIST_ITEM) t = el.asListItem().editAsText();
+    if (t) {
+      var text = t.getText(), idx = t.getTextAttributeIndices();
+      for (var i = 0; i < idx.length; i++) {
+        var end = i + 1 < idx.length ? idx[i + 1] : text.length;
+        if (!text.substring(idx[i], end).trim()) continue;
+        runs++;
+        var bg = t.getBackgroundColor(idx[i]); if (t.isStrikethrough(idx[i])) strikes++;
+        if (bg) counts[bg] = (counts[bg] || 0) + 1;
+      }
+      return;
+    }
+    if (ty === T.BODY_SECTION || ty === T.TABLE || ty === T.TABLE_ROW || ty === T.TABLE_CELL) for (var c = 0; c < el.getNumChildren(); c++) walk(el.getChild(c));
+  })(body);
+  Logger.log('Development tab: ' + runs + ' text runs, ' + strikes + ' struck through.');
+  Object.keys(counts).forEach(function (k) { Logger.log('  highlight ' + k + ' x' + counts[k] + ' -> ' + stageOfColor13_(k)); });
+
+  var reg = homeSyllabusRegions13_(body);
+  ['home', 'syllabus'].forEach(function (k) {
+    Logger.log(k + ': ' + (reg[k] ? reg[k].elements.length + ' elements -> ' + JSON.stringify(describeRegion13_(reg[k], k === 'syllabus')) : 'NOT FOUND'));
+    if (reg[k]) reg[k].elements.slice(0, 4).forEach(function (e) { var tx = e.getType() === DocumentApp.ElementType.TABLE ? e.asTable().getText() : (e.asParagraph ? e.asParagraph().getText() : ''); Logger.log('    ' + e.getType() + ': ' + String(tx).slice(0, 80)); });
+  });
+
+  var dash = dashboardTab10_(doc).body;
+  Logger.log('Dashboard Credits -> "' + readDashField13_(dash, /^\s*credits?\b/i) + '"; Course Length -> "' + readDashField13_(dash, /^\s*course\s*length\b/i) + '"');
+
+  var s = Docs.Documents.get(doc.getId(), { includeTabsContent: true }), tab = null;
+  flattenDocsTabs_(s).forEach(function (t) { if (!tab && /^\s*creative brief\s*$/i.test((t.tabProperties || {}).title || '')) tab = t; });
+  if (!tab) { Logger.log('No Creative Brief tab.'); return; }
+  var content = tab.documentTab.body.content, seen = false, table = null;
+  content.forEach(function (el) {
+    if (el.paragraph && /media deliverables/i.test(paraText13_(el.paragraph))) seen = true;
+    else if (seen && el.table && !table) table = el.table;
+  });
+  if (!table) { Logger.log('No table under Media Deliverables.'); return; }
+  Logger.log('Header row: ' + JSON.stringify(table.tableRows[0].tableCells.map(cellText13_)));
+  for (var r = 1; r < Math.min(table.tableRows.length, 4); r++) {
+    table.tableRows[r].tableCells.forEach(function (cell, c) {
+      Logger.log('row ' + r + ' col ' + c + ': ' + JSON.stringify(cell.content).slice(0, 700));
+    });
+  }
+}
