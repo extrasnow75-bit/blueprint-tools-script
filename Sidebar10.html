@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 00:51 MST
+<!-- Blueprint Tools — Sidebar10.html | Last updated on 2026-11-03 at 01:05 MST
 
      UI for "Link Project Documents" (Code10.gs). Built to
      docs/dev-handoff/mockups/LinkDocs.png. Flow: fill in section 1, press
@@ -85,6 +85,9 @@
 <div id="catWarn" class="warn" hidden></div>
 <label class="lbl" for="desc">Description to add to the Design tab</label>
 <textarea class="ta" id="desc" placeholder="Paste the catalog description here."></textarea>
+<label class="lbl" for="prereq">Prerequisite (optional)</label>
+<input class="inp" id="prereq" type="text" autocomplete="off" placeholder="e.g. Admitted to Applied Artificial Intelligence MS (online)">
+<label class="chk"><input type="checkbox" id="prereqOn" checked> <span>Also add it on the next bullet as “Prerequisite: …”</span></label>
 <label class="chk"><input type="checkbox" id="catOn" checked> <span>Add it under Course Information (replaces “Add catalog description here”)</span></label>
 <p class="m sh" id="catStatus">Press “Look up in the catalog” to fetch it, or paste the description above. The tool previews it before placing it.</p>
 
@@ -161,8 +164,9 @@ function lookupCatalog(level) {
     if (r.ok) {
       $('catName').value = r.title;
       if (!$('desc').value.trim()) $('desc').value = r.description;
+      if (!$('prereq').value.trim() && r.prerequisites) $('prereq').value = r.prerequisites;
     }
-    $('catStatus').textContent = r.ok ? 'Found in the catalog. Edit the description if you need to.' : '';
+    $('catStatus').textContent = r.ok ? ('Found in the catalog' + (r.credits ? ' (' + r.credits + ' credits)' : '') + '. Edit the description or prerequisite if you need to.' + (r.detailNote ? ' ' + r.detailNote : '')) : '';
     renderCatalog(); updateSummary();
   }).withFailureHandler(function (e) {
     catResult = { ok: false, levelName: '', message: 'Lookup failed: ' + (e && e.message || e) + ' Paste the description instead.' };
@@ -296,7 +300,7 @@ function collectState() {
   return {
     identity: identity(), slots: slotState, folderUrl: INIT.folder ? INIT.folder.url : null,
     docs: docState(),
-    catalog: { on: $('catOn').checked, text: $('desc').value },
+    catalog: { on: $('catOn').checked, text: $('desc').value, prereq: $('prereq').value, prereqOn: $('prereqOn').checked },
     devLinks: $('devOn').checked, replaceLinks: $('replaceOn').checked
   };
 }

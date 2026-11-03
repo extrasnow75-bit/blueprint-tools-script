@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 00:51 MST
+// Last updated on 2026-11-03 at 01:05 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -184,7 +184,7 @@ function applyLinkDocs10(state) {
   // 2. Catalog description.
   if (plan.catalog && state.catalog && state.catalog.on) {
     try {
-      var c = applyCatalog10_(doc, plan.catalog, state.catalog.text);
+      var c = applyCatalog10_(doc, plan.catalog, state.catalog.text, state.catalog.prereqOn ? state.catalog.prereq : '');
       report.push({ ok: c.ok, text: 'Catalog description: ' + c.text });
     } catch (e) {
       report.push({ ok: false, text: 'Catalog description: error. ' + (e && e.message || e) });
@@ -780,6 +780,24 @@ function fetchCatalogCourse10(dept, number, level) {
     out.title = String(hit.title || '').trim();
     out.description = cleanCatalogText10_(hit.description);
     out.code = dept + ' ' + number;
+    out.prerequisites = '';
+    // The search result has no prerequisites. The course-detail request does
+    // (seen in Greg's Network tab: fields prerequisites [HTML], credits.value,
+    // description). UNVERIFIED URL shape: .../catalog/course/<catalogId>/<pid>.
+    // If it fails, the description is still returned and the user types the
+    // prerequisite by hand.
+    try {
+      var dr = UrlFetchApp.fetch(KUALI_BASE_10 + 'course/' + cat.id + '/' + encodeURIComponent(hit.pid),
+                                 { muteHttpExceptions: true, followRedirects: true });
+      if (dr.getResponseCode() === 200) {
+        var d = JSON.parse(dr.getContentText());
+        out.prerequisites = cleanCatalogText10_(String(d.prerequisites || '').replace(/<\/li>/gi, '; ')).replace(/[;\s]+$/, '');
+        if (d.description) out.description = cleanCatalogText10_(d.description);
+        if (d.credits && d.credits.value) out.credits = String(d.credits.value);
+      } else {
+        out.detailNote = 'Prerequisites could not be fetched (error ' + dr.getResponseCode() + ').';
+      }
+    } catch (e2) { out.detailNote = 'Prerequisites could not be fetched.'; }
     return out;
   } catch (e) {
     out.message = 'Could not reach the catalog (' + (e && e.message || e) + '). Paste the description instead.';
@@ -845,11 +863,36 @@ function findCatalogSpot10_(doc) {
   return { el: el, len: el.getText().length };
 }
 
-function applyCatalog10_(doc, plan, text) {
+function applyCatalog10_(doc, plan, text, prereq) {
   var clean = String(text || '').replace(/\s*[\r\n]+\s*/g, ' ').trim();
   if (!clean) return { ok: false, text: 'nothing to add (the box was empty).' };
   var spot = findCatalogSpot10_(doc);
   if (!spot) return { ok: false, text: 'the “Add catalog description here” bullet was not found, so nothing was added.' };
   swapRange10_(spot.el, 0, spot.len - 1, clean);
-  return { ok: true, text: 'added to the Design tab.' };
+  var msg = 'added to the Design tab.';
+  var pre = String(prereq || '').replace(/\s+/g, ' ').trim();
+  if (pre) {
+    // DEFAULT: the prerequisite goes on its own bullet right below the
+    // description, as in finished blueprints ("Prerequisite: ...").
+    try { insertBulletAfter10_(spot.el, 'Prerequisite: ' + pre); msg += ' Prerequisite added on the next bullet.'; }
+    catch (e) { msg += ' The prerequisite bullet could not be added (' + (e && e.message || e) + ').'; }
+  }
+  return { ok: true, text: msg };
+}
+
+/** Inserts a copy of the paragraph/list item holding `textEl`, right after it, with new text. */
+function insertBulletAfter10_(textEl, newText) {
+  var para = textEl.getParent();
+  var parent = para.getParent();
+  var idx = parent.getChildIndex(para);
+  var copy = para.copy();
+  var ct = copy.editAsText();
+  ct.setText(newText);
+  var kind = parent.getType();
+  var isList = para.getType() === DocumentApp.ElementType.LIST_ITEM;
+  var host = kind === DocumentApp.ElementType.BODY_SECTION ? parent.asBody()
+           : (kind === DocumentApp.ElementType.TABLE_CELL ? parent.asTableCell() : null);
+  if (!host) throw new Error('unexpected location');
+  if (isList) host.insertListItem(idx + 1, copy.asListItem());
+  else host.insertParagraph(idx + 1, copy.asParagraph());
 }
