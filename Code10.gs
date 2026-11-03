@@ -7,7 +7,7 @@
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 06:57 MST
+// Last updated on 2026-11-03 at 07:02 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -866,11 +866,11 @@ function fetchCatalogCourse10(dept, number, level) {
   var out = { ok: false, level: lvl, levelName: lvl === 'grad' ? 'Graduate' : 'Undergraduate' };
   try {
     var cat = catalogFor10_(lvl);
-    if (!cat.id) { out.message = 'The ' + out.levelName.toLowerCase() + ' catalog could not be found automatically. Paste the description instead.'; return out; }
+    if (!cat.id) { out.message = 'On ' + nowStamp10_() + ' the ' + out.levelName.toLowerCase() + ' catalog could not be found automatically, so nothing was checked. Paste the description instead.'; return out; }
     out.catalogName = cat.name; out.year = cat.year;
     var url = KUALI_BASE_10 + 'search/' + cat.id + '?q=' + encodeURIComponent(dept + ' ' + number) + '&limit=20';
     var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
-    if (resp.getResponseCode() !== 200) { out.message = 'The catalog answered with error ' + resp.getResponseCode() + '. Paste the description instead.'; return out; }
+    if (resp.getResponseCode() !== 200) { out.message = 'On ' + nowStamp10_() + ' the catalog answered with error ' + resp.getResponseCode() + ', so nothing was checked. Paste the description instead or try again.'; return out; }
     var list = JSON.parse(resp.getContentText());
     var want = (dept + number).replace(/[\s/-]+/g, '');
     var hit = null;
@@ -880,7 +880,11 @@ function fetchCatalogCourse10(dept, number, level) {
       var code = String((it.subjectCode && it.subjectCode.name || '') + (it.number || '')).toUpperCase().replace(/[\s/-]+/g, '');
       if (code === want || String(it.code || '').toUpperCase().replace(/[\s/-]+/g, '') === want) hit = it;
     }
-    if (!hit) { out.message = dept + ' ' + number + ' was not found in the ' + out.levelName.toLowerCase() + ' catalog.'; return out; }
+    if (!hit) { out.absent = true; out.message = noDescriptionMessage10_(out.levelName, dept + ' ' + number, false); return out; }
+    if (!cleanCatalogText10_(hit.description)) {
+      // Listed but empty: treated the same way. Nothing is written anywhere.
+      out.absent = true; out.message = noDescriptionMessage10_(out.levelName, dept + ' ' + number, true); return out;
+    }
     out.ok = true;
     out.title = String(hit.title || '').trim();
     out.description = cleanCatalogText10_(hit.description);
@@ -917,9 +921,26 @@ function fetchCatalogCourse10(dept, number, level) {
     } catch (e2) { out.detailNote = 'Prerequisites could not be fetched.'; }
     return out;
   } catch (e) {
-    out.message = 'Could not reach the catalog (' + (e && e.message || e) + '). Paste the description instead.';
+    out.message = 'On ' + nowStamp10_() + ' the catalog could not be reached (' + (e && e.message || e) + '), so nothing was checked. Paste the description instead or try again.';
     return out;
   }
+}
+
+/** "2026-11-03 at 1:23 PM MST", in the script's time zone, for messages the user may want to keep. */
+function nowStamp10_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd 'at' h:mm a z");
+}
+
+/**
+ * Plain-English note for a course that is not in the catalog (or has no
+ * description there). New courses in programs that have not launched yet may
+ * not be published. Nothing in the blueprint or the syllabus is changed.
+ */
+function noDescriptionMessage10_(levelName, code, listedWithoutText) {
+  return 'Checked the ' + levelName.toLowerCase() + ' catalog for ' + code + ' on ' + nowStamp10_() + '. ' +
+    (listedWithoutText ? 'The course is listed, but it has no description yet. ' : 'The course is not listed yet. ') +
+    'This can happen for new courses in programs that have not launched. ' +
+    'The placeholder text in the blueprint and the syllabus was left as it is. You can paste a description yourself, or check the other catalog.';
 }
 
 /** Newest catalog whose name says undergraduate (or graduate); falls back to the fixed IDs. */
@@ -983,7 +1004,7 @@ function findCatalogSpot10_(doc) {
 
 function applyCatalog10_(doc, plan, text, prereq, source) {
   var clean = String(text || '').replace(/\s*[\r\n]+\s*/g, ' ').trim();
-  if (!clean) return { ok: false, text: 'nothing to add (the box was empty).' };
+  if (!clean) return { ok: false, text: 'no description was added because the description box was empty (' + nowStamp10_() + '). The placeholder text was left as it is.' };
   var spot = findCatalogSpot10_(doc);
   if (!spot) return { ok: false, text: 'the “Add catalog description here” bullet was not found, so nothing was added.' };
   swapRange10_(spot.el, 0, spot.len - 1, clean);
