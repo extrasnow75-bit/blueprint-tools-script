@@ -1,13 +1,13 @@
 // ============================================================
 // Blueprint Tools — Code10.gs
-// Link Project Documents
+// Setup Assistant
 // Sets up a new project from the blueprint: (A) links the project documents
 // found in the blueprint's Drive folder onto the Dashboard and into the
 // Development tab's Instructor Resources, (B) fills the course identity
 // (department, number, name) into the title of each project document, and
 // (C) places the catalog description in the Design tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 07:13 MST
+// Last updated on 2026-11-06 at 00:24 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.1. Mockup: mockups/LinkDocs.png.
@@ -35,7 +35,7 @@
 
 // ── CONSTANTS ────────────────────────────────────────────────
 
-var BP_VER_Code10 = '2026-11-03 07:13';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code10 = '2026-11-06 00:24';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var MIME_DOC_10    = 'application/vnd.google-apps.document';
 var MIME_SHEET_10  = 'application/vnd.google-apps.spreadsheet';
@@ -91,7 +91,7 @@ var MAX_OTHERS_SHOWN_10 = 12;
 
 function showLinkDocsSidebar10() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar10')
-    .setTitle('Link Project Documents')
+    .setTitle('Setup Assistant')
     .setWidth(320);
   DocumentApp.getUi().showSidebar(html);
 }

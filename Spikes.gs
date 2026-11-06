@@ -1,8 +1,8 @@
 // ============================================================
 // Blueprint Tools — Spikes.gs   (THROWAWAY: delete this file after the spikes)
-// Last updated on 2026-11-03 at 01:21 MST
+// Last updated on 2026-11-06 at 00:24 MST
 // ------------------------------------------------------------
-// Read-only checks for Link Project Documents. Nothing here writes to any
+// Read-only checks for Setup Assistant. Nothing here writes to any
 // document or file. Run each function from the Apps Script editor (pick it in
 // the function dropdown, press Run), then open View > Logs / Execution log and
 // copy what it printed back to Claude Code.
@@ -40,7 +40,7 @@ function spikeLabelsSpike10() {
 
 /**
  * Spike B. Can DriveApp list this blueprint's folder? Prints folder name and
- * each file's name and type. This is what Link Project Documents does on open.
+ * each file's name and type. This is what Setup Assistant does on open.
  */
 function spikeFolderSpike10() {
   var id = DocumentApp.getActiveDocument().getId();

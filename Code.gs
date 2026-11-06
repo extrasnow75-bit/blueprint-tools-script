@@ -2,10 +2,10 @@
  * ================================================================
  * BLUEPRINT TOOLS  |  'Add Activity Titles, Tools, Due Date Headers, & Times'
  * ================================================================
- * Last updated on 2026-11-03 at 11:30 MST
+ * Last updated on 2026-11-06 at 00:24 MST
  * ================================================================
  */
-var BP_VER_Code = '2026-11-03 11:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code = '2026-11-06 00:24';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 const RED       = '#ff0000';
 const DEEP_BLUE = '#0033a0';
@@ -98,7 +98,7 @@ function onOpen() {
     // Position 1: sets up the project (links documents, fills in the course
     // identity) before any of the tools below build into the blueprint.
     // See docs/dev-handoff/HANDOFF.md section 3 for the full menu order.
-    .addItem('Link Project Documents',                 'showLinkDocsSidebar10')
+    .addItem('Setup Assistant',                 'showLinkDocsSidebar10')
     .addSeparator()
     .addItem('Add Activity Titles, Tools, Due Date Headers, & Times', 'showSidebar')
     // Position 2, directly under the tool that creates the headings and slots
