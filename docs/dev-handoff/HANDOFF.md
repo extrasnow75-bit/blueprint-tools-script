@@ -2,7 +2,7 @@
 
 Written 2026-11-02 at the end of a long design conversation in Claude Chat. Everything below was decided or learned there.
 
-**Status (updated 2026-11-02, Claude Code session):** Tool 1 (Link Project Documents) is BUILT but UNTESTED: `Code10.gs`, `Sidebar10.html`, menu item in `Code.gs`, and the throwaway `Spikes.gs`. The Drive scope was added to `appsscript.json` with Greg's OK (see 3.6). Tools 2 to 5 are not started. Two new tool ideas were added this session (sections 11 and 12), and one idea is parked (section 13). Everything else below is the original spec.
+**Status (updated 2026-11-02, Claude Code session):** Tool 1 (Setup Assistant) is BUILT but UNTESTED: `Code10.gs`, `Sidebar10.html`, menu item in `Code.gs`, and the throwaway `Spikes.gs`. The Drive scope was added to `appsscript.json` with Greg's OK (see 3.6). Tools 2 to 5 are not started. Two new tool ideas were added this session (sections 11 and 12), and one idea is parked (section 13). Everything else below is the original spec.
 
 Read this whole file, then `docs/dev-handoff/mockups/*.png` (sidebar mockups), then start at "Build order".
 
@@ -52,7 +52,7 @@ Three tabs: **Dashboard**, **Design**, **Development**.
 
 Menu order (final, with a separator between every item):
 
-1. Link Project Documents
+1. Setup Assistant
 2. Add Activity Titles, Tools, Due Date Headers, & Times *(existing)*
 3. Design Map → Dev Tab *(existing)*
 4. Create Model Module *(existing)*
@@ -67,7 +67,7 @@ Menu order (final, with a separator between every item):
 
 Build order: **10 → 11 → 12 → 13 → 14**, one branch per tool after the first (for example `deploy-settings-tables`). Greg preferred building the settings-table tools before the Status Check. The Version Check (`Code14.gs` / `Sidebar14.html`) comes last.
 
-### 3.1 Link Project Documents (`Code10.gs` / `Sidebar10.html`)
+### 3.1 Setup Assistant (`Code10.gs` / `Sidebar10.html`)
 
 Mockup: `mockups/LinkDocs.png` (updated 2026-11-02 to show Dept / Number / Name, the catalog description with the name-mismatch warning, the six-document preview with checkboxes, and the End-of-Project Report). **Greg has not yet reviewed this updated version.** The sample text is illustrative: the catalog title is invented, the description is a placeholder, and the "APPAI 507" → "APPAI 505" change is only there to show replace-old-title mode.
 
@@ -77,7 +77,7 @@ Mockup: `mockups/LinkDocs.png` (updated 2026-11-02 to show Dept / Number / Name,
 - The user confirms each match with a dropdown, and can paste a URL for anything missing.
 - Add links on the Dashboard. Also add the Instructor Guide and Course Suggestions links in the Development tab's Instructor Resources.
 - Course Suggestions (and the End-of-Project Report) may not exist; skip with a notice and let the user paste a URL.
-- Copying the End-of-Project Report template into the project folder is NOT part of Link Project Documents or the planned setup-data tool (Greg, 2026-11-03): a different tool does that. Link Project Documents only fills in and links a report copy that already exists in the folder.
+- Copying the End-of-Project Report template into the project folder is NOT part of Setup Assistant or the planned setup-data tool (Greg, 2026-11-03): a different tool does that. Setup Assistant only fills in and links a report copy that already exists in the folder.
 - Greg always has edit access to the project documents, but not to the template files.
 
 **B. Fill the course identity into project documents.** Sidebar fields: **Dept**, **Course number**, **Course name**, with a live preview. Per-document preview with a checkbox per document, shown before any change. Documents (six):
@@ -118,7 +118,7 @@ Shared tokens proposed for templates: `{{DEPT}}`, `{{COURSE_NUMBER}}`, `{{COURSE
 - Instructor Resources has two forms: template (heading `COURSE ### Instructor Guide`, then "Unpublished external link...") and finished (heading plus a body sentence with a linked phrase). Default: if a linked phrase exists in the body text under the heading, that is the link spot; otherwise the heading text is linked. Existing links are never replaced unless "Replace links" is ticked.
 - Identity: placeholder lines (`COURSE ###: Title`, `Course ###: Course Title`, `Syllabus: Course ###`, `COURSE XXX`) get the new identity; lines that already carry a code get only the code swapped. The Agenda and Instructor Guide placeholders are still unconfirmed, so only those two shapes are matched.
 - Catalog: found 2026-11-02 in Greg's browser Network tab. The catalogs run on Kuali: `GET https://boisestate.kuali.co/api/v1/catalog/search/<catalogId>?q=cs%20321&limit=20` returns a JSON array (fields: code, subjectCode.name, number, title, description, pid, type). No sign-in needed in the browser. `fetchCatalogCourse10` uses it, with a button in the sidebar; the user can still paste. Still unverified: discovering the current catalog IDs (`/api/v1/catalog/public/catalogs`, run `spikeCatalogSpike10`) and the graduate catalog's ID. Prerequisites are not fetched yet (a separate course-detail request would be needed). The tool places the description only where the "Add catalog description here" bullet still exists.
-- Schedule of Deliverables: Greg's existing project setup tool copies a template (A to E) into the project folder and puts the project name in the FILE TITLE only; the body is left unfilled. So Link Project Documents does not pick or copy templates and never opens the template folder. It fills the body of whatever copy it finds: A and C (Project Information table cells beside "Course Prefix/Number:" and "Course Title:"), B (title line `DEPT ###: Course Title`), E (title `DEPT ###: [Course Name]` plus `DEPT ### ...` link labels, handled as "Leftover placeholders", checked by default). D has no course fields and reports "No title line recognized". Unconfirmed: whether the `<<link Blueprint here>>` placeholders in A and the E link labels should also be linked to files.
+- Schedule of Deliverables: Greg's existing project setup tool copies a template (A to E) into the project folder and puts the project name in the FILE TITLE only; the body is left unfilled. So Setup Assistant does not pick or copy templates and never opens the template folder. It fills the body of whatever copy it finds: A and C (Project Information table cells beside "Course Prefix/Number:" and "Course Title:"), B (title line `DEPT ###: Course Title`), E (title `DEPT ###: [Course Name]` plus `DEPT ### ...` link labels, handled as "Leftover placeholders", checked by default). D has no course fields and reports "No title line recognized". Unconfirmed: whether the `<<link Blueprint here>>` placeholders in A and the E link labels should also be linked to files.
 - Syllabus (Greg, 2026-11-02): keep it mostly manual. The tool only fixes the heading: the program template has the dept already filled (`AMI ### Syllabus`), the faculty-owned template has `DEPT ### Syllabus`. The subtitle line `Course Title` is left alone for now. A .docx syllabus cannot be edited (link only).
 - Catalog source link (Greg, 2026-11-02): wherever the catalog description is written (Design tab bullet, syllabus Course Description), it ends with a linked entry such as "(2026-2027 Undergraduate Catalog: CS321 - Data Structures)" (year, level, course code and title). The link goes to the course's own catalog page, `.../#/courses/<pid>?q=...&bc=true&bcCurrent=<title>&bcItemType=courses`, mirroring the address the catalog itself produced. Only when the description came from the lookup. Syllabus: the description is inserted as a new black paragraph above the purple "Insert Boise State catalog description" instructions, which are left in place (default; replacing them would delete text). Unchecking is per document in the preview.
 - No catalog description (Greg, 2026-11-02): new courses in programs that have not launched may not be in the catalog yet. The lookup then returns a plain-English message with a timestamp ("Checked the graduate catalog for ... on <date and time>. The course is not listed yet..."), writes nothing, and the Design tab and syllabus placeholders stay untouched. A listed course with an empty description is treated the same way. Network errors get a different message ("could not be reached ... nothing was checked").
@@ -239,11 +239,11 @@ Nothing else: no "what changed" notes, no per-file explanations. If everything i
 
 ### 3.6 Permissions summary (decide these together, before editing `appsscript.json`)
 
-Current scopes: `documents`, `drive` (added 2026-11-02 for Link Project Documents; Greg chose the full Drive scope, option b, over the Advanced Drive service with metadata-only), `script.container.ui`, `script.external_request`, plus the Docs v1 advanced service. A new scope changes the authorization prompt for every user of the script. Get Greg's OK on the exact list first. This table is from the design discussion, not from testing; confirm each row in a spike.
+Current scopes: `documents`, `drive` (added 2026-11-02 for Setup Assistant; Greg chose the full Drive scope, option b, over the Advanced Drive service with metadata-only), `script.container.ui`, `script.external_request`, plus the Docs v1 advanced service. A new scope changes the authorization prompt for every user of the script. Get Greg's OK on the exact list first. This table is from the design discussion, not from testing; confirm each row in a spike.
 
 | Tool | Needs | New scope? |
 |---|---|---|
-| Link Project Documents | List the blueprint's parent folder (read-only Drive metadata). Edit the other project documents (the existing `documents` scope should cover documents Greg can edit). Catalog fetch (`script.external_request`, already present). | Drive read-only metadata |
+| Setup Assistant | List the blueprint's parent folder (read-only Drive metadata). Edit the other project documents (the existing `documents` scope should cover documents Greg can edit). Catalog fetch (`script.external_request`, already present). | Drive read-only metadata |
 | Draft Settings Tables | Copy template tabs inside the settings table spreadsheet, so write access to Sheets. | Sheets (read and write) |
 | Deploy Settings Tables | Read the settings table's tab names. Writes only to the blueprint. | Sheets (read-only is enough) |
 | Development Status Check | Read settings-table tabs and the "Check when settings are finalized:" checkboxes. Save the report to a new blueprint tab (no new scope). Save it to a new Google Doc in the blueprint's folder (**see below**). | Sheets (read-only); Drive for the new-Doc option |
@@ -331,7 +331,7 @@ Confirm each signature by reading the code before calling it; this list was made
 6. Whether to also prefill End-of-Project Report fields from the Dashboard. Offered, not requested; keep the first version to dept + number.
 7. Which Sheets scope (see 3.4 and 3.6). Now needed by tools 2, 3, 4 and the setup-data tool (section 11). Greg must approve before `appsscript.json` changes.
 8. Mixed-formatting rule below "yellow wins" (my proposal: count at the lowest stage).
-9. Results of the Link Project Documents tests and spikes (see section 10).
+9. Results of the Setup Assistant tests and spikes (see section 10).
 10. Setup-data tool (section 11) and ownership tool (section 12): the questions listed there.
 
 ## 8. Mockups
@@ -352,7 +352,7 @@ Updated this session: `Main.png` and `StatusResultsB.png` now include the settin
 
 ## 10. Pending from Greg (updated 2026-11-02)
 
-- **Run and report:** the Link Project Documents test checklist and the three spikes in `Spikes.gs` (labels with the `^` anchor, folder listing through `DriveApp`, catalog endpoint; for the catalog, the URL of the request in the browser's Network tab that returns a course description).
+- **Run and report:** the Setup Assistant test checklist and the three spikes in `Spikes.gs` (labels with the `^` anchor, folder listing through `DriveApp`, catalog endpoint; for the catalog, the URL of the request in the browser's Network tab that returns a course description).
 - **Sheets scope decision** (see 3.6). Needed before tools 2, 3, 4 and section 11.
 - **Setup-data tool:** the original Google Sheet (not the .xlsx copy) or its ID, and the answers listed in section 11.
 - **Ownership tool:** answers listed in section 12.
@@ -369,11 +369,11 @@ What the workbook looks like (columns and tabs only):
 - Checked against the APPAI 505 Dashboard: `Next taught` equals column J, and `Cycle: Summer Cycle 1 (2026)` equals the tab name plus column I.
 - CS 321 is in the Fall 2026 tab and APPAI 505 is in the Summer 2026 tab.
 
-Candidate mapping to the Dashboard: Next taught = First taught; Cycle = tab name plus Project Start Date; Course Length (weeks) from the `7W1` / `7W2` / `15wk` / `10wks` / `14wk` suffix; Course title feeds Link Project Documents' Course name; Project Type and the person fields are chips.
+Candidate mapping to the Dashboard: Next taught = First taught; Cycle = tab name plus Project Start Date; Course Length (weeks) from the `7W1` / `7W2` / `15wk` / `10wks` / `14wk` suffix; Course title feeds Setup Assistant' Course name; Project Type and the person fields are chips.
 
 People chips: the Docs API can insert a person chip only from an email address, not a name (not yet tested). Greg says the IDC is usually the blueprint's owner, so the script can read the owner's email from Drive (`File.getOwner()`; covered by the Drive scope). Do this BEFORE any ownership transfer (section 12). Faculty developer and other names stay manual unless a directory lookup is approved (new scope, would need Greg's OK).
 
-Needs Greg's answers: which fields to scrape; where they are written (Dashboard, a preview in the sidebar, or both); what values besides "Cycle 1" / "Cycle 2" appear in the cycle column; a course deferred and listed in two tabs should ask, showing each tab and cycle (proposed, unconfirmed); the original sheet's ID and who has view access; the Sheets scope (read-only is enough). Proposed file: `Code15.gs` / `Sidebar15.html`, or folded into Link Project Documents. Ask Greg.
+Needs Greg's answers: which fields to scrape; where they are written (Dashboard, a preview in the sidebar, or both); what values besides "Cycle 1" / "Cycle 2" appear in the cycle column; a course deferred and listed in two tabs should ask, showing each tab and cycle (proposed, unconfirmed); the original sheet's ID and who has view access; the Sheets scope (read-only is enough). Proposed file: `Code15.gs` / `Sidebar15.html`, or folded into Setup Assistant. Ask Greg.
 
 ## 12. Ownership transfer tool (idea, not started)
 
@@ -383,7 +383,7 @@ Design points:
 - Roles that appear in the rules: a central development account, a vetting account, a maintenance account, plus the Program Coordinator/Chair and the Faculty Developer. Greg says files for the last two can be handled manually, so the tool skips and lists them.
 - Course type probably comes from the Project Type column in section 11.
 - `File.setOwner` / `Folder.setOwner` exist in `DriveApp` (full Drive scope already added). Untested inside the Boise State domain. A transfer of a folder moves the folder only, not its contents. Non-Google files (PDF, mp4) cannot be transferred this way. Large transfers can take a day. Only the current owner (or an admin) can transfer. Possible admin policy limits are unknown.
-- It is hard to undo (the old owner stays an editor; mistakes go through a request process). So: list every file with its current owner and its target, skip what cannot move, change nothing until the user confirms, and keep it separate from Link Project Documents.
+- It is hard to undo (the old owner stays an editor; mistakes go through a request process). So: list every file with its current owner and its target, skip what cannot move, change nothing until the user confirms, and keep it separate from Setup Assistant.
 - New project folders: the media folder (with an inner accessible-media folder) is being renamed `DEPT ### Student-Facing Content`. Match it by name, accepting `Student-Facing Content`, `Student Facing Content` and the older `Media` / `Accessible Media` names. The Instructor Guide and Course Suggestions in a new project folder are Drive shortcuts to documents that sit beside the project folder, and the syllabus may be a .docx; the ownership tool has to resolve shortcuts to their targets and skip files it cannot transfer.
 - Order: fill the IDC chip from the blueprint's owner first, transfer the blueprint last (the sidebar runs inside it).
 - A spike is needed first: transfer one throwaway doc inside the Boise State domain. Greg runs it.
@@ -395,7 +395,7 @@ Greg's plan document describes a Gemini Notebook "project work station" per proj
 
 ## 14. Next steps (proposed order)
 
-1. Greg runs the Link Project Documents tests and spikes and reports back.
+1. Greg runs the Setup Assistant tests and spikes and reports back.
 2. Fix whatever the tests find in `Code10.gs` / `Sidebar10.html`.
 3. Greg decides the Sheets scope and Deploy layout; then build tool 2 (Deploy Settings Tables, `Code11`).
 4. Tool 3 (Draft Settings Tables, `Code12`), then tool 4 (Development Status Check, `Code13`), then tool 5 (Version Check, `Code14`).

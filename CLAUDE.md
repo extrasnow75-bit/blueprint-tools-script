@@ -2,7 +2,7 @@
 
 Google Apps Script project bound to course blueprint Google Docs. Menu: 🎓 Blueprint Tools (`onOpen()` in `Code.gs`).
 
-**Start here:** read `docs/dev-handoff/HANDOFF.md`. It holds the specs for the planned tools (Link Project Documents, Deploy Settings Tables, Draft Settings Tables, Development Status Check), test-file IDs, open questions, and mockups in `docs/dev-handoff/mockups/`.
+**Start here:** read `docs/dev-handoff/HANDOFF.md`. It holds the specs for the planned tools (Setup Assistant, Deploy Settings Tables, Draft Settings Tables, Development Status Check), test-file IDs, open questions, and mockups in `docs/dev-handoff/mockups/`.
 
 ## Working rules
 
