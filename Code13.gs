@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-07 at 15:30 MST
+// Last updated on 2026-11-07 at 16:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-07 15:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-07 16:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -828,40 +828,66 @@ function themeGroups13_(r) {
  */
 function plainLines13_(r, short) {
   var L = [], head = function (t) { if (L.length) L.push(''); L.push(String(t).toUpperCase()); };
+  var mediaWaiting = r.media && r.media.found ? r.media.flagged.length : 0;
   head('Development Status Check');
   L.push(r.blueprint + ', checked ' + r.when + '.');
-  var hasTotals = r.checks.stage || r.checks.links || (r.media && r.media.found && r.media.flagged.length);
-  if (hasTotals) head('Course totals');
+
+  head('Course totals');
+  if (!r.checks.stage && !r.checks.links) L.push('Not checked.');
   if (r.checks.stage) {
     L.push(r.totals.ready + ' of ' + r.totals.activities + ' activities are Ready for the Dev Team.');
     Object.keys(r.totals.mostly || {}).forEach(function (k) { L.push(r.totals.mostly[k] + ' activities are mostly ' + k + ' and waiting on a few pieces.'); });
   }
   if (r.checks.links) L.push('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '.');
-  if (r.media && r.media.found && r.media.flagged.length) L.push(r.media.flagged.length + ' completed media items are not yet added to the Dev tab.');
+  if (mediaWaiting) L.push(mediaWaiting + ' completed media items are not yet added to the Dev tab.');
+
+  head('By theme');
   var groups = themeGroups13_(r);
-  if (groups.length) {
-    head('By theme');
-    groups.forEach(function (g) {
-      L.push(g.name + ' is ' + g.pct + ' percent complete (' + g.ready + ' of ' + g.count + ' ready): ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + ' percent'; }).join(', ') + '.');
-    });
-  }
+  if (!r.checks.stage) L.push('Not checked.');
+  else if (!groups.length) L.push('No themes selected.');
+  groups.forEach(function (g) {
+    L.push(g.name + ' is ' + g.pct + ' percent complete (' + g.ready + ' of ' + g.count + ' ready): ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + ' percent'; }).join(', ') + '.');
+  });
+
   head('By module');
   r.modules.forEach(function (m) {
     L.push(m.label + (r.checks.stage ? ' is ' + m.pct + ' percent complete (' + m.ready + ' of ' + m.activities.length + ' ready)' : '') + (m.time ? ', time ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' : '') + '.');
   });
+  if (!r.modules.length) L.push('No modules found.');
+
   if (!short) {
     r.modules.forEach(function (m) {
       head(m.label + ' activities');
+      if (!m.activities.length) L.push('None.');
       m.activities.forEach(function (a) {
         L.push(a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ': ' + stageText13_(a) + ', ' + a.pct + ' percent' : '') + (a.link === 'missing' ? ', no settings table link' : '') + '.');
       });
     });
-    if (r.finalized) { head('Settings table tabs'); L.push('Marked finalized: ' + r.finalized.ticked + ' of ' + r.finalized.counted + '.'); }
-    if (r.media && r.media.found && r.media.flagged.length) {
-      head('Media deliverables');
-      r.media.flagged.forEach(function (i) { L.push('Not yet added to the Dev tab: ' + i.type + ', ' + i.title + '.'); });
+
+    head('Home and syllabus');
+    if (!r.home) L.push('Not checked.');
+    else {
+      var hs = [['Home', r.home, false], ['Syllabus', r.syllabus, true]];
+      hs.forEach(function (x) {
+        var bad = !x[1] || !x[1].found || x[1].untouched;
+        L.push((bad ? 'Incomplete. ' : '') + x[0] + ': ' + regionText13_(x[1], x[2]).replace(/ \u00b7 /g, ', ') + '.');
+      });
+      L.push('Instructor Guide: ' + r.resources.guide + '. Course Suggestions: ' + r.resources.suggestions + '.');
     }
-    if (r.notes.length) { head('Notes'); r.notes.forEach(function (n) { L.push(n); }); }
+
+    head('Settings table tabs');
+    if (!r.finalized) L.push('Not checked.');
+    else L.push((r.finalized.ticked === 0 ? 'Incomplete. ' : '') + 'Marked finalized: ' + r.finalized.ticked + ' of ' + r.finalized.counted + '.');
+
+    head('Media deliverables');
+    if (!r.media) L.push('Not checked.');
+    else if (!r.media.found) L.push(('Not checked. ' + (r.media.reason || '')).trim());
+    else if (!r.media.flagged.length) L.push('None waiting.');
+    else r.media.flagged.forEach(function (i) { L.push('Not yet added to the Dev tab: ' + i.type + ', ' + i.title + '.'); });
+
+    head('Notes');
+    if (!r.notes.length) L.push('None.');
+    r.notes.forEach(function (n) { L.push(n); });
   }
   return L;
 }
