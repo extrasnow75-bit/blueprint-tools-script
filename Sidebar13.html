@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 12:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 15:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -74,6 +74,16 @@
     .tag { font-size:11px; color:#333; }
     .bad { color:#8a1c1c; font-weight:bold; }
     ul { margin: 4px 0 6px; padding-left: 18px; }
+    .vtabs { display:flex; gap:0; margin:0 0 8px; }
+    .vtabs button { flex:1; min-height:44px; background:#fff; color:#0033a0; border:2px solid #0033a0; font:bold 13px Arial,sans-serif; cursor:pointer; }
+    .vtabs button:first-child { border-radius:3px 0 0 3px; } .vtabs button:last-child { border-radius:0 3px 3px 0; margin-left:-2px; }
+    .vtabs button[aria-pressed=true] { background:#0033a0; color:#fff; }
+    details.grp { border:1px solid #aab2c8; border-radius:3px; margin:0 0 8px; padding:0 10px 6px; }
+    details.grp > summary { min-height:44px; }
+    .tbox { width:100%; min-height:90px; font:12px Arial,sans-serif; border:1px solid #767676; border-radius:3px; padding:6px; margin:4px 0 6px; }
+    .radio { display:flex; gap:8px; align-items:flex-start; font-size:12px; margin:0 0 6px; }
+    .radio input { margin:2px 0 0; width:16px; height:16px; flex:none; }
+    .dim { color:#666; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -114,10 +124,13 @@
     <p class="m sh">Tabs with “Template” in the name start unchecked. Tick any tab to include it, or untick any tab to leave it out.</p>
   </div>
   <hr>
-  <p class="sec">Also save the report to</p>
-  <label class="radio"><input type="radio" name="save" value="" checked><span>Just show it here</span></label>
-  <label class="radio"><input type="radio" name="save" value="tab"><span>A new tab in this blueprint</span></label>
-  <label class="radio"><input type="radio" name="save" value="doc"><span>A new Google Doc in the blueprint’s folder</span></label>
+  <p class="sec">Themes to report on</p>
+  <p class="m sh">Groups activities across modules by a word in the title, so you can see how complete, for example, all Final Project activities are. Each activity goes to its most specific theme. Leave all unticked to skip.</p>
+  <div id="themes"></div>
+  <input class="inp" id="customTheme" type="text" autocomplete="off" placeholder="Add your own, e.g. Final Project, Case Study" aria-label="Add your own themes, separated by commas">
+  <button class="btn2" type="button" id="addTheme">Add</button>
+  <p class="m sh">The numbers show how many activities in this blueprint match. Your ticked themes are remembered for this blueprint.</p>
+  <hr>
   <div id="spin" class="spin" hidden>Checking… this can take a minute on a large blueprint.</div>
   <button class="btn" type="button" id="runBtn">Run the check</button>
 </div>
@@ -141,9 +154,26 @@ function onInit(d) {
   if (!d.course.credits || !d.course.weeks) $('courseNote').textContent = 'Credits or course length could not be read from the Dashboard' + (d.course.creditsText ? ' (Credits shows “' + d.course.creditsText + '”)' : '') + '. Type them in, or untick “Module time”.';
   $('briefNote').hidden = d.hasBrief;
   ['credits', 'weeks', 'mpw'].forEach(function (id) { $(id).addEventListener('input', target); }); target();
+  renderThemes(d.themes || []);
   if (d.table) { tableId = d.table.id; setTable(d.table, 'Found through the Dashboard link.'); }
   else { $('tableCard').textContent = d.tableUrl ? 'The Dashboard’s Settings Tables link could not be read.' : 'No Settings Tables link was found on the Dashboard.'; $('pick').hidden = false; }
 }
+
+function renderThemes(list) {
+  $('themes').innerHTML = list.map(function (t) { return themeBox(t); }).join('') || '<p class="m sh">No themes found.</p>';
+}
+function themeBox(t) {
+  var tag = t.kind === 'suggested' ? ' <span class="dim">(suggested)</span>' : '';
+  return '<label class="chk"><input type="checkbox" class="th" value="' + esc(t.name) + '"' + (t.checked ? ' checked' : '') + '> <span>' + esc(t.name) + tag + ' <span class="dim">· ' + t.hits + ' match' + (t.hits === 1 ? '' : 'es') + '</span></span></label>';
+}
+$('addTheme').addEventListener('click', function () {
+  var v = $('customTheme').value; $('customTheme').value = '';
+  var have = Array.prototype.map.call(document.querySelectorAll('.th'), function (c) { return c.value.toLowerCase(); });
+  v.split(',').map(function (x) { return x.trim(); }).filter(String).forEach(function (n) {
+    if (have.indexOf(n.toLowerCase()) !== -1) return;
+    $('themes').insertAdjacentHTML('beforeend', themeBox({ name: n, hits: '?', checked: true, kind: 'custom' }));
+  });
+});
 
 function target() {
   var c = +$('credits').value, w = +$('weeks').value, m = +$('mpw').value || 1;
@@ -171,21 +201,20 @@ $('runBtn').addEventListener('click', function () {
   showErr('');
   var checks = { stage: $('kStage').checked, home: $('kHome').checked, links: $('kLinks').checked, time: $('kTime').checked, finalized: $('kFin').checked, media: $('kMedia').checked };
   var gids = Array.prototype.map.call(document.querySelectorAll('.tb:checked'), function (c) { return c.value; });
-  var save = document.querySelector('input[name=save]:checked').value;
+  var themes = Array.prototype.map.call(document.querySelectorAll('.th:checked'), function (c) { return c.value; });
   $('runBtn').disabled = true; $('spin').hidden = false;
   google.script.run.withSuccessHandler(function (r) {
     REPORT = r; $('spin').hidden = true; $('runBtn').disabled = false;
     $('setup').hidden = true; render(r);
-    if (save) saveIt(save);
   }).withFailureHandler(function (e) { $('spin').hidden = true; $('runBtn').disabled = false; showErr(e && e.message || e); })
-    .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks });
+    .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks, themes: themes });
 });
 
-function saveIt(dest) {
-  var box = $('saveMsg'); box.innerHTML = 'Saving…';
-  google.script.run.withSuccessHandler(function (s) { box.innerHTML = 'Saved: <a href="' + esc(s.url) + '">' + esc(s.label) + '</a>'; })
-    .withFailureHandler(function (e) { box.innerHTML = '<span class="bad">Could not save: ' + esc(e && e.message || e) + '</span>'; })
-    .saveStatusReport13(REPORT, dest);
+function saveIt(dest, format, then) {
+  var box = $('saveMsg'); box.innerHTML += '<div>Saving…</div>';
+  google.script.run.withSuccessHandler(function (s) { box.innerHTML += '<div>Saved: <a href="' + esc(s.url) + '">' + esc(s.label) + '</a></div>'; if (then) then(); })
+    .withFailureHandler(function (e) { box.innerHTML += '<div class="bad">Could not save: ' + esc(e && e.message || e) + '</div>'; if (then) then(); })
+    .saveStatusReport13(REPORT, dest, format);
 }
 
 var LABEL = { untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)', purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Built in Canvas' };
@@ -198,6 +227,58 @@ function bar(counts, total) {
 function region(r, syl) {
   if (!r || !r.found) return '<span class="bad">Section not found in the Development tab.</span>';
   return esc(LABEL[r.stage]) + (syl && r.format ? ' · ' + esc(r.format) : '') + (r.untouched ? ' <span class="dim">(template text only)</span>' : '');
+}
+
+var VIEW = 'module', ONLY = true;
+function setView(v) {
+  VIEW = v;
+  $('vMod').setAttribute('aria-pressed', String(v === 'module'));
+  if ($('vThe')) $('vThe').setAttribute('aria-pressed', String(v === 'theme'));
+  renderGroups();
+}
+function isReady(a) { return a.stage === 'green' || a.stage === 'purple' || a.stage === 'revised' || a.stage === 'built'; }
+function actRow(a, withModule) {
+  var tag = a.stage ? esc(a.mostly ? 'Mostly ' + a.mostly + (a.waiting && a.waiting.length ? ' — waiting on: ' + a.waiting.join('; ') : '') : LABEL[a.stage]) + ' · ' + a.pct + '%' : '';
+  var link = a.link === 'ok' ? ' · ✓ linked' : a.link === 'missing' ? ' · <span class="bad">✕ no settings table link</span>' : (a.tool === 'Page' ? ' · no settings tab needed' : '');
+  return '<div class="rowa"><b>' + esc(a.title) + '</b><br><span class="t">' + esc(a.tool || '') + '</span><span class="tag">' + (withModule ? ' · ' + esc(a.module) : '') + link + '</span>' + (tag ? '<br><span class="tag">' + tag + '</span>' : '') + '</div>';
+}
+function pbar(p) { return '<div class="bar" aria-hidden="true"><i class="g" style="width:' + p + '%"></i></div>'; }
+function rows(list, withModule) {
+  var shown = ONLY ? list.filter(function (a) { return !isReady(a); }) : list;
+  if (!shown.length) return '<p class="m ok">' + (list.length ? 'All ' + list.length + ' are ready.' : 'None.') + '</p>';
+  return shown.map(function (a) { return actRow(a, withModule); }).join('') + (ONLY && shown.length < list.length ? '<p class="m sh">' + (list.length - shown.length) + ' ready ' + (list.length - shown.length === 1 ? 'activity' : 'activities') + ' hidden.</p>' : '');
+}
+function renderGroups() {
+  var r = REPORT, h = '';
+  if (VIEW === 'theme' && r.themes) {
+    var groups = r.themes.list.concat(r.themes.other ? [r.themes.other] : []);
+    groups.forEach(function (g) {
+      h += '<details class="grp"><summary><span>' + esc(g.name) + '</span><span class="st">' + g.pct + '% · ' + g.ready + ' of ' + g.count + ' ready</span></summary>' + pbar(g.pct) +
+        '<p class="m sh">' + g.acts.map(function (x) { return esc(x.moduleShort) + ' ' + x.pct + '%'; }).join(' · ') + '</p>' + rows(g.acts, true) + '</details>';
+    });
+    h += '<p class="m sh">Percent complete = share of each activity’s text that is highlighted (red instructions ignored), averaged across the group.</p>';
+  } else {
+    h += '<p class="sec">Module by module</p>';
+    if (r.time) h += '<p class="m sh">Time target per module: ' + esc(r.time.min) + ' – ' + esc(r.time.max) + ' hrs</p>';
+    r.modules.forEach(function (m) {
+      var n = m.activities.length;
+      h += '<details class="grp"><summary><span>' + esc(m.label) + '</span><span class="st">' + (r.checks.stage ? m.pct + '% · ' + m.ready + ' of ' + n + ' ready' : n + ' activities') + '</span></summary>';
+      if (r.checks.stage) h += pbar(m.pct);
+      if (m.time) {
+        var s = m.time.status, pill = s.type === 'ok' ? '<span class="pill ok">✓ Within target range</span>' : s.type === 'under' ? '<span class="pill under">▼ Under target by ' + esc(s.diff) + '</span>' : '<span class="pill over">▲ Over target by ' + esc(s.diff) + '</span>';
+        h += '<p class="lbl2">Time estimate</p><p style="margin:0"><b style="font-size:16px">' + esc(m.time.total) + '</b> ' + pill + '</p>';
+      }
+      if (r.checks.stage) {
+        h += '<p class="lbl2">Ready for the Dev Team</p>' + bar(m.counts, n);
+        var notReady = [];
+        if (m.counts.untouched) notReady.push(m.counts.untouched + ' still template text');
+        if (m.counts.drafted) notReady.push(m.counts.drafted + ' drafted but not highlighted');
+        h += '<p class="m sh">' + (notReady.length ? 'Not ready: ' + notReady.join(', ') + '.' : 'All ' + n + ' are green, purple, yellow, or struck through.') + '</p>';
+      }
+      h += rows(m.activities, false) + '</details>';
+    });
+  }
+  $('groups').innerHTML = h;
 }
 
 function render(r) {
@@ -220,28 +301,11 @@ function render(r) {
   }
   if (r.checks.links) h += '<div class="kv"><span>Settings table links present</span><b>' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '</b></div>';
 
-  h += '<hr><p class="sec">Module by module</p>';
-  if (r.time) h += '<p class="m sh">Time target per module: ' + esc(r.time.min) + ' – ' + esc(r.time.max) + ' hrs</p>';
-  r.modules.forEach(function (m, mi) {
-    h += '<div class="mod"><h4>' + esc(m.label) + '</h4>';
-    if (m.time) {
-      var s = m.time.status, pill = s.type === 'ok' ? '<span class="pill ok">✓ Within target range</span>' : s.type === 'under' ? '<span class="pill under">▼ Under target by ' + esc(s.diff) + '</span>' : '<span class="pill over">▲ Over target by ' + esc(s.diff) + '</span>';
-      h += '<p class="lbl2">Time estimate</p><p style="margin:0"><b style="font-size:16px">' + esc(m.time.total) + '</b> ' + pill + '</p>';
-    }
-    if (r.checks.stage) {
-      var n = m.activities.length;
-      h += '<p class="lbl2">Ready for the Dev Team</p><p style="margin:0"><b>' + m.ready + ' of ' + n + '</b></p>' + bar(m.counts, n);
-      var notReady = [];
-      if (m.counts.untouched) notReady.push(m.counts.untouched + ' still template text');
-      if (m.counts.drafted) notReady.push(m.counts.drafted + ' drafted but not highlighted');
-      h += '<p class="m sh">' + (notReady.length ? 'Not ready: ' + notReady.join(', ') + '.' : 'All ' + n + ' are green, purple, yellow, or struck through.') + '</p>';
-    }
-    h += '<details><summary style="min-height:36px">Show activities</summary>' + m.activities.map(function (a) {
-      var tag = a.stage ? esc(a.mostly ? 'Mostly ' + a.mostly + (a.waiting && a.waiting.length ? ' — waiting on: ' + a.waiting.join('; ') : '') : LABEL[a.stage]) : '';
-      var link = a.link === 'ok' ? ' · ✓ linked' : a.link === 'missing' ? ' · <span class="bad">✕ no settings table link</span>' : (a.tool === 'Page' ? ' · no settings tab needed' : '');
-      return '<div class="rowa"><b>' + esc(a.title) + '</b><br><span class="t">' + esc(a.tool || '') + '</span><span class="tag">' + link + '</span>' + (tag ? '<br><span class="tag">' + tag + '</span>' : '') + '</div>';
-    }).join('') + '</details></div>';
-  });
+  h += '<hr>';
+  var hasThemes = !!(r.themes && (r.themes.list.length || r.themes.other));
+  h += '<div class="vtabs" role="group" aria-label="Report view"><button type="button" id="vMod" aria-pressed="true">By module</button>' + (hasThemes ? '<button type="button" id="vThe" aria-pressed="false">By theme</button>' : '') + '</div>';
+  if (r.checks.stage) h += '<label class="chk"><input type="checkbox" id="onlyNR" checked> <span>Show only activities that are not ready</span></label>';
+  h += '<div id="groups"></div>';
   if (r.time && r.time.missing.length) h += '<p class="m sh">' + r.time.missing.length + ' activit' + (r.time.missing.length === 1 ? 'y has' : 'ies have') + ' no time entered (counted as 0).</p>';
 
   if (r.finalized) {
@@ -261,14 +325,39 @@ function render(r) {
     }
   }
   if (r.notes.length) h += '<hr>' + r.notes.map(function (n) { return '<p class="m no">' + esc(n) + '</p>'; }).join('');
-  h += '<hr><div id="saveMsg" class="m"></div>' +
-    '<button class="btn2" type="button" id="saveTab">Save as a new tab in this blueprint</button>' +
-    '<button class="btn2" type="button" id="saveDoc">Save as a new Google Doc in the blueprint’s folder</button>' +
+  h += '<hr><p class="sec">Export the full report</p>' +
+    '<p class="lbl2">Format</p>' +
+    '<label class="radio"><input type="radio" name="fmt" value="full" checked><span>Full report (headings, progress bars)</span></label>' +
+    '<label class="radio"><input type="radio" name="fmt" value="plain"><span>Plain text, complete (for QuickBase)</span></label>' +
+    '<label class="radio"><input type="radio" name="fmt" value="plainshort"><span>Plain text, short summary (for QuickBase)</span></label>' +
+    '<p class="lbl2">Save to</p>' +
+    '<label class="chk"><input type="checkbox" id="dTab"> <span>A new tab in this blueprint</span></label>' +
+    '<label class="chk"><input type="checkbox" id="dDoc"> <span>A new Google Doc in the blueprint’s folder</span></label>' +
+    '<div id="saveMsg" class="m"></div>' +
+    '<button class="btn2" type="button" id="saveGo">Save</button>' +
+    '<button class="btn2" type="button" id="showPlain">Show the plain text here to copy</button>' +
+    '<div id="plainBox" hidden><textarea class="tbox" id="plainTxt" readonly aria-label="Plain text report"></textarea><button class="btn2" type="button" id="copyPlain">Copy</button></div>' +
     '<button class="btn" type="button" id="again">Run again</button>';
   $('results').innerHTML = h; $('results').hidden = false; window.scrollTo(0, 0);
-  $('saveTab').addEventListener('click', function () { saveIt('tab'); });
-  $('saveDoc').addEventListener('click', function () { saveIt('doc'); });
   $('again').addEventListener('click', function () { $('results').hidden = true; $('setup').hidden = false; });
+  VIEW = 'module'; ONLY = !!$('onlyNR'); renderGroups();
+  $('vMod').addEventListener('click', function () { setView('module'); });
+  if ($('vThe')) $('vThe').addEventListener('click', function () { setView('theme'); });
+  if ($('onlyNR')) $('onlyNR').addEventListener('change', function () { ONLY = this.checked; renderGroups(); });
+  function fmt() { return document.querySelector('input[name=fmt]:checked').value; }
+  $('saveGo').addEventListener('click', function () {
+    var dests = []; if ($('dTab').checked) dests.push('tab'); if ($('dDoc').checked) dests.push('doc');
+    $('saveMsg').innerHTML = '';
+    if (!dests.length) { $('saveMsg').innerHTML = '<span class="bad">Tick at least one place to save to.</span>'; return; }
+    $('saveGo').disabled = true;
+    (function next(i) { if (i >= dests.length) { $('saveGo').disabled = false; return; } saveIt(dests[i], fmt(), function () { next(i + 1); }); })(0);
+  });
+  $('showPlain').addEventListener('click', function () {
+    var f = fmt(); f = f === 'full' ? 'plain' : f;
+    $('plainTxt').value = 'Working…'; $('plainBox').hidden = false;
+    google.script.run.withSuccessHandler(function (t) { $('plainTxt').value = t; }).withFailureHandler(function (e) { $('plainTxt').value = 'Could not build the text: ' + (e && e.message || e); }).statusPlainText13(REPORT, f === 'plainshort');
+  });
+  $('copyPlain').addEventListener('click', function () { var t = $('plainTxt'); t.focus(); t.select(); try { document.execCommand('copy'); this.textContent = 'Copied'; } catch (e) { this.textContent = 'Select the text and copy it'; } });
 }
 </script>
 </body>

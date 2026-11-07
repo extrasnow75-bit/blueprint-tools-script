@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-07 at 12:00 MST
+// Last updated on 2026-11-07 at 15:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-07 12:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-07 15:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -91,6 +91,20 @@ function getStatusInit13() {
   }
   var tabs = collectTabs(doc);
   for (var i = 0; i < tabs.length; i++) if (/^\s*creative brief\s*$/i.test(tabs[i].title)) out.hasBrief = true;
+  out.themes = [];
+  if (out.devOk) {
+    try {
+      var mods = scanDevStructure9_(getDevelopmentTabBody(doc)), saved = [];
+      try { saved = JSON.parse(PropertiesService.getDocumentProperties().getProperty(THEME_PROP_13) || '[]'); } catch (e2) { saved = []; }
+      var all = PRESET_THEMES_13.slice();
+      saved.forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
+      var sugg = suggestThemes13_(mods, all);
+      var cand = all.concat(sugg), hits = {};
+      mods.forEach(function (m) { m.activities.forEach(function (a) { var t = matchTheme13_(a.title, cand); if (t) hits[t] = (hits[t] || 0) + 1; }); });
+      all.forEach(function (t) { out.themes.push({ name: t, hits: hits[t] || 0, checked: saved.length ? saved.indexOf(t) !== -1 : !!hits[t], kind: PRESET_THEMES_13.indexOf(t) !== -1 ? 'common' : 'saved' }); });
+      sugg.forEach(function (t) { out.themes.push({ name: t, hits: hits[t] || 0, checked: false, kind: 'suggested' }); });
+    } catch (e) { /* themes are optional */ }
+  }
   var d = getDeployInit11();
   out.table = d.table; out.tableError = d.error; out.tableUrl = d.url;
   return out;
@@ -119,13 +133,14 @@ function runStatusCheck13(opts) {
   // Modules and activities.
   var mods = scanDevStructure9_(devBody);
   mods.forEach(function (m) {
-    var mod = { label: m.displayLabel || ('Module ' + m.num), activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, time: null };
+    var mod = { label: m.displayLabel || ('Module ' + m.num), activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, pctSum: 0, pct: 0, time: null };
     m.activities.forEach(function (slot) {
       var tool = readToolLine13_(devBody, slot.h4);
       var a = { title: slot.title, tool: tool.tool, stage: null, link: 'na' };
       if (checks.stage) {
         var sd = stageOfSlot13_(slot, tool);
-        a.stage = sd.stage;
+        a.stage = sd.stage; a.pct = sd.pct; a.module = mod.label; a.moduleShort = (m.num != null ? 'M' + m.num : mod.label);
+        mod.pctSum += sd.pct;
         if (sd.mostly) {
           a.mostly = sd.mostly; a.waiting = sd.waiting;
           report.totals.mostly[sd.mostly] = (report.totals.mostly[sd.mostly] || 0) + 1;
@@ -144,10 +159,18 @@ function runStatusCheck13(opts) {
       }
       mod.activities.push(a);
     });
+    mod.pct = mod.activities.length ? Math.round(mod.pctSum / mod.activities.length) : 0;
     report.totals.activities += mod.activities.length;
     report.totals.ready += mod.ready;
     report.modules.push(mod);
   });
+
+  // Themes (Greg, 2026-11-07): groups of activities by title keyword.
+  var themes = (opts.themes || []).map(function (t) { return String(t || '').trim(); }).filter(String);
+  if (checks.stage && themes.length) {
+    report.themes = buildThemes13_(report.modules, themes);
+    try { PropertiesService.getDocumentProperties().setProperty(THEME_PROP_13, JSON.stringify(themes)); } catch (e) { /* remembering is optional */ }
+  }
 
   // Home, Syllabus, Instructor Resources.
   if (checks.home) {
@@ -202,9 +225,15 @@ function runStatusCheck13(opts) {
  * Google Doc in the blueprint's folder). Never touches existing content.
  * @returns {{url: string, label: string}}
  */
-function saveStatusReport13(report, dest) {
+function saveStatusReport13(report, dest, format) {
   var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-  return saveLines13_(reportLines13_(report), 'Status Check ' + stamp, dest, report.blueprint);
+  var lines = (format === 'plain' || format === 'plainshort') ? plainLines13_(report, format === 'plainshort').map(function (t) { return { text: t, h: 0 }; }) : reportLines13_(report);
+  return saveLines13_(lines, 'Status Check ' + stamp, dest, report.blueprint);
+}
+
+/** Plain text version for the sidebar's copy box (e.g. to paste into QuickBase). */
+function statusPlainText13(report, short) {
+  return plainLines13_(report, !!short).join('\n');
 }
 
 /**
@@ -238,10 +267,116 @@ function saveLines13_(lines, title, dest, blueprintName) {
 
 function writeLines13_(body, lines) {
   lines.forEach(function (l) {
+    if (typeof l.bar === 'number') { barLine13_(body, l.text, l.bar); return; }
     var p = body.appendParagraph(l.text);
     if (l.h) p.setHeading(l.h === 1 ? DocumentApp.ParagraphHeading.HEADING1 : DocumentApp.ParagraphHeading.HEADING2);
     else p.setHeading(DocumentApp.ParagraphHeading.NORMAL);
   });
+}
+
+/**
+ * A label line followed by a progress bar: a one-row table whose left cells are
+ * shaded green for the percent done. If the table cannot be made, a row of block
+ * characters is used instead. UNVERIFIED in a real document.
+ */
+function barLine13_(body, label, pct) {
+  var p = body.appendParagraph(label);
+  p.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+  pct = Math.max(0, Math.min(100, pct));
+  try {
+    var done = Math.round(pct / 5), cells = [];
+    for (var i = 0; i < 20; i++) cells.push('');
+    var t = body.appendTable([cells]);
+    var row = t.getRow(0);
+    for (var c = 0; c < 20; c++) {
+      var cell = row.getCell(c);
+      cell.setBackgroundColor(c < done ? '#8fd19e' : '#eeeeee');
+      cell.setPaddingTop(2).setPaddingBottom(2).setPaddingLeft(0).setPaddingRight(0);
+      cell.setWidth(14);
+    }
+    t.setBorderWidth(0.5).setBorderColor('#bbbbbb');
+  } catch (e) {
+    var n = Math.round(pct / 5);
+    body.appendParagraph(new Array(n + 1).join('\u2588') + new Array(21 - n).join('\u2591'));
+  }
+}
+
+
+// ── THEMES ───────────────────────────────────────────────────
+
+var THEME_PROP_13 = 'BP_STATUS_THEMES_13';
+var PRESET_THEMES_13 = ['Quizzes', 'Exams', 'Readings', 'Videos', 'Readings & Multimedia', 'Reflections', 'Assignments', 'Final Project'];
+var THEME_STOP_13 = ['the', 'and', 'for', 'with', 'your', 'from', 'this', 'that', 'into', 'about', 'week', 'module', 'unit', 'part', 'activity', 'canvas', 'page', 'discussion', 'discussions'];
+
+/** Lower-case words of a title, '&' read as 'and', plurals trimmed so Quizzes matches Quiz. */
+function themeWords13_(s) {
+  return String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(String).map(function (w) {
+    if (w.length > 4 && /ies$/.test(w)) w = w.slice(0, -3) + 'y';
+    else if (w.length > 4 && /(sses|zzes|xes|ches|shes)$/.test(w)) w = w.slice(0, -2);
+    else if (w.length > 3 && /[^s]s$/.test(w)) w = w.slice(0, -1);
+    return w.replace(/zz$/, 'z');
+  });
+}
+
+/** The most specific theme whose words all appear, in order, in the title; '' if none. */
+function matchTheme13_(title, themes) {
+  var tw = ' ' + themeWords13_(title).join(' ') + ' ', best = '', bestN = 0, bestLen = 0;
+  themes.forEach(function (t) {
+    var kw = themeWords13_(t); if (!kw.length) return;
+    if (tw.indexOf(' ' + kw.join(' ') + ' ') === -1) return;
+    var len = kw.join(' ').length;
+    if (kw.length > bestN || (kw.length === bestN && len > bestLen)) { best = t; bestN = kw.length; bestLen = len; }
+  });
+  return best;
+}
+
+/** Groups activities by theme. Each activity goes to its most specific theme only; unmatched ones go to "Other". */
+function buildThemes13_(modules, themes) {
+  var groups = {}, order = [], other = [];
+  themes.forEach(function (t) { groups[t] = []; order.push(t); });
+  modules.forEach(function (m) {
+    m.activities.forEach(function (a) {
+      var t = matchTheme13_(a.title, themes);
+      var row = { module: a.module, moduleShort: a.moduleShort, title: a.title, tool: a.tool, stage: a.stage, pct: a.pct || 0, mostly: a.mostly, waiting: a.waiting };
+      (t ? groups[t] : other).push(row);
+    });
+  });
+  function summarize(name, acts) {
+    var sum = 0, ready = 0;
+    acts.forEach(function (x) { sum += x.pct; if (STAGE_READY_13[x.stage]) ready++; });
+    return { name: name, count: acts.length, ready: ready, pct: acts.length ? Math.round(sum / acts.length) : 0, acts: acts };
+  }
+  var list = order.filter(function (t) { return groups[t].length; }).map(function (t) { return summarize(t, groups[t]); });
+  return { list: list, other: other.length ? summarize('Other activities', other) : null };
+}
+
+/** Words or word pairs that recur in titles across several modules: candidate themes. */
+function suggestThemes13_(modules, known) {
+  var uni = {}, bi = {}, forms = {}, nMods = modules.length;
+  var knownKeys = {}; known.forEach(function (t) { knownKeys[themeWords13_(t).join(' ')] = true; });
+  modules.forEach(function (m, mi) {
+    var seenU = {}, seenB = {};
+    m.activities.forEach(function (a) {
+      var raw = String(a.title || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(String);
+      var w = themeWords13_(a.title);
+      for (var i = 0; i < w.length; i++) {
+        if (w[i].length >= 4 && !/^\d+$/.test(w[i]) && THEME_STOP_13.indexOf(w[i]) === -1 && !seenU[w[i]]) { seenU[w[i]] = true; uni[w[i]] = (uni[w[i]] || 0) + 1; forms[w[i]] = raw[i]; }
+        if (i + 1 < w.length && w[i].length >= 3 && w[i + 1].length >= 3 && THEME_STOP_13.indexOf(w[i]) === -1 && THEME_STOP_13.indexOf(w[i + 1]) === -1) {
+          var k = w[i] + ' ' + w[i + 1];
+          if (!seenB[k]) { seenB[k] = true; bi[k] = (bi[k] || 0) + 1; forms[k] = raw[i] + ' ' + raw[i + 1]; }
+        }
+      }
+    });
+  });
+  var need = Math.min(3, nMods), out = [];
+  Object.keys(bi).forEach(function (k) { if (bi[k] >= need && !knownKeys[k]) out.push({ k: k, n: bi[k] + 0.5 }); });
+  Object.keys(uni).forEach(function (k) {
+    if (uni[k] < need || knownKeys[k]) return;
+    var covered = Object.keys(bi).some(function (b) { return bi[b] >= need && b.split(' ').indexOf(k) !== -1 && bi[b] >= uni[k] * 0.8; });
+    if (!covered) out.push({ k: k, n: uni[k] });
+  });
+  out.sort(function (x, y) { return y.n - x.n; });
+  return out.slice(0, 8).map(function (o) { return forms[o.k].replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); });
 }
 
 
@@ -283,7 +418,7 @@ function anyLink13_(textEl) {
  * stage found (Greg confirmed yellow; "lowest" is my proposal, not confirmed).
  */
 function stageOfSlot13_(slot, tool) {
-  if (!slot.content.length) return 'untouched';
+  if (!slot.content.length) return { stage: 'untouched', pct: 0 };
   var segs = [];
   slot.content.forEach(function (el) { collectSegments13_(el, segs); });
   if (!segs.length) {
@@ -339,21 +474,28 @@ function isInstructionRed13_(hex) {
   return r >= 0.55 && g <= 0.4 && b <= 0.4 && (r - Math.max(g, b)) >= 0.3;
 }
 
-/** {stage, mostly, waiting}: stage as before; mostly/waiting only for "Mostly" activities. */
+/**
+ * {stage, pct, mostly, waiting}. pct = share of the activity's text (red
+ * instructions excluded) that is highlighted green, purple or yellow, or struck
+ * through; unhighlighted text counts as 0. mostly/waiting only for "Mostly" activities.
+ */
 function stageDetail13_(allSegs) {
   var segs = allSegs.filter(function (s) { return !isInstructionRed13_(s.fg); });
-  if (!segs.length) return { stage: 'drafted' };
-  var lowest = STAGE_ORDER_13.length, yellow = false, weight = {}, total = 0, drafted = [];
+  if (!segs.length) return { stage: 'drafted', pct: 0 };
+  var lowest = STAGE_ORDER_13.length, yellow = false, weight = {}, total = 0, hl = 0, drafted = [];
   segs.forEach(function (s) {
     var st = s.strike ? 'built' : stageOfColor13_(s.bg);
-    weight[st] = (weight[st] || 0) + (s.len || 1);
-    total += (s.len || 1);
+    var w = s.len || 1;
+    weight[st] = (weight[st] || 0) + w;
+    total += w;
+    if (st !== 'drafted') hl += w;
     if (st === 'drafted') drafted.push(s.text || '');
     if (st === 'revised') { yellow = true; return; }
     var rank = STAGE_ORDER_13.indexOf(st);
     if (rank < lowest) lowest = rank;
   });
-  if (yellow) return { stage: 'revised' };
+  var pct = total ? Math.round(100 * hl / total) : 0;
+  if (yellow) return { stage: 'revised', pct: pct };
   var stage = STAGE_ORDER_13[lowest] || 'drafted';
   if (stage === 'drafted' && total) {
     var best = null;
@@ -362,10 +504,10 @@ function stageDetail13_(allSegs) {
     var others = Object.keys(weight).filter(function (k) { return k !== best && k !== 'drafted'; });
     if (best && !others.length && weight[best] / total >= MOSTLY_SHARE_13) {
       var waiting = drafted.map(function (t) { return t.length > 40 ? t.slice(0, 37) + '...' : t; }).slice(0, 3);
-      return { stage: 'drafted', mostly: best, waiting: waiting };
+      return { stage: 'drafted', pct: pct, mostly: best, waiting: waiting };
     }
   }
-  return { stage: stage };
+  return { stage: stage, pct: pct };
 }
 
 /**
@@ -623,7 +765,7 @@ function checkboxState13_(cell) {
 // ── SAVED REPORT TEXT ────────────────────────────────────────
 
 function reportLines13_(r) {
-  var L = [], add = function (t, h) { L.push({ text: t, h: h || 0 }); };
+  var L = [], add = function (t, h) { L.push({ text: t, h: h || 0 }); }, bar = function (t, pct) { L.push({ text: t, h: 0, bar: pct }); };
   add('Development Status Check', 1);
   add(r.blueprint + ' · checked ' + r.when + ' · ' + r.totals.activities + ' activities · ' + r.modules.length + ' modules');
   if (r.media && r.media.found && r.media.flagged.length) add('ACTION: ' + r.media.flagged.length + ' completed media item(s) have a Final Link but are not ticked “Link Added to Dev Tab”.');
@@ -640,12 +782,19 @@ function reportLines13_(r) {
     Object.keys(r.totals.mostly || {}).forEach(function (k) { add('Mostly ' + k + ' (counted as drafted, waiting on a few pieces): ' + r.totals.mostly[k]); });
   }
   if (r.checks.links) add('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected);
+  if (r.themes) {
+    add('By theme', 2);
+    themeGroups13_(r).forEach(function (g) {
+      bar(g.name + ': ' + g.pct + '% complete · ' + g.ready + ' of ' + g.count + ' ready · ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + '%'; }).join(', '), g.pct);
+    });
+  }
+  add('By module', 2);
   r.modules.forEach(function (m) {
-    add(m.label, 2);
+    if (r.checks.stage) bar(m.label + ': ' + m.pct + '% complete · ' + m.ready + ' of ' + m.activities.length + ' ready', m.pct);
+    else add(m.label, 2);
     if (m.time) add('Time: ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' + (r.time ? ' · target ' + r.time.min + ' – ' + r.time.max : ''));
-    if (r.checks.stage) add('Ready: ' + m.ready + ' of ' + m.activities.length);
     m.activities.forEach(function (a) {
-      add('• ' + a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ' — ' + (a.mostly ? 'Mostly ' + a.mostly + (a.waiting && a.waiting.length ? ' (waiting on: ' + a.waiting.join('; ') + ')' : '') : STAGE_LABEL_13[a.stage]) : '') + (a.link === 'missing' ? ' — NO settings table link' : ''));
+      add('• ' + a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ' — ' + stageText13_(a) + ' · ' + a.pct + '%' : '') + (a.link === 'missing' ? ' — NO settings table link' : ''));
     });
   });
   if (r.finalized) {
@@ -661,6 +810,53 @@ function reportLines13_(r) {
     Object.keys(r.media.byStatus).forEach(function (k) { if (k !== 'Cancelled') add(k + ': ' + r.media.byStatus[k]); });
   }
   r.notes.forEach(function (n) { add('Note: ' + n); });
+  return L;
+}
+
+function stageText13_(a) {
+  return a.mostly ? 'Mostly ' + a.mostly + (a.waiting && a.waiting.length ? ' (waiting on: ' + a.waiting.join('; ') + ')' : '') : STAGE_LABEL_13[a.stage];
+}
+
+function themeGroups13_(r) {
+  if (!r.themes) return [];
+  return r.themes.list.concat(r.themes.other ? [r.themes.other] : []);
+}
+
+/**
+ * Plain text for QuickBase time entries: no headings, bullets, symbols, tables
+ * or bars; one fact per line. short = course totals, themes and modules only.
+ */
+function plainLines13_(r, short) {
+  var L = [];
+  L.push('Development Status Check for ' + r.blueprint + ', checked ' + r.when + '.');
+  if (r.checks.stage) {
+    L.push(r.totals.ready + ' of ' + r.totals.activities + ' activities are Ready for the Dev Team.');
+    Object.keys(r.totals.mostly || {}).forEach(function (k) { L.push(r.totals.mostly[k] + ' activities are mostly ' + k + ' and waiting on a few pieces.'); });
+  }
+  if (r.checks.links) L.push('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '.');
+  if (r.media && r.media.found && r.media.flagged.length) L.push(r.media.flagged.length + ' completed media items are not yet added to the Dev tab.');
+  var groups = themeGroups13_(r);
+  if (groups.length) {
+    L.push('By theme:');
+    groups.forEach(function (g) {
+      L.push(g.name + ' is ' + g.pct + ' percent complete (' + g.ready + ' of ' + g.count + ' ready): ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + ' percent'; }).join(', ') + '.');
+    });
+  }
+  L.push('By module:');
+  r.modules.forEach(function (m) {
+    L.push(m.label + (r.checks.stage ? ' is ' + m.pct + ' percent complete (' + m.ready + ' of ' + m.activities.length + ' ready)' : '') + (m.time ? ', time ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' : '') + '.');
+  });
+  if (!short) {
+    r.modules.forEach(function (m) {
+      L.push(m.label + ' activities:');
+      m.activities.forEach(function (a) {
+        L.push(a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ': ' + stageText13_(a) + ', ' + a.pct + ' percent' : '') + (a.link === 'missing' ? ', no settings table link' : '') + '.');
+      });
+    });
+    if (r.finalized) L.push('Settings table tabs marked finalized: ' + r.finalized.ticked + ' of ' + r.finalized.counted + '.');
+    if (r.media && r.media.found) r.media.flagged.forEach(function (i) { L.push('Media not yet added to the Dev tab: ' + i.type + ', ' + i.title + '.'); });
+    r.notes.forEach(function (n) { L.push('Note: ' + n); });
+  }
   return L;
 }
 
