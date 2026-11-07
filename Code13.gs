@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-07 at 15:00 MST
+// Last updated on 2026-11-07 at 15:30 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-07 15:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-07 15:30';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -827,8 +827,11 @@ function themeGroups13_(r) {
  * or bars; one fact per line. short = course totals, themes and modules only.
  */
 function plainLines13_(r, short) {
-  var L = [];
-  L.push('Development Status Check for ' + r.blueprint + ', checked ' + r.when + '.');
+  var L = [], head = function (t) { if (L.length) L.push(''); L.push(String(t).toUpperCase()); };
+  head('Development Status Check');
+  L.push(r.blueprint + ', checked ' + r.when + '.');
+  var hasTotals = r.checks.stage || r.checks.links || (r.media && r.media.found && r.media.flagged.length);
+  if (hasTotals) head('Course totals');
   if (r.checks.stage) {
     L.push(r.totals.ready + ' of ' + r.totals.activities + ' activities are Ready for the Dev Team.');
     Object.keys(r.totals.mostly || {}).forEach(function (k) { L.push(r.totals.mostly[k] + ' activities are mostly ' + k + ' and waiting on a few pieces.'); });
@@ -837,25 +840,28 @@ function plainLines13_(r, short) {
   if (r.media && r.media.found && r.media.flagged.length) L.push(r.media.flagged.length + ' completed media items are not yet added to the Dev tab.');
   var groups = themeGroups13_(r);
   if (groups.length) {
-    L.push('By theme:');
+    head('By theme');
     groups.forEach(function (g) {
       L.push(g.name + ' is ' + g.pct + ' percent complete (' + g.ready + ' of ' + g.count + ' ready): ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + ' percent'; }).join(', ') + '.');
     });
   }
-  L.push('By module:');
+  head('By module');
   r.modules.forEach(function (m) {
     L.push(m.label + (r.checks.stage ? ' is ' + m.pct + ' percent complete (' + m.ready + ' of ' + m.activities.length + ' ready)' : '') + (m.time ? ', time ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' : '') + '.');
   });
   if (!short) {
     r.modules.forEach(function (m) {
-      L.push(m.label + ' activities:');
+      head(m.label + ' activities');
       m.activities.forEach(function (a) {
         L.push(a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ': ' + stageText13_(a) + ', ' + a.pct + ' percent' : '') + (a.link === 'missing' ? ', no settings table link' : '') + '.');
       });
     });
-    if (r.finalized) L.push('Settings table tabs marked finalized: ' + r.finalized.ticked + ' of ' + r.finalized.counted + '.');
-    if (r.media && r.media.found) r.media.flagged.forEach(function (i) { L.push('Media not yet added to the Dev tab: ' + i.type + ', ' + i.title + '.'); });
-    r.notes.forEach(function (n) { L.push('Note: ' + n); });
+    if (r.finalized) { head('Settings table tabs'); L.push('Marked finalized: ' + r.finalized.ticked + ' of ' + r.finalized.counted + '.'); }
+    if (r.media && r.media.found && r.media.flagged.length) {
+      head('Media deliverables');
+      r.media.flagged.forEach(function (i) { L.push('Not yet added to the Dev tab: ' + i.type + ', ' + i.title + '.'); });
+    }
+    if (r.notes.length) { head('Notes'); r.notes.forEach(function (n) { L.push(n); }); }
   }
   return L;
 }
