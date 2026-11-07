@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-03 at 12:15 MST
+// Last updated on 2026-11-07 at 12:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-03 12:15';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-07 12:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -112,19 +112,25 @@ function runStatusCheck13(opts) {
     when: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMM d, h:mm a'),
     blueprint: doc.getName(),
     checks: checks,
-    modules: [], totals: { activities: 0, ready: 0, stages: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, linksPresent: 0, linksExpected: 0 },
+    modules: [], totals: { activities: 0, ready: 0, stages: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, linksPresent: 0, linksExpected: 0, mostly: {} },
     home: null, syllabus: null, resources: null, finalized: null, media: null, time: null, notes: []
   };
 
   // Modules and activities.
   var mods = scanDevStructure9_(devBody);
   mods.forEach(function (m) {
-    var mod = { label: m.displayLabel || ('Module ' + m.num), activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, time: null };
+    var mod = { label: m.displayLabel || ('Module ' + m.num), activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, time: null };
     m.activities.forEach(function (slot) {
       var tool = readToolLine13_(devBody, slot.h4);
       var a = { title: slot.title, tool: tool.tool, stage: null, link: 'na' };
       if (checks.stage) {
-        a.stage = stageOfSlot13_(slot, tool);
+        var sd = stageOfSlot13_(slot, tool);
+        a.stage = sd.stage;
+        if (sd.mostly) {
+          a.mostly = sd.mostly; a.waiting = sd.waiting;
+          report.totals.mostly[sd.mostly] = (report.totals.mostly[sd.mostly] || 0) + 1;
+          mod.mostly += 1;
+        }
         mod.counts[a.stage]++;
         if (STAGE_READY_13[a.stage]) mod.ready++;
         report.totals.stages[a.stage]++;
@@ -284,7 +290,7 @@ function stageOfSlot13_(slot, tool) {
     collectSegments13_(slot.h4, segs);
     if (tool.el) collectSegments13_(tool.el, segs);
   }
-  return stageFromSegments13_(segs);
+  return stageDetail13_(segs);
 }
 
 /** Pushes {bg, strike} for each non-blank run of text inside an element. */
@@ -301,7 +307,8 @@ function collectSegments13_(el, out) {
     for (var i = 0; i < idx.length; i++) {
       var end = i + 1 < idx.length ? idx[i + 1] : text.length;
       if (!text.substring(idx[i], end).trim()) continue;
-      out.push({ bg: t.getBackgroundColor(idx[i]), strike: !!t.isStrikethrough(idx[i]) });
+      var piece = text.substring(idx[i], end).trim();
+      out.push({ bg: t.getBackgroundColor(idx[i]), strike: !!t.isStrikethrough(idx[i]), fg: t.getForegroundColor(idx[i]), len: piece.length, text: piece });
     }
     return;
   }
@@ -310,17 +317,55 @@ function collectSegments13_(el, out) {
   }
 }
 
-function stageFromSegments13_(segs) {
-  if (!segs.length) return 'drafted';
-  var lowest = STAGE_ORDER_13.length, yellow = false;
+function stageFromSegments13_(segs) { return stageDetail13_(segs).stage; }
+
+// "Mostly" rule (Greg, 2026-11-07): when at least this share of an activity's
+// text (red builder instructions excluded) sits at one finished stage and the
+// rest is only unhighlighted text, the activity is still Drafted but is tagged
+// "Mostly <stage>" and the leftover snippets are listed.
+var MOSTLY_SHARE_13 = 0.85;
+var MOSTLY_STAGES_13 = ['green', 'purple', 'built'];
+
+/**
+ * Bold red text is the instruction to the course developer (builder) and is
+ * usually left unhighlighted, so it is ignored when working out the stage.
+ * Any red counts, bold or not; the exact red is #ff0000 (RED in Code.gs) but a
+ * nearby shade is accepted. UNVERIFIED: spikeStatusSpike13 lists the font colours.
+ */
+function isInstructionRed13_(hex) {
+  var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+  if (!m) return false;
+  var r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+  return r >= 0.55 && g <= 0.4 && b <= 0.4 && (r - Math.max(g, b)) >= 0.3;
+}
+
+/** {stage, mostly, waiting}: stage as before; mostly/waiting only for "Mostly" activities. */
+function stageDetail13_(allSegs) {
+  var segs = allSegs.filter(function (s) { return !isInstructionRed13_(s.fg); });
+  if (!segs.length) return { stage: 'drafted' };
+  var lowest = STAGE_ORDER_13.length, yellow = false, weight = {}, total = 0, drafted = [];
   segs.forEach(function (s) {
     var st = s.strike ? 'built' : stageOfColor13_(s.bg);
+    weight[st] = (weight[st] || 0) + (s.len || 1);
+    total += (s.len || 1);
+    if (st === 'drafted') drafted.push(s.text || '');
     if (st === 'revised') { yellow = true; return; }
     var rank = STAGE_ORDER_13.indexOf(st);
     if (rank < lowest) lowest = rank;
   });
-  if (yellow) return 'revised';
-  return STAGE_ORDER_13[lowest] || 'drafted';
+  if (yellow) return { stage: 'revised' };
+  var stage = STAGE_ORDER_13[lowest] || 'drafted';
+  if (stage === 'drafted' && total) {
+    var best = null;
+    MOSTLY_STAGES_13.forEach(function (k) { if ((weight[k] || 0) > (best ? weight[best] : 0)) best = k; });
+    // Only if the rest is purely unhighlighted (no other stage mixed in).
+    var others = Object.keys(weight).filter(function (k) { return k !== best && k !== 'drafted'; });
+    if (best && !others.length && weight[best] / total >= MOSTLY_SHARE_13) {
+      var waiting = drafted.map(function (t) { return t.length > 40 ? t.slice(0, 37) + '...' : t; }).slice(0, 3);
+      return { stage: 'drafted', mostly: best, waiting: waiting };
+    }
+  }
+  return { stage: stage };
 }
 
 /**
@@ -592,6 +637,7 @@ function reportLines13_(r) {
     add('Course totals', 2);
     add(r.totals.ready + ' of ' + r.totals.activities + ' activities are Ready for the Dev Team.');
     Object.keys(STAGE_LABEL_13).forEach(function (k) { add(STAGE_LABEL_13[k] + ': ' + r.totals.stages[k]); });
+    Object.keys(r.totals.mostly || {}).forEach(function (k) { add('Mostly ' + k + ' (counted as drafted, waiting on a few pieces): ' + r.totals.mostly[k]); });
   }
   if (r.checks.links) add('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected);
   r.modules.forEach(function (m) {
@@ -599,7 +645,7 @@ function reportLines13_(r) {
     if (m.time) add('Time: ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' + (r.time ? ' · target ' + r.time.min + ' – ' + r.time.max : ''));
     if (r.checks.stage) add('Ready: ' + m.ready + ' of ' + m.activities.length);
     m.activities.forEach(function (a) {
-      add('• ' + a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ' — ' + STAGE_LABEL_13[a.stage] : '') + (a.link === 'missing' ? ' — NO settings table link' : ''));
+      add('• ' + a.title + (a.tool ? ' (' + a.tool + ')' : '') + (a.stage ? ' — ' + (a.mostly ? 'Mostly ' + a.mostly + (a.waiting && a.waiting.length ? ' (waiting on: ' + a.waiting.join('; ') + ')' : '') : STAGE_LABEL_13[a.stage]) : '') + (a.link === 'missing' ? ' — NO settings table link' : ''));
     });
   });
   if (r.finalized) {

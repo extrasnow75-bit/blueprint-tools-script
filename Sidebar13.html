@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-03 at 10:30 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 12:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -215,6 +215,8 @@ function render(r) {
     h += '<hr><p class="sec">Course totals</p><div class="hero"><p class="big"><b>' + r.totals.ready + ' of ' + r.totals.activities + '</b> activities are Ready for the Dev Team</p>' + bar(r.totals.stages, r.totals.activities) +
       '<p class="m sh">Ready = green, purple, yellow, or struck through. Not ready = text added but not highlighted, or template text still there.</p></div><div class="stages">' +
       ORDER.map(function (k) { return '<div class="stg"><b>' + r.totals.stages[k] + '</b>' + esc(LABEL[k]) + '</div>'; }).join('') + '</div>';
+    var mk = Object.keys(r.totals.mostly || {});
+    if (mk.length) h += '<p class="m sh">Counted as drafted but nearly there: ' + mk.map(function (k) { return r.totals.mostly[k] + ' mostly ' + esc(k); }).join(', ') + '.</p>';
   }
   if (r.checks.links) h += '<div class="kv"><span>Settings table links present</span><b>' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '</b></div>';
 
@@ -235,7 +237,7 @@ function render(r) {
       h += '<p class="m sh">' + (notReady.length ? 'Not ready: ' + notReady.join(', ') + '.' : 'All ' + n + ' are green, purple, yellow, or struck through.') + '</p>';
     }
     h += '<details><summary style="min-height:36px">Show activities</summary>' + m.activities.map(function (a) {
-      var tag = a.stage ? esc(LABEL[a.stage]) : '';
+      var tag = a.stage ? esc(a.mostly ? 'Mostly ' + a.mostly + (a.waiting && a.waiting.length ? ' — waiting on: ' + a.waiting.join('; ') : '') : LABEL[a.stage]) : '';
       var link = a.link === 'ok' ? ' · ✓ linked' : a.link === 'missing' ? ' · <span class="bad">✕ no settings table link</span>' : (a.tool === 'Page' ? ' · no settings tab needed' : '');
       return '<div class="rowa"><b>' + esc(a.title) + '</b><br><span class="t">' + esc(a.tool || '') + '</span><span class="tag">' + link + '</span>' + (tag ? '<br><span class="tag">' + tag + '</span>' : '') + '</div>';
     }).join('') + '</details></div>';

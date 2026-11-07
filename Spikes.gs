@@ -100,7 +100,7 @@ function spikeCatalogSpike10() {
 function spikeStatusSpike13() {
   var doc = DocumentApp.getActiveDocument();
   var body = getDevelopmentTabBody(doc);
-  var counts = {}, strikes = 0, runs = 0;
+  var counts = {}, fcounts = {}, strikes = 0, runs = 0;
   (function walk(el) {
     var T = DocumentApp.ElementType, ty = el.getType(), t = null;
     if (ty === T.PARAGRAPH) t = el.asParagraph().editAsText(); else if (ty === T.LIST_ITEM) t = el.asListItem().editAsText();
@@ -112,6 +112,7 @@ function spikeStatusSpike13() {
         runs++;
         var bg = t.getBackgroundColor(idx[i]); if (t.isStrikethrough(idx[i])) strikes++;
         if (bg) counts[bg] = (counts[bg] || 0) + 1;
+        var fg = t.getForegroundColor(idx[i]); if (fg) fcounts[fg] = (fcounts[fg] || 0) + 1;
       }
       return;
     }
@@ -119,6 +120,8 @@ function spikeStatusSpike13() {
   })(body);
   Logger.log('Development tab: ' + runs + ' text runs, ' + strikes + ' struck through.');
   Object.keys(counts).forEach(function (k) { Logger.log('  highlight ' + k + ' x' + counts[k] + ' -> ' + stageOfColor13_(k)); });
+
+  Object.keys(fcounts).forEach(function (k) { Logger.log('  font colour ' + k + ' x' + fcounts[k] + (isInstructionRed13_(k) ? ' -> treated as red builder instruction (ignored)' : '')); });
 
   var reg = homeSyllabusRegions13_(body);
   ['home', 'syllabus'].forEach(function (k) {
