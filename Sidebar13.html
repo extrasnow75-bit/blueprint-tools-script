@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 16:30 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 17:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -325,7 +325,7 @@ function render(r) {
     }
   }
   if (r.notes.length) h += '<hr>' + r.notes.map(function (n) { return '<p class="m no">' + esc(n) + '</p>'; }).join('');
-  h += '<hr><p class="sec">Export the full report</p>' +
+  h += '<hr><details class="grp" id="exportBox"><summary><span>Export the report</span><span class="st">optional, closed until you need it</span></summary>' +
     '<p class="lbl2">Format (tick one or both)</p>' +
     '<label class="chk"><input type="checkbox" id="fFull" checked> <span>Full graphical report (headings, progress bars)</span></label>' +
     '<label class="chk"><input type="checkbox" id="fPlain"> <span>Plain text report (no formatting, for QuickBase)</span></label>' +
@@ -338,7 +338,8 @@ function render(r) {
     '<button class="btn2" type="button" id="saveGo">Save</button>' +
     '<button class="btn2" type="button" id="showPlain">Show the plain text here to copy</button>' +
     '<div id="plainBox" hidden><textarea class="tbox" id="plainTxt" readonly aria-label="Plain text report"></textarea><button class="btn2" type="button" id="copyPlain">Copy</button></div>' +
-    '<button class="btn" type="button" id="again">Run again</button>';
+    '</details>' +
+    '<button class="btn" type="button" id="again" style="margin-top:10px">Run again</button>';
   $('results').innerHTML = h; $('results').hidden = false; window.scrollTo(0, 0);
   $('again').addEventListener('click', function () { $('results').hidden = true; $('setup').hidden = false; });
   VIEW = 'module'; ONLY = !!$('onlyNR'); renderGroups();
