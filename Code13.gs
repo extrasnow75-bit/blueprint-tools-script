@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-07 at 16:00 MST
+// Last updated on 2026-11-07 at 16:30 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-07 16:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-07 16:30';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -228,7 +228,8 @@ function runStatusCheck13(opts) {
 function saveStatusReport13(report, dest, format) {
   var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
   var lines = (format === 'plain' || format === 'plainshort') ? plainLines13_(report, format === 'plainshort').map(function (t) { return { text: t, h: 0 }; }) : reportLines13_(report);
-  return saveLines13_(lines, 'Status Check ' + stamp, dest, report.blueprint);
+  var kind = (format === 'plain' || format === 'plainshort') ? (format === 'plainshort' ? ' plain text short' : ' plain text') : ' full';
+  return saveLines13_(lines, 'Status Check ' + stamp + kind, dest, report.blueprint);
 }
 
 /** Plain text version for the sidebar's copy box (e.g. to paste into QuickBase). */

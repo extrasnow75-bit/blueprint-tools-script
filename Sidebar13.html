@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 15:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 16:30 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -326,13 +326,14 @@ function render(r) {
   }
   if (r.notes.length) h += '<hr>' + r.notes.map(function (n) { return '<p class="m no">' + esc(n) + '</p>'; }).join('');
   h += '<hr><p class="sec">Export the full report</p>' +
-    '<p class="lbl2">Format</p>' +
-    '<label class="radio"><input type="radio" name="fmt" value="full" checked><span>Full report (headings, progress bars)</span></label>' +
-    '<label class="radio"><input type="radio" name="fmt" value="plain"><span>Plain text, complete (for QuickBase)</span></label>' +
-    '<label class="radio"><input type="radio" name="fmt" value="plainshort"><span>Plain text, short summary (for QuickBase)</span></label>' +
+    '<p class="lbl2">Format (tick one or both)</p>' +
+    '<label class="chk"><input type="checkbox" id="fFull" checked> <span>Full graphical report (headings, progress bars)</span></label>' +
+    '<label class="chk"><input type="checkbox" id="fPlain"> <span>Plain text report (no formatting, for QuickBase)</span></label>' +
+    '<div id="plainLen" hidden style="margin:0 0 8px 24px"><label class="radio"><input type="radio" name="plen" value="plain" checked><span>Complete</span></label><label class="radio"><input type="radio" name="plen" value="plainshort"><span>Short summary</span></label></div>' +
     '<p class="lbl2">Save to</p>' +
     '<label class="chk"><input type="checkbox" id="dTab"> <span>A new tab in this blueprint</span></label>' +
     '<label class="chk"><input type="checkbox" id="dDoc"> <span>A new Google Doc in the blueprint’s folder</span></label>' +
+    '<p class="m sh">Ticking both formats and both places makes four items. Each format is saved separately so the plain text is easy to copy.</p>' +
     '<div id="saveMsg" class="m"></div>' +
     '<button class="btn2" type="button" id="saveGo">Save</button>' +
     '<button class="btn2" type="button" id="showPlain">Show the plain text here to copy</button>' +
@@ -344,16 +345,21 @@ function render(r) {
   $('vMod').addEventListener('click', function () { setView('module'); });
   if ($('vThe')) $('vThe').addEventListener('click', function () { setView('theme'); });
   if ($('onlyNR')) $('onlyNR').addEventListener('change', function () { ONLY = this.checked; renderGroups(); });
-  function fmt() { return document.querySelector('input[name=fmt]:checked').value; }
+  function plainFmt() { return document.querySelector('input[name=plen]:checked').value; }
+  $('fPlain').addEventListener('change', function () { $('plainLen').hidden = !this.checked; });
   $('saveGo').addEventListener('click', function () {
-    var dests = []; if ($('dTab').checked) dests.push('tab'); if ($('dDoc').checked) dests.push('doc');
+    var dests = [], fmts = [];
+    if ($('dTab').checked) dests.push('tab'); if ($('dDoc').checked) dests.push('doc');
+    if ($('fFull').checked) fmts.push('full'); if ($('fPlain').checked) fmts.push(plainFmt());
     $('saveMsg').innerHTML = '';
+    if (!fmts.length) { $('saveMsg').innerHTML = '<span class="bad">Tick at least one format.</span>'; return; }
     if (!dests.length) { $('saveMsg').innerHTML = '<span class="bad">Tick at least one place to save to.</span>'; return; }
+    var jobs = []; dests.forEach(function (d) { fmts.forEach(function (f) { jobs.push([d, f]); }); });
     $('saveGo').disabled = true;
-    (function next(i) { if (i >= dests.length) { $('saveGo').disabled = false; return; } saveIt(dests[i], fmt(), function () { next(i + 1); }); })(0);
+    (function next(i) { if (i >= jobs.length) { $('saveGo').disabled = false; return; } saveIt(jobs[i][0], jobs[i][1], function () { next(i + 1); }); })(0);
   });
   $('showPlain').addEventListener('click', function () {
-    var f = fmt(); f = f === 'full' ? 'plain' : f;
+    var f = plainFmt();
     $('plainTxt').value = 'Working…'; $('plainBox').hidden = false;
     google.script.run.withSuccessHandler(function (t) { $('plainTxt').value = t; }).withFailureHandler(function (e) { $('plainTxt').value = 'Could not build the text: ' + (e && e.message || e); }).statusPlainText13(REPORT, f === 'plainshort');
   });
