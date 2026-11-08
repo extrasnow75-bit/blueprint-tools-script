@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 13:00 MST
+// Last updated on 2026-11-08 at 14:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 13:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 14:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -80,11 +80,11 @@ function getStatusInit13() {
   var out = { devOk: !!getDevelopmentTabBody(doc), course: {}, modules: 0, table: null, tableError: null, tableUrl: null, hasBrief: false };
   var dash = dashboardTab10_(doc).body;
   out.course = {
-    credits: parseNumber13_(readDashField13_(dash, /^\s*credits?\b/i)),
-    weeks: parseNumber13_(readDashField13_(dash, /^\s*course\s*length\b/i)),
+    credits: parseNumber13_(dashValue13_(doc, dash, /^\s*credits?\b/i)),
+    weeks: parseNumber13_(dashValue13_(doc, dash, /^\s*course\s*length\b/i)),
     modulesPerWeek: 1,
-    creditsText: readDashField13_(dash, /^\s*credits?\b/i) || '',
-    weeksText: readDashField13_(dash, /^\s*course\s*length\b/i) || ''
+    creditsText: dashValue13_(doc, dash, /^\s*credits?\b/i) || '',
+    weeksText: dashValue13_(doc, dash, /^\s*course\s*length\b/i) || ''
   };
   if (out.devOk) {
     try { out.modules = scanDevStructure9_(getDevelopmentTabBody(doc)).length; } catch (e) { /* shown as 0 */ }
@@ -584,6 +584,69 @@ function describeRegion13_(region, isSyllabus) {
 }
 
 /** "Credits" / "Course Length" value on the Dashboard: the cell beside the label, or text after it. */
+/**
+ * Dashboard field value. The value is usually a dropdown chip ("Course Length: [7 Weeks]"),
+ * which DocumentApp cannot read (it returns empty text), so read it with the Docs API first
+ * (found by Greg's spike run, 2026-11-08), then fall back to plain text. "--" and
+ * "Select ..." placeholders count as empty.
+ */
+function dashValue13_(doc, dashBody, labelRe) {
+  var v = '';
+  try { v = readDashChip13_(doc, labelRe); } catch (e) { v = ''; }
+  if (!v) v = readDashField13_(dashBody, labelRe);
+  return /^\s*(--|—|select\b.*)\s*$/i.test(v || '') ? '' : (v || '');
+}
+
+function readDashChip13_(doc, labelRe) {
+  var tab = null;
+  flattenDocsTabs_(Docs.Documents.get(doc.getId(), { includeTabsContent: true })).forEach(function (t) {
+    if (!tab && /dashboard/i.test((t.tabProperties || {}).title || '')) tab = t;
+  });
+  if (!tab) return '';
+  // Value in a paragraph: the first chip after the label, else the text after it.
+  function inParagraph(p) {
+    var els = p.elements || [], at = -1, i;
+    for (i = 0; i < els.length; i++) if (els[i].textRun && labelRe.test(els[i].textRun.content || '')) { at = i; break; }
+    if (at < 0) return null;
+    var after = ((els[at].textRun.content || '').replace(/^[^:]*:?\s*/, '')).replace(/\|/g, '').trim();
+    if (after) return after;
+    for (i = at + 1; i < els.length; i++) {
+      if (els[i].dropdown) return String(((els[i].dropdown.dropdownProperties || {}).displayValue) || '').trim();
+      if (els[i].textRun) { var t = String(els[i].textRun.content || '').replace(/\|/g, '').trim(); if (t) return t; }
+    }
+    return '';
+  }
+  function firstValue(cell) {
+    var out = '';
+    (cell.content || []).forEach(function (blk) {
+      if (out || !blk.paragraph) return;
+      (blk.paragraph.elements || []).forEach(function (e) {
+        if (out) return;
+        if (e.dropdown) out = String(((e.dropdown.dropdownProperties || {}).displayValue) || '').trim();
+        else if (e.textRun) out = String(e.textRun.content || '').replace(/\|/g, '').trim();
+      });
+    });
+    return out;
+  }
+  var result = null;
+  (function walk(content) {
+    (content || []).forEach(function (el) {
+      if (result !== null) return;
+      if (el.paragraph) { var v = inParagraph(el.paragraph); if (v !== null) result = v; return; }
+      if (el.table) (el.table.tableRows || []).forEach(function (row) {
+        var cells = row.tableCells || [];
+        for (var c = 0; c < cells.length && result === null; c++) {
+          var hit = null;
+          (cells[c].content || []).forEach(function (blk) { if (hit === null && blk.paragraph) hit = inParagraph(blk.paragraph); });
+          if (hit !== null) { result = hit || (c + 1 < cells.length ? firstValue(cells[c + 1]) : ''); return; }
+          walk(cells[c].content);
+        }
+      });
+    });
+  })(((tab.documentTab || {}).body || {}).content);
+  return result || '';
+}
+
 function readDashField13_(dashBody, labelRe) {
   var T = DocumentApp.ElementType, tables = [];
   (function walk(el) {
@@ -692,9 +755,10 @@ function mediaReport13_(doc) {
     var cells = rows[r].tableCells;
     var title = cTitle >= 0 ? cellText13_(cells[cTitle]) : '';
     var type = cType >= 0 ? cellText13_(cells[cType]) : '';
-    if (!title && !type && !cellText13_(cells[cStat])) continue;      // blank row
-    var status = statusOf13_(cells[cStat]);
+    if (/^select\s*type$/i.test(type)) type = '';                    // dropdown placeholder
     var hasFinal = cellHasLink13_(cells[cLink]);
+    if (!title && !type && !hasFinal) continue;                       // blank row (Media Status defaults to Not Started)
+    var status = statusOf13_(cells[cStat]);
     var box = checkboxState13_(cells[cDev]);                         // 'ticked' | 'unticked' | 'unknown'
     out.items++;
     var key = status || '(no status)';
@@ -742,7 +806,11 @@ function describeTables13_(content, depth, out) {
 }
 
 function paraText13_(p) {
-  return (p.elements || []).map(function (e) { return e.textRun ? e.textRun.content : ''; }).join('');
+  return (p.elements || []).map(function (e) {
+    if (e.textRun) return e.textRun.content;
+    if (e.dropdown) return String(((e.dropdown.dropdownProperties || {}).displayValue) || '');
+    return '';
+  }).join('');
 }
 
 /** All text in a Docs API table cell. */
@@ -756,7 +824,7 @@ function cellText13_(cell) {
 
 /** Media Status is a dropdown chip: match it by its known option names anywhere in the cell. */
 function statusOf13_(cell) {
-  var hay = JSON.stringify(cell || {});
+  var hay = cellText13_(cell || {}) || JSON.stringify(cell || {});
   for (var i = 0; i < MEDIA_STATUSES_13.length; i++) {
     if (new RegExp(MEDIA_STATUSES_13[i].replace(/ /g, '\\s*'), 'i').test(hay)) return MEDIA_STATUSES_13[i];
   }

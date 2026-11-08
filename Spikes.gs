@@ -1,6 +1,6 @@
 // ============================================================
 // Blueprint Tools — Spikes.gs   (THROWAWAY: delete this file after the spikes)
-// Last updated on 2026-11-06 at 00:24 MST
+// Last updated on 2026-11-08 at 14:00 MST
 // ------------------------------------------------------------
 // Read-only checks for Setup Assistant. Nothing here writes to any
 // document or file. Run each function from the Apps Script editor (pick it in
@@ -130,7 +130,7 @@ function spikeStatusSpike13() {
   });
 
   var dash = dashboardTab10_(doc).body;
-  Logger.log('Dashboard Credits -> "' + readDashField13_(dash, /^\s*credits?\b/i) + '"; Course Length -> "' + readDashField13_(dash, /^\s*course\s*length\b/i) + '"');
+  Logger.log('Dashboard Credits -> "' + dashValue13_(doc, dash, /^\s*credits?\b/i) + '" (chip read: "' + readDashChip13_(doc, /^\s*credits?\b/i) + '"); Course Length -> "' + dashValue13_(doc, dash, /^\s*course\s*length\b/i) + '" (chip read: "' + readDashChip13_(doc, /^\s*course\s*length\b/i) + '")');
 
   var s = Docs.Documents.get(doc.getId(), { includeTabsContent: true }), tab = null;
   flattenDocsTabs_(s).forEach(function (t) { if (!tab && /^\s*creative brief\s*$/i.test((t.tabProperties || {}).title || '')) tab = t; });
