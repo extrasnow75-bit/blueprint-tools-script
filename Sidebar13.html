@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 18:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 19:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -100,13 +100,17 @@
 <div id="err" class="err" hidden role="alert"></div>
 
 <div id="setup" hidden>
-  <p class="intro">Counts every activity in the Development tab by review stage, checks links and content, and compares each module’s time to the credit-hour guideline. It only reads; nothing in the blueprint changes.</p>
+  <p class="intro">Counts every activity in the tab you choose (usually Development) by review stage, checks links and content, and compares each module’s time to the credit-hour guideline. It only reads; nothing in the blueprint changes.</p>
+  <p class="sec">Tab to check</p>
+  <select class="sel" id="devTab" aria-label="Tab that holds the activities"></select>
+  <p class="m sh" id="tabNote"></p>
   <p class="sec">Course</p>
   <div class="card">
     <div class="kv"><span>Credits</span><input class="inp num" id="credits" type="number" min="1" max="12" step="0.5" aria-label="Credits"></div>
     <div class="kv"><span>Course length (weeks)</span><input class="inp num" id="weeks" type="number" min="1" max="52" aria-label="Course length in weeks"></div>
     <div class="kv"><span>Modules per week</span><input class="inp num" id="mpw" type="number" min="1" max="7" value="1" aria-label="Modules per week"></div>
     <div class="kv"><span>Numbered modules found</span><b id="modCount"></b></div>
+    <div class="kv"><span>Other sections (exams, projects, reviews)</span><b id="extraCount"></b></div>
     <div class="kv"><span>Time target per module</span><b id="target">—</b></div>
   </div>
   <p class="m sh" id="courseNote">Credits and course length are read from the Dashboard tab. If a value is blank, type it in.</p>
@@ -157,7 +161,7 @@ function onInit(d) {
   if (!d.devOk) { showErr('This blueprint has no “Development” tab.'); return; }
   $('setup').hidden = false;
   $('credits').value = d.course.credits || ''; $('weeks').value = d.course.weeks || '';
-  $('modCount').textContent = d.modules;
+  fillTabs(d); $('modCount').textContent = d.modules; $('extraCount').textContent = d.extras;
   if (!d.course.credits || !d.course.weeks) $('courseNote').textContent = 'Credits or course length could not be read from the Dashboard' + (d.course.creditsText ? ' (Credits shows “' + d.course.creditsText + '”)' : '') + '. Type them in, or untick “Module time”.';
   $('briefNote').hidden = d.hasBrief;
   ['credits', 'weeks', 'mpw'].forEach(function (id) { $(id).addEventListener('input', target); }); target();
@@ -187,9 +191,31 @@ document.addEventListener('click', function (e) {
 document.addEventListener('change', syncToggles);
 
 function renderThemes(list) {
-  $('themes').innerHTML = list.map(function (t) { return themeBox(t); }).join('') || '<p class="m sh">No activity themes found.</p>';
+  var unused = list.filter(function (t) { return t.kind === 'common' && !t.hits && !t.checked; });
+  var shown = list.filter(function (t) { return unused.indexOf(t) === -1; });
+  var h = shown.map(function (t) { return themeBox(t); }).join('');
+  if (unused.length) h += '<details class="grp" id="unusedThemes"><summary><span>Show unused standard themes</span><span class="st">' + unused.length + ' with no matches</span></summary>' + unused.map(function (t) { return themeBox(t); }).join('') + '</details>';
+  $('themes').innerHTML = h || '<p class="m sh">No activity themes found.</p>';
   syncToggles();
 }
+
+function fillTabs(d) {
+  var sel = $('devTab'), opts = '';
+  if (!d.devTabId) opts += '<option value="">Choose the tab…</option>';
+  (d.tabs || []).forEach(function (t) { opts += '<option value="' + esc(t.id) + '"' + (t.id === d.devTabId ? ' selected' : '') + '>' + esc(t.title) + '</option>'; });
+  sel.innerHTML = opts;
+  $('tabNote').textContent = d.devTabId ? 'Tabs with “Don’t use” in the name are skipped when guessing. Change it if this is the wrong tab.' : 'No tab named “Development” was found (or it is marked “Don’t use”). Pick the tab that holds the modules and activities.';
+  $('runBtn').disabled = !d.devTabId;
+}
+$('devTab').addEventListener('change', function () {
+  var id = this.value; $('runBtn').disabled = !id; showErr('');
+  if (!id) return;
+  var keep = Array.prototype.map.call(document.querySelectorAll('.th:checked'), function (c) { return c.value; });
+  $('modCount').textContent = '…'; $('extraCount').textContent = '…';
+  google.script.run.withSuccessHandler(function (t) { $('modCount').textContent = t.modules; $('extraCount').textContent = t.extras; renderThemes(t.themes); $('tabNote').textContent = 'Tab changed. The numbers and activity themes below now come from this tab.'; })
+    .withFailureHandler(function (e) { $('modCount').textContent = '?'; $('extraCount').textContent = '?'; showErr('Could not read that tab: ' + (e && e.message || e)); }).getTabInit13(id, keep);
+});
+
 function themeBox(t) {
   var tag = t.kind === 'suggested' ? ' <span class="dim">(suggested)</span>' : '';
   return '<label class="chk"><input type="checkbox" class="th" value="' + esc(t.name) + '"' + (t.checked ? ' checked' : '') + '> <span>' + esc(t.name) + tag + ' <span class="dim">· ' + t.hits + ' match' + (t.hits === 1 ? '' : 'es') + '</span></span></label>';
@@ -236,7 +262,7 @@ $('runBtn').addEventListener('click', function () {
     REPORT = r; $('spin').hidden = true; $('runBtn').disabled = false;
     $('setup').hidden = true; render(r);
   }).withFailureHandler(function (e) { $('spin').hidden = true; $('runBtn').disabled = false; showErr(e && e.message || e); })
-    .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks, themes: themes });
+    .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks, themes: themes, devTabId: $('devTab').value });
 });
 
 function saveIt(dest, format, replace, then) {
@@ -258,6 +284,10 @@ function region(r, syl) {
   return esc(LABEL[r.stage]) + (syl && r.format ? ' · ' + esc(r.format) : '') + (r.untouched ? ' <span class="dim">(template text only)</span>' : '');
 }
 
+function countText(r) {
+  var extra = r.modules.filter(function (m) { return m.extra; }).length, nm = r.modules.length - extra;
+  return nm + ' modules' + (extra ? ' + ' + extra + ' other sections' : '');
+}
 var VIEW = 'module', ONLY = true;
 function setView(v) {
   VIEW = v;
@@ -289,7 +319,9 @@ function renderGroups() {
   } else {
     h += '<p class="sec">Module by module</p>';
     if (r.time) h += '<p class="m sh">Time target per module: ' + esc(r.time.min) + ' – ' + esc(r.time.max) + ' hrs</p>';
+    var shownExtra = false;
     r.modules.forEach(function (m) {
+      if (m.extra && !shownExtra) { shownExtra = true; h += '<p class="sec" style="margin-top:12px">Other sections (exams, projects, reviews)</p><p class="m sh">These are not numbered modules, so they are not part of the module time targets.</p>'; }
       var n = m.activities.length;
       h += '<details class="grp"><summary><span>' + esc(m.label) + '</span><span class="st">' + (r.checks.stage ? m.pct + '% · ' + m.ready + ' of ' + n + ' ready' : n + ' activities') + '</span></summary>';
       if (r.checks.stage) h += pbar(m.pct);
@@ -311,7 +343,7 @@ function renderGroups() {
 }
 
 function render(r) {
-  var h = '<h3>Status Check Results</h3><p class="intro">' + esc(r.when) + ' · ' + r.totals.activities + ' activities · ' + r.modules.length + ' modules</p>';
+  var h = '<h3>Status Check Results</h3><p class="intro">' + esc(r.when) + ' · ' + r.totals.activities + ' activities · ' + countText(r) + '</p>';
   if (r.media && r.media.found && r.media.flagged.length) h += '<div class="m bad" style="margin:0 0 8px">⚠ ' + r.media.flagged.length + ' completed media item' + (r.media.flagged.length === 1 ? '' : 's') + ' not yet added to the Dev tab (see Media deliverables, below).</div>';
   if (r.home) {
     h += '<hr><p class="sec">Home</p><p style="margin:0">' + region(r.home, false) + '</p>';

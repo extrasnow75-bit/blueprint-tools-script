@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 18:00 MST
+// Last updated on 2026-11-08 at 19:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 18:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 19:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -77,7 +77,8 @@ function showStatusSidebar13() {
  */
 function getStatusInit13() {
   var doc = DocumentApp.getActiveDocument();
-  var out = { devOk: !!getDevelopmentTabBody(doc), course: {}, modules: 0, table: null, tableError: null, tableUrl: null, hasBrief: false };
+  var tabs = listTabs13_(doc), guess = guessDevTab13_(tabs);
+  var out = { devOk: tabs.length > 0, tabs: tabs, devTabId: guess ? guess.id : '', guessed: !!guess, course: {}, modules: 0, extras: 0, table: null, tableError: null, tableUrl: null, hasBrief: false, themes: [] };
   var dash = dashboardTab10_(doc).body;
   out.course = {
     credits: parseNumber13_(dashValue13_(doc, dash, /^\s*credits?\b/i)),
@@ -86,27 +87,107 @@ function getStatusInit13() {
     creditsText: dashValue13_(doc, dash, /^\s*credits?\b/i) || '',
     weeksText: dashValue13_(doc, dash, /^\s*course\s*length\b/i) || ''
   };
-  if (out.devOk) {
-    try { out.modules = scanDevStructure9_(getDevelopmentTabBody(doc)).length; } catch (e) { /* shown as 0 */ }
+  if (guess) {
+    try { var ti = tabInfo13_(doc, devBody13_(doc, guess.id), null); out.modules = ti.modules; out.extras = ti.extras; out.themes = ti.themes; } catch (e) { /* shown as 0 */ }
   }
-  var tabs = collectTabs(doc);
   for (var i = 0; i < tabs.length; i++) if (/^\s*creative brief\s*$/i.test(tabs[i].title)) out.hasBrief = true;
-  out.themes = [];
-  if (out.devOk) {
-    try {
-      var mods = scanDevStructure9_(getDevelopmentTabBody(doc)), saved = [];
-      try { saved = JSON.parse(PropertiesService.getDocumentProperties().getProperty(THEME_PROP_13) || '[]'); } catch (e2) { saved = []; }
-      var all = PRESET_THEMES_13.slice();
-      saved.forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
-      var sugg = suggestThemes13_(mods, all);
-      var cand = all.concat(sugg), hits = {};
-      mods.forEach(function (m) { m.activities.forEach(function (a) { var t = matchTheme13_(a.title, cand); if (t) hits[t] = (hits[t] || 0) + 1; }); });
-      all.forEach(function (t) { out.themes.push({ name: t, hits: hits[t] || 0, checked: saved.length ? saved.indexOf(t) !== -1 : !!hits[t], kind: PRESET_THEMES_13.indexOf(t) !== -1 ? 'common' : 'saved' }); });
-      sugg.forEach(function (t) { out.themes.push({ name: t, hits: hits[t] || 0, checked: false, kind: 'suggested' }); });
-    } catch (e) { /* themes are optional */ }
-  }
   var d = getDeployInit11();
   out.table = d.table; out.tableError = d.error; out.tableUrl = d.url;
+  return out;
+}
+
+/** Sidebar: the user picked another tab. Returns its module and section counts and its activity-theme list. */
+function getTabInit13(tabId, keepNames) {
+  var doc = DocumentApp.getActiveDocument();
+  return tabInfo13_(doc, devBody13_(doc, tabId), keepNames && keepNames.length ? keepNames : null);
+}
+
+// ── CHOOSING THE TAB TO CHECK ────────────────────────────────
+
+/** All tabs, children included: [{id, title}]. */
+function listTabs13_(doc) {
+  var out = [];
+  (function walk(tabs) { tabs.forEach(function (t) { out.push({ id: t.getId(), title: t.getTitle() }); walk(t.getChildTabs()); }); })(doc.getTabs());
+  return out;
+}
+
+/** Best guess for the Development tab: a tab with "Development" in its name, skipping ones marked "Don't use", old, archive, backup. */
+function guessDevTab13_(tabs) {
+  var dev = tabs.filter(function (t) { return /\bdevelopment\b/i.test(t.title); });
+  var good = dev.filter(function (t) { return !/don.?t\s*use|do not use|\bold\b|archive|backup|unused/i.test(t.title); });
+  return good[0] || null;
+}
+
+function devBody13_(doc, tabId) {
+  if (tabId) {
+    var t = doc.getTab(tabId);
+    if (t) return t.asDocumentTab().getBody();
+  }
+  return getDevelopmentTabBody(doc);
+}
+
+/**
+ * Numbered modules and "other sections" (exams, projects, reviews: any H2 that is
+ * not a "Module N" heading but holds H4 activities) in a tab.
+ */
+function sectionsOf13_(body) {
+  return { mods: scanDevStructure9_(body), extras: scanExtraSections13_(body) };
+}
+
+/**
+ * H2 sections that are not numbered modules but contain H4 activities, such as
+ * "Exam #1 (End of Week 7)" or "Project 2". Code9's scan skips these on purpose
+ * (the title and date tools must never touch them); the Status Check counts them.
+ * Returns [{label, activities: [slot]}] with the same slot shape the Status Check
+ * reads from the module scan (title, h4, content). Sections with no H4 are dropped.
+ */
+function scanExtraSections13_(body) {
+  var T = DocumentApp.ElementType, H = DocumentApp.ParagraphHeading;
+  var n = body.getNumChildren(), out = [], sec = null, slot = null, inExtra = false;
+  for (var i = 0; i < n; i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== T.PARAGRAPH) { if (slot) slot.content.push(child); continue; }
+    var para = child.asParagraph(), heading = para.getHeading(), text = para.getText(), trimmed = text.trim();
+    if (heading === H.HEADING_1) { sec = null; slot = null; inExtra = false; continue; }
+    if (heading === H.HEADING_2) {
+      slot = null; sec = null;
+      inExtra = !classifyHeading7_(trimmed);
+      if (inExtra) sec = { label: trimmed, activities: [], added: false };
+      continue;
+    }
+    if (!inExtra) continue;
+    if (heading === H.HEADING_4) {
+      slot = { rawTitle: trimmed, title: stripActivityHeading(trimmed), h4: para, content: [], sawPlaceholder: false };
+      if (!sec.added) { out.push(sec); sec.added = true; }
+      sec.activities.push(slot);
+      continue;
+    }
+    if (heading === H.HEADING_3) { slot = null; continue; }
+    if (!slot) continue;
+    // Preamble lines (never content): same tests as the module scan in Code9.gs.
+    if (/^estimated time/i.test(trimmed) || /link to settings tab$/i.test(trimmed) || trimmed.indexOf(TOOL_MARKER) !== -1) continue;
+    if (!slot.sawPlaceholder && slot.content.length === 0 && CANVAS_TOOL_OPTIONS.indexOf(trimmed) !== -1) continue;
+    if (trimmed === '') continue;
+    if (text === DIRECTIONS_PLACEHOLDER_TEXT || text === 'Directions go here...') { slot.sawPlaceholder = true; continue; }
+    slot.content.push(para);
+  }
+  return out;
+}
+
+/** Counts and the activity-theme list for one tab. keep = theme names to leave ticked (null: use the saved ones). */
+function tabInfo13_(doc, body, keep) {
+  var sec = sectionsOf13_(body), all = sec.mods.concat(sec.extras), out = { modules: sec.mods.length, extras: sec.extras.length, themes: [] };
+  var saved = [];
+  try { saved = JSON.parse(PropertiesService.getDocumentProperties().getProperty(THEME_PROP_13) || '[]'); } catch (e) { saved = []; }
+  var names = PRESET_THEMES_13.slice();
+  saved.forEach(function (t) { if (names.indexOf(t) === -1) names.push(t); });
+  (keep || []).forEach(function (t) { if (names.indexOf(t) === -1) names.push(t); });
+  var sugg = suggestThemes13_(all, names);
+  var cand = names.concat(sugg), hits = {};
+  all.forEach(function (m) { m.activities.forEach(function (a) { var t = matchTheme13_(a.title, cand); if (t) hits[t] = (hits[t] || 0) + 1; }); });
+  function isChecked(t) { return keep ? keep.indexOf(t) !== -1 : (saved.length ? saved.indexOf(t) !== -1 : !!hits[t]); }
+  names.forEach(function (t) { out.themes.push({ name: t, hits: hits[t] || 0, checked: isChecked(t), kind: PRESET_THEMES_13.indexOf(t) !== -1 ? 'common' : 'saved' }); });
+  sugg.forEach(function (t) { out.themes.push({ name: t, hits: hits[t] || 0, checked: !!keep && keep.indexOf(t) !== -1, kind: 'suggested' }); });
   return out;
 }
 
@@ -119,8 +200,8 @@ function getStatusInit13() {
 function runStatusCheck13(opts) {
   var doc = DocumentApp.getActiveDocument();
   var checks = opts.checks || {};
-  var devBody = getDevelopmentTabBody(doc);
-  if (!devBody) throw new Error('Could not find a “Development” tab in this blueprint.');
+  var devBody = devBody13_(doc, opts.devTabId);
+  if (!devBody) throw new Error('Could not find the tab to check. Pick it in the “Tab to check” box.');
 
   var report = {
     when: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMM d, h:mm a'),
@@ -130,16 +211,16 @@ function runStatusCheck13(opts) {
     home: null, syllabus: null, resources: null, finalized: null, media: null, time: null, notes: []
   };
 
-  // Modules and activities.
-  var mods = scanDevStructure9_(devBody);
-  mods.forEach(function (m) {
-    var mod = { label: m.displayLabel || ('Module ' + m.num), activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, pctSum: 0, pct: 0, time: null };
+  // Modules and activities, then the "other sections" (exams, projects, reviews).
+  var sec = sectionsOf13_(devBody);
+  function addSection(m, label, short, extra) {
+    var mod = { label: label, extra: !!extra, activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, pctSum: 0, pct: 0, time: null };
     m.activities.forEach(function (slot) {
       var tool = readToolLine13_(devBody, slot.h4);
       var a = { title: slot.title, tool: tool.tool, stage: null, link: 'na' };
       if (checks.stage) {
         var sd = stageOfSlot13_(slot, tool);
-        a.stage = sd.stage; a.pct = sd.pct; a.module = mod.label; a.moduleShort = (m.num != null ? 'M' + m.num : mod.label);
+        a.stage = sd.stage; a.pct = sd.pct; a.module = mod.label; a.moduleShort = short;
         mod.pctSum += sd.pct;
         if (sd.mostly) {
           a.mostly = sd.mostly; a.waiting = sd.waiting;
@@ -163,6 +244,15 @@ function runStatusCheck13(opts) {
     report.totals.activities += mod.activities.length;
     report.totals.ready += mod.ready;
     report.modules.push(mod);
+  }
+  sec.mods.forEach(function (m) {
+    addSection(m, m.displayLabel || ('Module ' + m.num), m.num != null ? 'M' + m.num : (m.displayLabel || ('Module ' + m.num)), false);
+  });
+  // Extras come after the numbered modules so the time estimate (numbered modules only) still lines up.
+  sec.extras.forEach(function (x) {
+    var label = x.label.length > 70 ? x.label.slice(0, 67) + '...' : x.label;
+    var short = x.label.replace(/\s*\(.*$/, '').trim(); if (short.length > 16) short = short.slice(0, 15) + '…';
+    addSection(x, label, short, true);
   });
 
   // Activity themes (Greg, 2026-11-07; named "Activity Themes" 2026-11-08): groups of activities by title keyword.
@@ -957,7 +1047,7 @@ function checkboxState13_(cell) {
 function reportLines13_(r) {
   var L = [], add = function (t, h) { L.push({ text: t, h: h || 0 }); }, bar = function (t, pct) { L.push({ text: t, h: 0, bar: pct }); };
   add('Development Status Check', 1);
-  add(r.blueprint + ' · checked ' + r.when + ' · ' + r.totals.activities + ' activities · ' + r.modules.length + ' modules');
+  add(r.blueprint + ' · checked ' + r.when + ' · ' + r.totals.activities + ' activities · ' + countText13_(r));
   if (r.media && r.media.found && r.media.flagged.length) add('ACTION: ' + r.media.flagged.length + ' completed media item(s) have a Final Link but are not ticked “Link Added to Dev Tab”.');
   if (r.home) {
     add('Home and Syllabus', 2);
@@ -1001,6 +1091,12 @@ function reportLines13_(r) {
   }
   r.notes.forEach(function (n) { add('Note: ' + n); });
   return L;
+}
+
+/** "6 modules" or "6 modules + 4 other sections". */
+function countText13_(r) {
+  var extra = r.modules.filter(function (m) { return m.extra; }).length, nm = r.modules.length - extra;
+  return nm + ' modules' + (extra ? ' + ' + extra + ' other sections' : '');
 }
 
 function stageText13_(a) {

@@ -211,6 +211,9 @@ The "Status Check" settings-table reading needs a Sheets permission. For this to
 - Themes: Greg wants reporting by theme (Final Project, Quizzes, Exams, Readings, Videos, Readings & Multimedia, Reflections, Assignments...), NOT by tool. Each activity goes to its most specific matching theme. Ticked themes are remembered in document properties. One view at a time (By module / By theme), groups collapse, "show only not ready" is on by default.
 - Export: full report (headings, shaded progress bars) or plain text (complete or short summary, for QuickBase, which takes no formatting) to a new blueprint tab, a new Google Doc, or both; the plain text can also be copied from the sidebar.
 
+
+- **Tab picker and other sections (Greg, 2026-11-08):** Status Check has a "Tab to check" box (guess = a tab with "Development" in its name, skipping "Don't use", old, archive, backup; no guess means the user must pick). It also counts H2 sections that are not numbered modules but hold H4 activities (exams, projects, reviews) as "Other sections", listed after the numbered modules and left out of the module time targets. Standard activity themes with no matches are collapsed under "Show unused standard themes". Known limit: an H2 such as "Module 1 and Module 2 Review" is read as Module 1 by the shared heading classifier in Code9.gs.
+
 ### 3.5 Blueprint Tools Version Check (`Code14.gs` / `Sidebar14.html`)
 
 Added late. No mockup yet. Greg pastes code into Apps Script by hand, so this tells him which files to paste after an update.
