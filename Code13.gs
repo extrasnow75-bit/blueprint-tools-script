@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 19:00 MST
+// Last updated on 2026-11-08 at 20:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 19:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 20:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -127,42 +127,46 @@ function devBody13_(doc, tabId) {
 }
 
 /**
- * Numbered modules and "other sections" (exams, projects, reviews: any H2 that is
- * not a "Module N" heading but holds H4 activities) in a tab.
+ * Numbered modules and "other sections" (every other Heading 2 that holds items) in a tab.
  */
 function sectionsOf13_(body) {
   return { mods: scanDevStructure9_(body), extras: scanExtraSections13_(body) };
 }
 
 /**
- * H2 sections that are not numbered modules but contain H4 activities, such as
- * "Exam #1 (End of Week 7)" or "Project 2". Code9's scan skips these on purpose
- * (the title and date tools must never touch them); the Status Check counts them.
- * Returns [{label, activities: [slot]}] with the same slot shape the Status Check
- * reads from the module scan (title, h4, content). Sections with no H4 are dropped.
+ * Every Heading 2 section that is not a numbered "Module N" (Greg, 2026-11-08: a
+ * module can be named anything: "Exam #1", "Project 2", "Course Resources",
+ * "Instructor Resources"...). Code9's scan skips these on purpose (the title and
+ * date tools must never touch them); the Status Check counts them.
+ * Items in a section: its H4 activities when it has any, otherwise its H3 items
+ * (the page titles in Course Resources / Instructor Resources). Sections with no
+ * items are dropped (Home Page and Syllabus have their own checks).
+ * Returns [{label, activities: [slot]}], slots shaped like the module scan's
+ * (title, h4 = the heading paragraph, content).
  */
 function scanExtraSections13_(body) {
   var T = DocumentApp.ElementType, H = DocumentApp.ParagraphHeading;
   var n = body.getNumChildren(), out = [], sec = null, slot = null, inExtra = false;
+  function finish() {
+    if (!sec) return;
+    var use = sec.h4.length ? sec.h4 : sec.h3;
+    if (use.length) out.push({ label: sec.label, activities: use });
+  }
+  function newSlot(para, trimmed) { return { rawTitle: trimmed, title: stripActivityHeading(trimmed), h4: para, content: [], sawPlaceholder: false }; }
   for (var i = 0; i < n; i++) {
     var child = body.getChild(i);
     if (child.getType() !== T.PARAGRAPH) { if (slot) slot.content.push(child); continue; }
     var para = child.asParagraph(), heading = para.getHeading(), text = para.getText(), trimmed = text.trim();
-    if (heading === H.HEADING_1) { sec = null; slot = null; inExtra = false; continue; }
+    if (heading === H.HEADING_1) { finish(); sec = null; slot = null; inExtra = false; continue; }
     if (heading === H.HEADING_2) {
-      slot = null; sec = null;
+      finish(); slot = null; sec = null;
       inExtra = !classifyHeading7_(trimmed);
-      if (inExtra) sec = { label: trimmed, activities: [], added: false };
+      if (inExtra) sec = { label: trimmed, h4: [], h3: [] };
       continue;
     }
     if (!inExtra) continue;
-    if (heading === H.HEADING_4) {
-      slot = { rawTitle: trimmed, title: stripActivityHeading(trimmed), h4: para, content: [], sawPlaceholder: false };
-      if (!sec.added) { out.push(sec); sec.added = true; }
-      sec.activities.push(slot);
-      continue;
-    }
-    if (heading === H.HEADING_3) { slot = null; continue; }
+    if (heading === H.HEADING_4) { slot = newSlot(para, trimmed); sec.h4.push(slot); continue; }
+    if (heading === H.HEADING_3) { slot = newSlot(para, trimmed); sec.h3.push(slot); continue; }
     if (!slot) continue;
     // Preamble lines (never content): same tests as the module scan in Code9.gs.
     if (/^estimated time/i.test(trimmed) || /link to settings tab$/i.test(trimmed) || trimmed.indexOf(TOOL_MARKER) !== -1) continue;
@@ -171,6 +175,7 @@ function scanExtraSections13_(body) {
     if (text === DIRECTIONS_PLACEHOLDER_TEXT || text === 'Directions go here...') { slot.sawPlaceholder = true; continue; }
     slot.content.push(para);
   }
+  finish();
   return out;
 }
 
@@ -211,7 +216,7 @@ function runStatusCheck13(opts) {
     home: null, syllabus: null, resources: null, finalized: null, media: null, time: null, notes: []
   };
 
-  // Modules and activities, then the "other sections" (exams, projects, reviews).
+  // Modules and activities, then the other named sections (Course Resources, exams, projects...).
   var sec = sectionsOf13_(devBody);
   function addSection(m, label, short, extra) {
     var mod = { label: label, extra: !!extra, activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, pctSum: 0, pct: 0, time: null };

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 19:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 20:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -110,7 +110,7 @@
     <div class="kv"><span>Course length (weeks)</span><input class="inp num" id="weeks" type="number" min="1" max="52" aria-label="Course length in weeks"></div>
     <div class="kv"><span>Modules per week</span><input class="inp num" id="mpw" type="number" min="1" max="7" value="1" aria-label="Modules per week"></div>
     <div class="kv"><span>Numbered modules found</span><b id="modCount"></b></div>
-    <div class="kv"><span>Other sections (exams, projects, reviews)</span><b id="extraCount"></b></div>
+    <div class="kv"><span>Other named sections</span><b id="extraCount"></b></div>
     <div class="kv"><span>Time target per module</span><b id="target">—</b></div>
   </div>
   <p class="m sh" id="courseNote">Credits and course length are read from the Dashboard tab. If a value is blank, type it in.</p>
@@ -321,7 +321,7 @@ function renderGroups() {
     if (r.time) h += '<p class="m sh">Time target per module: ' + esc(r.time.min) + ' – ' + esc(r.time.max) + ' hrs</p>';
     var shownExtra = false;
     r.modules.forEach(function (m) {
-      if (m.extra && !shownExtra) { shownExtra = true; h += '<p class="sec" style="margin-top:12px">Other sections (exams, projects, reviews)</p><p class="m sh">These are not numbered modules, so they are not part of the module time targets.</p>'; }
+      if (m.extra && !shownExtra) { shownExtra = true; h += '<p class="sec" style="margin-top:12px">Other sections (named, not numbered)</p><p class="m sh">Course Resources, Instructor Resources, exams, projects and any other module with a name. They are not part of the module time targets.</p>'; }
       var n = m.activities.length;
       h += '<details class="grp"><summary><span>' + esc(m.label) + '</span><span class="st">' + (r.checks.stage ? m.pct + '% · ' + m.ready + ' of ' + n + ' ready' : n + ' activities') + '</span></summary>';
       if (r.checks.stage) h += pbar(m.pct);
