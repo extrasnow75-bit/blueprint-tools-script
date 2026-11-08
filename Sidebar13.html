@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-09 at 09:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-09 at 09:30 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -120,7 +120,7 @@
   <hr>
   <div class="sechead"><p class="sec">Checks to run</p><button type="button" class="linkbtn" id="toggleChecks" data-for=".ck">Clear all</button></div>
   <label class="chk"><input type="checkbox" class="ck" id="kStage" checked> <span>Review stage of each activity (untouched, drafted, green, purple, yellow, struck through)</span></label>
-  <label class="chk"><input type="checkbox" class="ck" id="kHome" checked> <span>Home, Syllabus, Instructor Guide and Course Suggestions</span></label>
+  <label class="chk"><input type="checkbox" class="ck" id="kHome" checked> <span>Home, Syllabus, Instructor Guide and Course Suggestions Document</span></label>
   <label class="chk"><input type="checkbox" class="ck" id="kLinks" checked> <span>Settings table link on each Assignment, Discussion, and Quiz</span></label>
   <label class="chk"><input type="checkbox" class="ck" id="kTime" checked> <span>Module time vs. guideline</span></label>
   <label class="chk"><input type="checkbox" class="ck" id="kFin" checked> <span>Settings table tabs marked “Check when settings are finalized”</span></label>
@@ -378,7 +378,7 @@ function render(r) {
     h += '<hr><p class="sec">Home</p><p style="margin:0">' + region(r.home, false) + '</p>';
     h += '<p class="sec" style="margin-top:10px">Syllabus</p><p style="margin:0">' + region(r.syllabus, true) + '</p>';
     h += '<p class="sec" style="margin-top:10px">Instructor Resources</p>' + ['guide', 'suggestions'].map(function (k) {
-      var v = r.resources[k], name = k === 'guide' ? 'Instructor Guide' : 'Course Suggestions';
+      var v = r.resources[k], name = k === 'guide' ? 'Instructor Guide' : 'Course Suggestions Document';
       return '<div class="kv"><span>' + name + '</span><b class="' + (v === 'linked' ? '' : 'bad') + '">' + (v === 'linked' ? '✓ linked' : '✕ ' + esc(v)) + '</b></div>';
     }).join('');
   }

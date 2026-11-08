@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-09 at 09:00 MST
+// Last updated on 2026-11-09 at 09:30 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-09 09:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-09 09:30';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -1067,7 +1067,7 @@ function reportLines13_(r) {
     add('Home and Syllabus', 2);
     add('Home: ' + regionText13_(r.home, false));
     add('Syllabus: ' + regionText13_(r.syllabus, true));
-    add('Instructor Guide: ' + r.resources.guide + ' · Course Suggestions: ' + r.resources.suggestions);
+    add('Instructor Guide: ' + r.resources.guide + ' · Course Suggestions Document: ' + r.resources.suggestions);
   }
   if (r.checks.stage) {
     add('Course totals', 2);
@@ -1172,7 +1172,7 @@ function plainLines13_(r, short) {
         var bad = !x[1] || !x[1].found || x[1].untouched;
         L.push((bad ? 'Incomplete. ' : '') + x[0] + ': ' + regionText13_(x[1], x[2]).replace(/ \u00b7 /g, ', ') + '.');
       });
-      L.push('Instructor Guide: ' + r.resources.guide + '. Course Suggestions: ' + r.resources.suggestions + '.');
+      L.push('Instructor Guide: ' + r.resources.guide + '. Course Suggestions Document: ' + r.resources.suggestions + '.');
     }
 
     head('Settings table tabs');
