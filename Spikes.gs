@@ -135,11 +135,7 @@ function spikeStatusSpike13() {
   var s = Docs.Documents.get(doc.getId(), { includeTabsContent: true }), tab = null;
   flattenDocsTabs_(s).forEach(function (t) { if (!tab && /^\s*creative brief\s*$/i.test((t.tabProperties || {}).title || '')) tab = t; });
   if (!tab) { Logger.log('No Creative Brief tab.'); return; }
-  var content = tab.documentTab.body.content, seen = false, table = null;
-  content.forEach(function (el) {
-    if (el.paragraph && /media deliverables/i.test(paraText13_(el.paragraph))) seen = true;
-    else if (seen && el.table && !table) table = el.table;
-  });
+  var content = tab.documentTab.body.content, table = findMediaTable13_(content);
   if (!table) { Logger.log('No table under Media Deliverables.'); return; }
   Logger.log('Header row: ' + JSON.stringify(table.tableRows[0].tableCells.map(cellText13_)));
   for (var r = 1; r < Math.min(table.tableRows.length, 4); r++) {

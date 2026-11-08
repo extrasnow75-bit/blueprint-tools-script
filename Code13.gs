@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-07 at 16:30 MST
+// Last updated on 2026-11-08 at 12:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-07 16:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 12:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -672,13 +672,11 @@ function mediaReport13_(doc) {
   var tabUrl = doc.getUrl() + '?tab=' + encodeURIComponent(tab.tabProperties.tabId);
   var content = ((tab.documentTab || {}).body || {}).content || [];
 
-  var table = null, seen = false;
-  for (var i = 0; i < content.length; i++) {
-    var el = content[i];
-    if (el.paragraph && /media deliverables/i.test(paraText13_(el.paragraph))) { seen = true; continue; }
-    if (seen && el.table) { table = el.table; break; }
-  }
-  if (!table) return { found: false, reason: 'no table under a “Media Deliverables” heading', tabUrl: tabUrl };
+  // The "Media Deliverables" heading is itself a one-cell table in the template (found by
+  // Greg's spike run, 2026-11-08), so find the table by its header row instead:
+  // the one whose first row has both "Media Type" and "Final Link".
+  var table = findMediaTable13_(content);
+  if (!table) return { found: false, reason: 'no Media Deliverables table (one whose header row has “Media Type” and “Final Link”)', tabUrl: tabUrl };
 
   var rows = table.tableRows || [];
   if (!rows.length) return { found: false, reason: 'the Media Deliverables table is empty', tabUrl: tabUrl };
@@ -708,6 +706,17 @@ function mediaReport13_(doc) {
     if (box === 'ticked' && !hasFinal) out.reverse.push(item);
   }
   return out;
+}
+
+/** Table (Docs API) whose first row has "Media Type" and "Final Link", or null. */
+function findMediaTable13_(content) {
+  for (var i = 0; i < content.length; i++) {
+    var t = content[i].table;
+    if (!t || !t.tableRows || !t.tableRows.length) continue;
+    var head = t.tableRows[0].tableCells.map(function (c) { return cellText13_(c); }).join(' | ');
+    if (/media\s*type/i.test(head) && /final\s*link/i.test(head)) return t;
+  }
+  return null;
 }
 
 function paraText13_(p) {
