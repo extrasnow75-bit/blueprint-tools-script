@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-09 at 11:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-09 at 14:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -123,6 +123,12 @@
     <div class="kv"><span>Numbered modules found</span><b id="modCount"></b></div>
     <div class="kv"><span>Other named sections</span><b id="extraCount"></b></div>
     <div class="kv"><span>Time target per module</span><b id="target">—</b></div>
+    <details class="grp" id="advTime">
+      <summary><span>Advanced: sections that count toward the time estimate</span></summary>
+      <div class="sechead"><span class="m sh">Numbered modules count by default.</span><button type="button" class="linkbtn" id="toggleTime" data-for=".ts">Select all</button></div>
+      <div id="timeSecs"></div>
+      <p class="m sh">Tick a named section (a project, an exam…) to compare it with the per-module target too, or untick a numbered module to leave it out.</p>
+    </details>
   </div>
   <p class="m sh" id="courseNote">Credits and course length are read from the Dashboard tab. If a value is blank, type it in.</p>
   <hr>
@@ -193,7 +199,7 @@ function onInit(d) {
   if (!d.devOk) { showErr('This blueprint has no “Development” tab.'); return; }
   $('setup').hidden = false;
   $('credits').value = d.course.credits || ''; $('weeks').value = d.course.weeks || '';
-  fillTabs(d); $('modCount').textContent = d.modules; $('extraCount').textContent = d.extras;
+  fillTabs(d); renderSections(d.sections); $('modCount').textContent = d.modules; $('extraCount').textContent = d.extras;
   if (!d.course.credits || !d.course.weeks) $('courseNote').textContent = 'Credits or course length could not be read from the Dashboard' + (d.course.creditsText ? ' (Credits shows “' + d.course.creditsText + '”)' : '') + '. Type them in, or untick “Module time”.';
   $('briefNote').hidden = d.hasBrief;
   ['credits', 'weeks', 'mpw'].forEach(function (id) { $(id).addEventListener('input', target); }); target();
@@ -231,6 +237,13 @@ function renderThemes(list) {
   syncToggles();
 }
 
+function renderSections(list) {
+  $('timeSecs').innerHTML = (list || []).map(function (x) {
+    return '<label class="chk"><input type="checkbox" class="ts" value="' + esc(x.key) + '"' + (x.extra ? '' : ' checked') + '> <span>' + esc(x.label) + (x.extra ? ' <span class="dim">(not numbered)</span>' : '') + '</span></label>';
+  }).join('') || '<p class="m sh">No sections found.</p>';
+  syncToggles();
+}
+
 function fillTabs(d) {
   var sel = $('devTab'), opts = '';
   if (!d.devTabId) opts += '<option value="">Choose the tab…</option>';
@@ -244,7 +257,7 @@ $('devTab').addEventListener('change', function () {
   if (!id) return;
   var keep = Array.prototype.map.call(document.querySelectorAll('.th:checked'), function (c) { return c.value; });
   $('modCount').textContent = '…'; $('extraCount').textContent = '…';
-  google.script.run.withSuccessHandler(function (t) { if (INIT) INIT.acts = t.acts; $('modCount').textContent = t.modules; $('extraCount').textContent = t.extras; renderThemes(t.themes); $('tabNote').textContent = 'Tab changed. The numbers and activity themes below now come from this tab.'; })
+  google.script.run.withSuccessHandler(function (t) { if (INIT) INIT.acts = t.acts; $('modCount').textContent = t.modules; $('extraCount').textContent = t.extras; renderThemes(t.themes); renderSections(t.sections); $('tabNote').textContent = 'Tab changed. The numbers and activity themes below now come from this tab.'; })
     .withFailureHandler(function (e) { $('modCount').textContent = '?'; $('extraCount').textContent = '?'; showErr('Could not read that tab: ' + (e && e.message || e)); }).getTabInit13(id, keep);
 });
 
@@ -299,7 +312,7 @@ $('runBtn').addEventListener('click', function () {
     if (INIT) INIT.timing = { ms: r.ms, acts: r.totals.activities };
     $('setup').hidden = true; render(r);
   }).withFailureHandler(function (e) { stopTimer(); $('spin').hidden = true; $('runBtn').disabled = false; showErr(e && e.message || e); })
-    .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks, themes: themes, devTabId: $('devTab').value });
+    .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks, themes: themes, devTabId: $('devTab').value, timeSections: Array.prototype.map.call(document.querySelectorAll('.ts:checked'), function (c) { return c.value; }) });
 });
 
 function saveIt(dest, format, replace, then) {

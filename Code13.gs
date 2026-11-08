@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-09 at 12:30 MST
+// Last updated on 2026-11-09 at 14:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -23,7 +23,7 @@
 // helpers). Reuses, does NOT redefine:
 //   collectTabs, flattenDocsTabs_, TOOL_MARKER, CANVAS_TOOL_OPTIONS (Code.gs)
 //   getDevelopmentTabBody, extractDocId                             (Code2.gs)
-//   runTimeEstimator                                                (Code3.gs)
+//   timeFromHeading3, timeFromEstLine3, fmtMinutes3, fmtHours3, roundUpQtr3  (Code3.gs: time parsing and formatting only)
 //   scanDevStructure9_                                              (Code9.gs)
 //   dashboardTab10_, locateInstructorResource10_                    (Code10.gs)
 //   getDeployInit11, loadSettingsTable11                            (Code11.gs)
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-09 12:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-09 14:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -84,7 +84,7 @@ function getStatusInit13() {
   var cr = dashValue13_(doc, dash, /^\s*credits?\b/i, structured), wk = dashValue13_(doc, dash, /^\s*course\s*length\b/i, structured);
   out.course = { credits: parseNumber13_(cr), weeks: parseNumber13_(wk), modulesPerWeek: 1, creditsText: cr || '', weeksText: wk || '' };
   if (guess) {
-    try { var ti = tabInfo13_(doc, devBody13_(doc, guess.id), null); out.modules = ti.modules; out.extras = ti.extras; out.themes = ti.themes; out.acts = ti.acts; } catch (e) { /* shown as 0 */ }
+    try { var ti = tabInfo13_(doc, devBody13_(doc, guess.id), null); out.modules = ti.modules; out.extras = ti.extras; out.themes = ti.themes; out.acts = ti.acts; out.sections = ti.sections; } catch (e) { /* shown as 0 */ }
   }
   out.timing = readTiming13_();
   for (var i = 0; i < tabs.length; i++) if (/^\s*creative brief\s*$/i.test(tabs[i].title)) out.hasBrief = true;
@@ -183,7 +183,9 @@ function scanExtraSections13_(body) {
 
 /** Counts and the activity-theme list for one tab. keep = theme names to leave ticked (null: use the saved ones). */
 function tabInfo13_(doc, body, keep) {
-  var sec = sectionsOf13_(body), all = sec.mods.concat(sec.extras), out = { modules: sec.mods.length, extras: sec.extras.length, themes: [] };
+  var sec = sectionsOf13_(body), all = sec.mods.concat(sec.extras), out = { modules: sec.mods.length, extras: sec.extras.length, acts: 0, themes: [], sections: [] };
+  sec.mods.forEach(function (m, i) { out.sections.push({ key: 'm' + i, label: m.displayLabel || ('Module ' + m.num), extra: false }); });
+  sec.extras.forEach(function (x, i) { out.sections.push({ key: 'x' + i, label: x.label.length > 60 ? x.label.slice(0, 57) + '...' : x.label, extra: true }); });
   all.forEach(function (m) { out.acts += m.activities.length; });
   var saved = [];
   try { saved = JSON.parse(PropertiesService.getDocumentProperties().getProperty(THEME_PROP_13) || '[]'); } catch (e) { saved = []; }
@@ -223,10 +225,15 @@ function runStatusCheck13(opts) {
   // Modules and activities, then the other named sections (Course Resources, exams, projects...).
   var sec = sectionsOf13_(devBody);
   function addSection(m, label, short, extra) {
-    var mod = { label: label, extra: !!extra, activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, pctSum: 0, pct: 0, time: null };
+    var mod = { label: label, extra: !!extra, mins: 0, missingTimes: [], activities: [], counts: { untouched: 0, drafted: 0, green: 0, purple: 0, revised: 0, built: 0 }, ready: 0, mostly: 0, pctSum: 0, pct: 0, time: null };
     m.activities.forEach(function (slot) {
       var tool = readToolLine13_(devBody, slot.h4);
       var a = { title: slot.title, tool: tool.tool, stage: null, link: 'na' };
+      if (checks.time) {
+        var tmin = activityMinutes13_(devBody, slot);
+        if (tmin === null || tmin === -1) mod.missingTimes.push({ module: label, title: slot.title, reason: tmin === -1 ? 'TBD' : 'not entered' });
+        else mod.mins += tmin;
+      }
       if (checks.stage) {
         var sd = stageOfSlot13_(slot, tool);
         a.stage = sd.stage; a.pct = sd.pct; a.module = mod.label; a.moduleShort = short;
@@ -293,23 +300,29 @@ function runStatusCheck13(opts) {
     };
   }
 
-  // Module time vs. credit-hour guideline (reuses the Time Estimator).
+  // Module time vs. credit-hour guideline. Uses the tab chosen above (the shared Time Estimator
+  // in Code3.gs always reads the first tab named "Development", which can be the wrong one) and
+  // only the sections the user counts (Advanced box; default = the numbered modules).
   if (checks.time) {
     var credits = Number(opts.credits), weeks = Number(opts.weeks), mpw = Number(opts.modulesPerWeek) || 1;
     if (!credits || !weeks) {
       report.notes.push('Module time was skipped: credits and course length are both needed.');
     } else {
-      var te = runTimeEstimator(credits, weeks, mpw);
-      if (te.error) {
-        report.notes.push('Module time was skipped: ' + te.error);
-      } else {
-        report.time = { min: te.minTarget, max: te.maxTarget, missing: te.missing || [] };
-        te.modules.forEach(function (tm, i) {
-          var mod = report.modules[i];
-          if (mod && String(mod.label).toLowerCase().indexOf(String(tm.name).toLowerCase()) === 0) mod.time = { total: tm.total, status: tm.status };
-          else if (mod && !mod.time) mod.time = { total: tm.total, status: tm.status };
-        });
-      }
+      var minHrs = roundUpQtr3((credits * 37.5) / weeks / mpw), maxHrs = roundUpQtr3((credits * 45) / weeks / mpw);
+      var want = null;
+      if (opts.timeSections) { want = {}; opts.timeSections.forEach(function (k) { want[k] = true; }); }
+      var nm = 0, nx = 0, counted = 0, missingAll = [];
+      report.modules.forEach(function (mod) {
+        var key = mod.extra ? 'x' + (nx++) : 'm' + (nm++);
+        if (want ? !want[key] : mod.extra) return;               // not counted toward the estimate
+        var hrs = mod.mins / 60, over = hrs - maxHrs, under = minHrs - hrs;
+        var status = over > 0.001 ? { type: 'over', diff: fmtHours3(over), target: fmtHours3(maxHrs) } : (under > 0.001 ? { type: 'under', diff: fmtHours3(under), target: fmtHours3(minHrs) } : { type: 'ok' });
+        mod.time = { total: fmtMinutes3(mod.mins), status: status };
+        counted++;
+        missingAll = missingAll.concat(mod.missingTimes);
+      });
+      if (!counted) report.notes.push('Module time was skipped: no sections are selected to count toward the time estimate.');
+      else report.time = { min: fmtHours3(minHrs), max: fmtHours3(maxHrs), missing: missingAll, counted: counted };
     }
   }
 
@@ -1222,6 +1235,24 @@ function linkUnderHeadingApi13_(structured, tabId, phraseRe) {
     (((pick[i].documentTab || {}).body || {}).content || []).forEach(visit);
   }
   return found;
+}
+
+/**
+ * Minutes for one activity: the time in parentheses at the end of its heading, else an
+ * "Estimated time:" line right after it (the same two rules as the Time Estimator in Code3.gs,
+ * which supplies the parsing). Returns minutes, -1 for TBD, or null when none is entered.
+ */
+function activityMinutes13_(body, slot) {
+  var r = timeFromHeading3(slot.h4.getText().trim());
+  if (r !== null) return r;
+  var idx = body.getChildIndex(slot.h4);
+  if (idx + 1 >= body.getNumChildren()) return null;
+  var nx = body.getChild(idx + 1);
+  if (nx.getType() !== DocumentApp.ElementType.PARAGRAPH) return null;
+  var np = nx.asParagraph();
+  if (np.getHeading() !== DocumentApp.ParagraphHeading.NORMAL) return null;
+  var t = np.getText().trim();
+  return /estimated\s*time/i.test(t) ? timeFromEstLine3(t) : null;
 }
 
 function stageText13_(a) {
