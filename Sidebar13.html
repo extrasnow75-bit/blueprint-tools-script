@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 15:30 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 16:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -131,12 +131,12 @@
     <p class="m sh">Tabs with “Template” in the name start unchecked. Tick any tab to include it, or untick any tab to leave it out.</p>
   </div>
   <hr>
-  <div class="sechead"><p class="sec">Themes to report on</p><button type="button" class="linkbtn" id="toggleThemes" data-for=".th">Select all</button></div>
-  <p class="m sh">Groups activities across modules by a word in the title, so you can see how complete, for example, all Final Project activities are. Each activity goes to its most specific theme. Leave all unticked to skip.</p>
+  <div class="sechead"><p class="sec">Activity themes to report on</p><button type="button" class="linkbtn" id="toggleThemes" data-for=".th">Select all</button></div>
+  <p class="m sh">Groups activities across modules by a word in the title, so you can see how complete, for example, all Final Project activities are. Each activity goes to its most specific activity theme. It does not group by Canvas tool. Leave all unticked to skip.</p>
   <div id="themes"></div>
-  <input class="inp" id="customTheme" type="text" autocomplete="off" placeholder="Add your own, e.g. Final Project, Case Study" aria-label="Add your own themes, separated by commas">
+  <input class="inp" id="customTheme" type="text" autocomplete="off" placeholder="Add your own, e.g. Final Project, Case Study" aria-label="Add your own activity themes, separated by commas">
   <button class="btn2" type="button" id="addTheme">Add</button>
-  <p class="m sh">The numbers show how many activities in this blueprint match. Your ticked themes are remembered for this blueprint.</p>
+  <p class="m sh">The numbers show how many activities in this blueprint match. Your ticked activity themes are remembered for this blueprint.</p>
   <hr>
   <div id="spin" class="spin" hidden>Checking… this can take a minute on a large blueprint.</div>
   <button class="btn" type="button" id="runBtn">Run the check</button>
@@ -187,7 +187,7 @@ document.addEventListener('click', function (e) {
 document.addEventListener('change', syncToggles);
 
 function renderThemes(list) {
-  $('themes').innerHTML = list.map(function (t) { return themeBox(t); }).join('') || '<p class="m sh">No themes found.</p>';
+  $('themes').innerHTML = list.map(function (t) { return themeBox(t); }).join('') || '<p class="m sh">No activity themes found.</p>';
   syncToggles();
 }
 function themeBox(t) {
@@ -332,7 +332,7 @@ function render(r) {
 
   h += '<hr>';
   var hasThemes = !!(r.themes && (r.themes.list.length || r.themes.other));
-  h += '<div class="vtabs" role="group" aria-label="Report view"><button type="button" id="vMod" aria-pressed="true">By module</button>' + (hasThemes ? '<button type="button" id="vThe" aria-pressed="false">By theme</button>' : '') + '</div>';
+  h += '<div class="vtabs" role="group" aria-label="Report view"><button type="button" id="vMod" aria-pressed="true">By module</button>' + (hasThemes ? '<button type="button" id="vThe" aria-pressed="false">By activity theme</button>' : '') + '</div>';
   if (r.checks.stage) h += '<label class="chk"><input type="checkbox" id="onlyNR" checked> <span>Show only activities that are not ready</span></label>';
   h += '<div id="groups"></div>';
   if (r.time && r.time.missing.length) h += '<p class="m sh">' + r.time.missing.length + ' activit' + (r.time.missing.length === 1 ? 'y has' : 'ies have') + ' no time entered (counted as 0).</p>';

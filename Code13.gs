@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 14:00 MST
+// Last updated on 2026-11-08 at 16:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 14:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 16:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -165,7 +165,7 @@ function runStatusCheck13(opts) {
     report.modules.push(mod);
   });
 
-  // Themes (Greg, 2026-11-07): groups of activities by title keyword.
+  // Activity themes (Greg, 2026-11-07; named "Activity Themes" 2026-11-08): groups of activities by title keyword.
   var themes = (opts.themes || []).map(function (t) { return String(t || '').trim(); }).filter(String);
   if (checks.stage && themes.length) {
     report.themes = buildThemes13_(report.modules, themes);
@@ -883,7 +883,7 @@ function reportLines13_(r) {
   }
   if (r.checks.links) add('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected);
   if (r.themes) {
-    add('By theme', 2);
+    add('By activity theme', 2);
     themeGroups13_(r).forEach(function (g) {
       bar(g.name + ': ' + g.pct + '% complete · ' + g.ready + ' of ' + g.count + ' ready · ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + '%'; }).join(', '), g.pct);
     });
@@ -941,10 +941,10 @@ function plainLines13_(r, short) {
   if (r.checks.links) L.push('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '.');
   if (mediaWaiting) L.push(mediaWaiting + ' completed media items are not yet added to the Dev tab.');
 
-  head('By theme');
+  head('By activity theme');
   var groups = themeGroups13_(r);
   if (!r.checks.stage) L.push('Not checked.');
-  else if (!groups.length) L.push('No themes selected.');
+  else if (!groups.length) L.push('No activity themes selected.');
   groups.forEach(function (g) {
     L.push(g.name + ' is ' + g.pct + ' percent complete (' + g.ready + ' of ' + g.count + ' ready): ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + ' percent'; }).join(', ') + '.');
   });
