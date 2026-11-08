@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 16:00 MST
+// Last updated on 2026-11-08 at 17:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 16:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 17:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -377,6 +377,19 @@ function suggestThemes13_(modules, known) {
     if (!covered) out.push({ k: k, n: uni[k] });
   });
   out.sort(function (x, y) { return y.n - x.n; });
+  // Two suggestions that match exactly the same activities (e.g. "Reminder" and
+  // "Topic Replies" in "Reminder: Discussion [Topic]: - Replies") are one theme
+  // to the user: keep the more specific one (more words, then longer).
+  var titles = [];
+  modules.forEach(function (m) { m.activities.forEach(function (a) { titles.push(' ' + themeWords13_(a.title).join(' ') + ' '); }); });
+  function matchSet(k) { var hits = []; titles.forEach(function (t, i) { if (t.indexOf(' ' + k + ' ') !== -1) hits.push(i); }); return hits.join(','); }
+  var best = {};
+  out.forEach(function (o) {
+    var sig = matchSet(o.k), cur = best[sig];
+    var w = o.k.split(' ').length;
+    if (!cur || w > cur.w || (w === cur.w && o.k.length > cur.o.k.length)) best[sig] = { o: o, w: w };
+  });
+  out = out.filter(function (o) { var b = best[matchSet(o.k)]; return b && b.o === o; });
   return out.slice(0, 8).map(function (o) { return forms[o.k].replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); });
 }
 
