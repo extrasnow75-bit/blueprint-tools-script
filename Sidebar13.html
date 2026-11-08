@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-07 at 17:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 15:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -84,6 +84,9 @@
     .radio { display:flex; gap:8px; align-items:flex-start; font-size:12px; margin:0 0 6px; }
     .radio input { margin:2px 0 0; width:16px; height:16px; flex:none; }
     .dim { color:#666; }
+    .sechead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 6px; }
+    .sechead .sec { margin:0; }
+    .sechead .linkbtn { min-height:32px; padding:0 2px; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -104,13 +107,13 @@
   </div>
   <p class="m sh" id="courseNote">Credits and course length are read from the Dashboard tab. If a value is blank, type it in.</p>
   <hr>
-  <p class="sec">Checks to run</p>
-  <label class="chk"><input type="checkbox" id="kStage" checked> <span>Review stage of each activity (untouched, drafted, green, purple, yellow, struck through)</span></label>
-  <label class="chk"><input type="checkbox" id="kHome" checked> <span>Home, Syllabus, Instructor Guide and Course Suggestions</span></label>
-  <label class="chk"><input type="checkbox" id="kLinks" checked> <span>Settings table link on each Assignment, Discussion, and Quiz</span></label>
-  <label class="chk"><input type="checkbox" id="kTime" checked> <span>Module time vs. guideline</span></label>
-  <label class="chk"><input type="checkbox" id="kFin" checked> <span>Settings table tabs marked “Check when settings are finalized”</span></label>
-  <label class="chk"><input type="checkbox" id="kMedia" checked> <span>Media deliverables (Creative Brief tab)</span></label>
+  <div class="sechead"><p class="sec">Checks to run</p><button type="button" class="linkbtn" id="toggleChecks" data-for=".ck">Clear all</button></div>
+  <label class="chk"><input type="checkbox" class="ck" id="kStage" checked> <span>Review stage of each activity (untouched, drafted, green, purple, yellow, struck through)</span></label>
+  <label class="chk"><input type="checkbox" class="ck" id="kHome" checked> <span>Home, Syllabus, Instructor Guide and Course Suggestions</span></label>
+  <label class="chk"><input type="checkbox" class="ck" id="kLinks" checked> <span>Settings table link on each Assignment, Discussion, and Quiz</span></label>
+  <label class="chk"><input type="checkbox" class="ck" id="kTime" checked> <span>Module time vs. guideline</span></label>
+  <label class="chk"><input type="checkbox" class="ck" id="kFin" checked> <span>Settings table tabs marked “Check when settings are finalized”</span></label>
+  <label class="chk"><input type="checkbox" class="ck" id="kMedia" checked> <span>Media deliverables (Creative Brief tab)</span></label>
   <p class="m sh" id="briefNote" hidden>No tab named “Creative Brief” was found, so the media check will report that.</p>
   <div id="tabsBox">
     <hr>
@@ -124,7 +127,7 @@
     <p class="m sh">Tabs with “Template” in the name start unchecked. Tick any tab to include it, or untick any tab to leave it out.</p>
   </div>
   <hr>
-  <p class="sec">Themes to report on</p>
+  <div class="sechead"><p class="sec">Themes to report on</p><button type="button" class="linkbtn" id="toggleThemes" data-for=".th">Select all</button></div>
   <p class="m sh">Groups activities across modules by a word in the title, so you can see how complete, for example, all Final Project activities are. Each activity goes to its most specific theme. Leave all unticked to skip.</p>
   <div id="themes"></div>
   <input class="inp" id="customTheme" type="text" autocomplete="off" placeholder="Add your own, e.g. Final Project, Case Study" aria-label="Add your own themes, separated by commas">
@@ -155,12 +158,33 @@ function onInit(d) {
   $('briefNote').hidden = d.hasBrief;
   ['credits', 'weeks', 'mpw'].forEach(function (id) { $(id).addEventListener('input', target); }); target();
   renderThemes(d.themes || []);
+  syncToggles();
   if (d.table) { tableId = d.table.id; setTable(d.table, 'Found through the Dashboard link.'); }
   else { $('tableCard').textContent = d.tableUrl ? 'The Dashboard’s Settings Tables link could not be read.' : 'No Settings Tables link was found on the Dashboard.'; $('pick').hidden = false; }
 }
 
+function syncToggles() {
+  document.querySelectorAll('[data-for]').forEach(function (b) {
+    var boxes = document.querySelectorAll(b.getAttribute('data-for'));
+    if (!boxes.length) { b.hidden = true; return; }
+    b.hidden = false;
+    var all = Array.prototype.every.call(boxes, function (c) { return c.checked; });
+    b.textContent = all ? 'Clear all' : 'Select all';
+  });
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-for]') : null;
+  if (!b) return;
+  var boxes = document.querySelectorAll(b.getAttribute('data-for'));
+  var all = Array.prototype.every.call(boxes, function (c) { return c.checked; });
+  Array.prototype.forEach.call(boxes, function (c) { c.checked = !all; });
+  syncToggles();
+});
+document.addEventListener('change', syncToggles);
+
 function renderThemes(list) {
   $('themes').innerHTML = list.map(function (t) { return themeBox(t); }).join('') || '<p class="m sh">No themes found.</p>';
+  syncToggles();
 }
 function themeBox(t) {
   var tag = t.kind === 'suggested' ? ' <span class="dim">(suggested)</span>' : '';
@@ -173,6 +197,7 @@ $('addTheme').addEventListener('click', function () {
     if (have.indexOf(n.toLowerCase()) !== -1) return;
     $('themes').insertAdjacentHTML('beforeend', themeBox({ name: n, hits: '?', checked: true, kind: 'custom' }));
   });
+  syncToggles();
 });
 
 function target() {
