@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-09 at 11:00 MST
+// Last updated on 2026-11-09 at 12:30 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-09 11:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-09 12:30';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -285,9 +285,11 @@ function runStatusCheck13(opts) {
     var regions = homeSyllabusRegions13_(devBody);
     report.home = describeRegion13_(regions.home, false);
     report.syllabus = describeRegion13_(regions.syllabus, true);
+    var guessTab = opts.devTabId ? null : guessDevTab13_(listTabs13_(doc));
+    var rctx = { doc: doc, tabId: opts.devTabId || (guessTab ? guessTab.id : ''), structured: null };
     report.resources = {
-      guide: resourceState13_(devBody, /Instructor Guide/i),
-      suggestions: resourceState13_(devBody, /Course Suggestions?/i)
+      guide: resourceState13_(devBody, /Instructor Guide/i, rctx),
+      suggestions: resourceState13_(devBody, /Course Suggestions?/i, rctx)
     };
   }
 
@@ -770,7 +772,13 @@ function homeSyllabusRegions13_(body) {
       if (/^syllabus\b/i.test(txt))      { cur = out.syllabus = { elements: [] }; continue; }
       if (/^modules\b/i.test(txt))       { cur = null; if (out.home || out.syllabus) break; continue; }
     }
-    if (type === T.PARAGRAPH && c.asParagraph().getHeading() === H.HEADING2) { if (cur) cur = null; if (out.syllabus) break; continue; }
+    if (type === T.PARAGRAPH && c.asParagraph().getHeading() === H.HEADING2) {
+      // Plain Heading 2 layout ("Home Page", "Syllabus"), as in a tab built from an extraction.
+      var h2 = c.asParagraph().getText().trim();
+      if (!out.home && /^home(\s+page)?\b/i.test(h2))  { cur = out.home = { elements: [] }; continue; }
+      if (!out.syllabus && /^syllabus\b/i.test(h2))     { cur = out.syllabus = { elements: [] }; continue; }
+      if (cur) cur = null; if (out.syllabus) break; continue;
+    }
     if (cur) cur.elements.push(c);
   }
   return out;
@@ -1138,16 +1146,27 @@ function countText13_(r) {
   return nm + (nm === 1 ? ' module' : ' modules') + (extra ? ' + ' + extra + (extra === 1 ? ' other section' : ' other sections') : '');
 }
 
+var ADDRESS_RE_13 = /(https?:\/\/|www\.|(?:docs|drive)\.google\.com\/)\S+/i;
+
 /**
- * 'linked' | 'no link' | 'not found' for an Instructor Resources item. Greg (2026-11-09): the
- * address only has to be there. It does not have to be a clickable hyperlink, so a web
- * address typed under the heading counts, as well as a link on the heading or on a phrase.
+ * 'linked' | 'no link' | 'not found' for an Instructor Resources item (Instructor Guide,
+ * Course Suggestions Document). Greg (2026-11-09): the address only has to be there. A web
+ * address typed as plain text under the item's heading counts, and so does a hyperlink on the
+ * heading or on a phrase, or a smart chip (a Drive file shown as a small box). Chips are only
+ * visible to the Docs API, so that is checked last, and only when nothing else was found.
+ * ctx = {doc, tabId, structured}: a cache so the document is downloaded at most once.
  */
-function resourceState13_(body, phraseRe) {
+function resourceState13_(body, phraseRe, ctx) {
   var r = locateInstructorResource10_(body, phraseRe);
-  if (!r) return 'not found';
-  if (r.existing) return 'linked';
-  return addressUnderHeading13_(body, phraseRe) ? 'linked' : 'no link';
+  if (r && r.existing) return 'linked';
+  if (addressUnderHeading13_(body, phraseRe)) return 'linked';
+  if (ctx) {
+    try {
+      if (!ctx.structured) ctx.structured = Docs.Documents.get(ctx.doc.getId(), { includeTabsContent: true });
+      if (linkUnderHeadingApi13_(ctx.structured, ctx.tabId, phraseRe)) return 'linked';
+    } catch (e) { /* fall through: report what the simple checks found */ }
+  }
+  return r ? 'no link' : 'not found';
 }
 
 function addressUnderHeading13_(body, phraseRe) {
@@ -1162,10 +1181,47 @@ function addressUnderHeading13_(body, phraseRe) {
       inSec = /^\s*Instructor Resources/i.test(txt); inItem = false; continue;
     }
     if (!inSec) continue;
-    if (h !== null && h !== H.NORMAL) { inItem = phraseRe.test(txt); if (inItem && /https?:\/\//i.test(txt)) return true; continue; }
-    if (inItem && /https?:\/\/\S+/i.test(txt)) return true;
+    if (h !== null && h !== H.NORMAL) { inItem = phraseRe.test(txt); if (inItem && ADDRESS_RE_13.test(txt)) return true; continue; }
+    if (inItem && ADDRESS_RE_13.test(txt)) return true;
   }
   return false;
+}
+
+/**
+ * Docs API pass for the same section: any hyperlink, smart chip or typed address in the
+ * lines under the item's heading. tabId may be empty, then every tab is searched in order.
+ */
+function linkUnderHeadingApi13_(structured, tabId, phraseRe) {
+  var tabs = flattenDocsTabs_(structured), pick = tabs;
+  if (tabId) pick = tabs.filter(function (t) { return (t.tabProperties || {}).tabId === tabId; });
+  var state, found = false;
+  function elHasLink(p) {
+    return (p.elements || []).some(function (e) {
+      if (e.richLink) return true;
+      var tr = e.textRun; if (!tr) return false;
+      return !!((tr.textStyle || {}).link) || ADDRESS_RE_13.test(tr.content || '');
+    });
+  }
+  function visit(el) {
+    if (found || state.stop) return;
+    if (el.paragraph) {
+      var st = (el.paragraph.paragraphStyle || {}).namedStyleType || '', txt = paraText13_(el.paragraph);
+      if (st === 'HEADING_2') {
+        if (state.inSec) { state.stop = true; return; }
+        state.inSec = /^\s*Instructor Resources/i.test(txt); state.inItem = false; return;
+      }
+      if (!state.inSec) return;
+      if (/^HEADING_/.test(st)) { state.inItem = phraseRe.test(txt); if (state.inItem && elHasLink(el.paragraph)) found = true; return; }
+      if (state.inItem && elHasLink(el.paragraph)) found = true;
+    } else if (el.table && state.inSec && state.inItem) {
+      (el.table.tableRows || []).forEach(function (row) { (row.tableCells || []).forEach(function (cell) { (cell.content || []).forEach(visit); }); });
+    }
+  }
+  for (var i = 0; i < pick.length && !found; i++) {
+    state = { inSec: false, inItem: false, stop: false };
+    (((pick[i].documentTab || {}).body || {}).content || []).forEach(visit);
+  }
+  return found;
 }
 
 function stageText13_(a) {
