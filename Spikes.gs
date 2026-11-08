@@ -1,6 +1,6 @@
 // ============================================================
 // Blueprint Tools — Spikes.gs   (THROWAWAY: delete this file after the spikes)
-// Last updated on 2026-11-08 at 14:00 MST
+// Last updated on 2026-11-09 at 11:00 MST
 // ------------------------------------------------------------
 // Read-only checks for Setup Assistant. Nothing here writes to any
 // document or file. Run each function from the Apps Script editor (pick it in
@@ -119,7 +119,7 @@ function spikeStatusSpike13() {
     if (ty === T.BODY_SECTION || ty === T.TABLE || ty === T.TABLE_ROW || ty === T.TABLE_CELL) for (var c = 0; c < el.getNumChildren(); c++) walk(el.getChild(c));
   })(body);
   Logger.log('Development tab: ' + runs + ' text runs, ' + strikes + ' struck through.');
-  Object.keys(counts).forEach(function (k) { Logger.log('  highlight ' + k + ' x' + counts[k] + ' -> ' + stageOfColor13_(k)); });
+  Object.keys(counts).forEach(function (k) { Logger.log('  highlight ' + k + ' x' + counts[k] + ' -> ' + (isNoteHighlight13_(k) ? 'ignored (cyan or blue note)' : stageOfColor13_(k))); });
 
   Object.keys(fcounts).forEach(function (k) { Logger.log('  font colour ' + k + ' x' + fcounts[k] + (isInstructionRed13_(k) ? ' -> treated as red builder instruction (ignored)' : '')); });
 

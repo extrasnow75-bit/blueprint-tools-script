@@ -214,6 +214,9 @@ The "Status Check" settings-table reading needs a Sheets permission. For this to
 
 - **Tab picker and other sections (Greg, 2026-11-08):** Status Check has a "Tab to check" box (guess = a tab with "Development" in its name, skipping "Don't use", old, archive, backup; no guess means the user must pick). It also counts every other H2 section (a module can be named anything: Course Resources, Instructor Resources, Exam #1, Project 2...) as an "Other section", using its H4 activities or, when it has none, its H3 items (page titles), listed after the numbered modules and left out of the module time targets. Standard activity themes with no matches are collapsed under "Show unused standard themes". Known limit: an H2 such as "Module 1 and Module 2 Review" is read as Module 1 by the shared heading classifier in Code9.gs.
 
+
+- **Wording and totals (Greg, 2026-11-09):** the headline is "X% of the course activities have been handed off to the Dev team" (green, yellow, purple or struck through). Struck through means the Dev team has COMPLETED it, so that stage is now labelled "Completed by the Dev team (struck through)". Course totals show a count and percent for: Not started (untouched + drafted), Approved but not yet reviewed (green or yellow), Handed off, Completed by the Dev team, and each stage. Cyan or blue highlights (designer notes, Canvas link reminders; hue 165 to 245) are ignored like red builder text; an activity with only red and cyan text counts as untouched. Instructor Guide and Course Suggestions Document count as linked when a web address is on the page under the heading (it does not have to be clickable). Not done: Home / Syllabus detection for the "Home Page" / "Syllabus" H2 layout.
+
 ### 3.5 Blueprint Tools Version Check (`Code14.gs` / `Sidebar14.html`)
 
 Added late. No mockup yet. Greg pastes code into Apps Script by hand, so this tells him which files to paste after an update.

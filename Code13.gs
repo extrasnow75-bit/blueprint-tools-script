@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-09 at 09:30 MST
+// Last updated on 2026-11-09 at 11:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,14 +45,14 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-09 09:30';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-09 11:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
   untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)',
-  purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Built in Canvas'
+  purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Completed by the Dev team (struck through)'
 };
-// Greg chose the wording "Ready for the Dev Team" (2026-11-03). Ready = green, purple, yellow or struck through
+// Wording (Greg, 2026-11-09): "handed off to the Dev team" = green, purple, yellow or struck through. Struck through also means the Dev team has COMPLETED it
 // (the StatusResultsB mockup's wording). Greg may prefer "Highlighted for QA or
 // later"; only STAGE_READY_13 and the sidebar label would change.
 var STAGE_READY_13 = { green: true, purple: true, revised: true, built: true };
@@ -264,6 +264,15 @@ function runStatusCheck13(opts) {
     addSection(x, label, short, true);
   });
 
+  // Course-total summaries (Greg, 2026-11-09).
+  var stg = report.totals.stages;
+  report.totals.summary = {
+    notStarted: stg.untouched + stg.drafted,
+    approved: stg.green + stg.revised,                       // approved by faculty + designer, not yet reviewed
+    handedOff: stg.green + stg.purple + stg.revised + stg.built,
+    devDone: stg.built                                       // struck through: completed by the Dev team
+  };
+
   // Activity themes (Greg, 2026-11-07; named "Activity Themes" 2026-11-08): groups of activities by title keyword.
   var themes = (opts.themes || []).map(function (t) { return String(t || '').trim(); }).filter(String);
   if (checks.stage && themes.length) {
@@ -276,11 +285,9 @@ function runStatusCheck13(opts) {
     var regions = homeSyllabusRegions13_(devBody);
     report.home = describeRegion13_(regions.home, false);
     report.syllabus = describeRegion13_(regions.syllabus, true);
-    var g = locateInstructorResource10_(devBody, /Instructor Guide/i);
-    var s = locateInstructorResource10_(devBody, /Course Suggestions?/i);
     report.resources = {
-      guide: g ? (g.existing ? 'linked' : 'no link') : 'not found',
-      suggestions: s ? (s.existing ? 'linked' : 'no link') : 'not found'
+      guide: resourceState13_(devBody, /Instructor Guide/i),
+      suggestions: resourceState13_(devBody, /Course Suggestions?/i)
     };
   }
 
@@ -669,13 +676,23 @@ function isInstructionRed13_(hex) {
 }
 
 /**
+ * Cyan or blue highlight (hue 165 to 245): a designer's note to themselves, or a reminder
+ * to link a Canvas course to a Drive item (Greg, 2026-11-09). Ignored like red builder text.
+ */
+function isNoteHighlight13_(hex) {
+  var c = hueOf13_(hex);
+  return !!c && c.h >= 165 && c.h < 245;
+}
+
+/**
  * {stage, pct, mostly, waiting}. pct = share of the activity's text (red
  * instructions excluded) that is highlighted green, purple or yellow, or struck
  * through; unhighlighted text counts as 0. mostly/waiting only for "Mostly" activities.
  */
 function stageDetail13_(allSegs) {
-  var segs = allSegs.filter(function (s) { return !isInstructionRed13_(s.fg); });
-  if (!segs.length) return { stage: 'drafted', pct: 0 };
+  var segs = allSegs.filter(function (s) { return !isInstructionRed13_(s.fg) && !isNoteHighlight13_(s.bg); });
+  if (!allSegs.length) return { stage: 'drafted', pct: 0 };          // content with no readable text (tables, images)
+  if (!segs.length) return { stage: 'untouched', pct: 0 };           // only red instructions and cyan notes: nothing real yet
   var lowest = STAGE_ORDER_13.length, yellow = false, weight = {}, total = 0, hl = 0, drafted = [];
   segs.forEach(function (s) {
     var st = s.strike ? 'built' : stageOfColor13_(s.bg);
@@ -1071,20 +1088,25 @@ function reportLines13_(r) {
   }
   if (r.checks.stage) {
     add('Course totals', 2);
-    add(r.totals.ready + ' of ' + r.totals.activities + ' activities are Ready for the Dev Team.');
-    Object.keys(STAGE_LABEL_13).forEach(function (k) { add(STAGE_LABEL_13[k] + ': ' + r.totals.stages[k]); });
-    Object.keys(r.totals.mostly || {}).forEach(function (k) { add('Mostly ' + k + ' (counted as drafted, waiting on a few pieces): ' + r.totals.mostly[k]); });
+    var T = r.totals, sm = T.summary || {}, tot = T.activities;
+    add(pctOf13_(sm.handedOff, tot) + '% of the course activities have been handed off to the Dev team (' + sm.handedOff + ' of ' + tot + ').');
+    add('Not started (untouched + drafted, not highlighted): ' + sm.notStarted + ' (' + pctOf13_(sm.notStarted, tot) + '%)');
+    add('Approved by faculty and designer, not yet reviewed (green or yellow): ' + sm.approved + ' (' + pctOf13_(sm.approved, tot) + '%)');
+    add('Handed off to the Dev team (green, yellow, purple, or struck through): ' + sm.handedOff + ' (' + pctOf13_(sm.handedOff, tot) + '%)');
+    add('Completed by the Dev team (struck through): ' + sm.devDone + ' (' + pctOf13_(sm.devDone, tot) + '%)');
+    Object.keys(STAGE_LABEL_13).forEach(function (k) { add(STAGE_LABEL_13[k] + ': ' + T.stages[k] + ' (' + pctOf13_(T.stages[k], tot) + '%)'); });
+    Object.keys(T.mostly || {}).forEach(function (k) { add('Mostly ' + k + ' (counted as drafted, waiting on a few pieces): ' + T.mostly[k] + ' (' + pctOf13_(T.mostly[k], tot) + '%)'); });
   }
-  if (r.checks.links) add('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected);
+  if (r.checks.links) add('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + ' (' + pctOf13_(r.totals.linksPresent, r.totals.linksExpected) + '%)');
   if (r.themes) {
     add('By activity theme', 2);
     themeGroups13_(r).forEach(function (g) {
-      bar(g.name + ': ' + g.pct + '% complete · ' + g.ready + ' of ' + g.count + ' ready · ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + '%'; }).join(', '), g.pct);
+      bar(g.name + ': ' + g.pct + '% complete · ' + g.ready + ' of ' + g.count + ' handed off · ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + '%'; }).join(', '), g.pct);
     });
   }
   add('By module', 2);
   r.modules.forEach(function (m) {
-    if (r.checks.stage) bar(m.label + ': ' + m.pct + '% complete · ' + m.ready + ' of ' + m.activities.length + ' ready', m.pct);
+    if (r.checks.stage) bar(m.label + ': ' + m.pct + '% complete · ' + m.ready + ' of ' + m.activities.length + ' handed off', m.pct);
     else add(m.label, 2);
     if (m.time) add('Time: ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' + (r.time ? ' · target ' + r.time.min + ' – ' + r.time.max : ''));
     m.activities.forEach(function (a) {
@@ -1108,9 +1130,42 @@ function reportLines13_(r) {
 }
 
 /** "6 modules" or "6 modules + 4 other sections". */
+/** Whole-number percent; 0 when the total is 0. */
+function pctOf13_(n, total) { return total ? Math.round(100 * (n || 0) / total) : 0; }
+
 function countText13_(r) {
   var extra = r.modules.filter(function (m) { return m.extra; }).length, nm = r.modules.length - extra;
-  return nm + ' modules' + (extra ? ' + ' + extra + ' other sections' : '');
+  return nm + (nm === 1 ? ' module' : ' modules') + (extra ? ' + ' + extra + (extra === 1 ? ' other section' : ' other sections') : '');
+}
+
+/**
+ * 'linked' | 'no link' | 'not found' for an Instructor Resources item. Greg (2026-11-09): the
+ * address only has to be there. It does not have to be a clickable hyperlink, so a web
+ * address typed under the heading counts, as well as a link on the heading or on a phrase.
+ */
+function resourceState13_(body, phraseRe) {
+  var r = locateInstructorResource10_(body, phraseRe);
+  if (!r) return 'not found';
+  if (r.existing) return 'linked';
+  return addressUnderHeading13_(body, phraseRe) ? 'linked' : 'no link';
+}
+
+function addressUnderHeading13_(body, phraseRe) {
+  var T = DocumentApp.ElementType, H = DocumentApp.ParagraphHeading, n = body.getNumChildren(), inSec = false, inItem = false;
+  for (var i = 0; i < n; i++) {
+    var c = body.getChild(i), type = c.getType(), txt = '', h = null;
+    if (type === T.PARAGRAPH) { var p = c.asParagraph(); txt = p.getText(); h = p.getHeading(); }
+    else if (type === T.LIST_ITEM) txt = c.asListItem().getText();
+    else if (type === T.TABLE) txt = c.asTable().getText();
+    if (h === H.HEADING2) {
+      if (inSec) return false;                       // left the Instructor Resources section
+      inSec = /^\s*Instructor Resources/i.test(txt); inItem = false; continue;
+    }
+    if (!inSec) continue;
+    if (h !== null && h !== H.NORMAL) { inItem = phraseRe.test(txt); if (inItem && /https?:\/\//i.test(txt)) return true; continue; }
+    if (inItem && /https?:\/\/\S+/i.test(txt)) return true;
+  }
+  return false;
 }
 
 function stageText13_(a) {
@@ -1135,10 +1190,15 @@ function plainLines13_(r, short) {
   head('Course totals');
   if (!r.checks.stage && !r.checks.links) L.push('Not checked.');
   if (r.checks.stage) {
-    L.push(r.totals.ready + ' of ' + r.totals.activities + ' activities are Ready for the Dev Team.');
-    Object.keys(r.totals.mostly || {}).forEach(function (k) { L.push(r.totals.mostly[k] + ' activities are mostly ' + k + ' and waiting on a few pieces.'); });
+    var T = r.totals, sm = T.summary || {}, tot = T.activities;
+    L.push(pctOf13_(sm.handedOff, tot) + ' percent of the course activities have been handed off to the Dev team (' + sm.handedOff + ' of ' + tot + ').');
+    L.push('Not started (untouched or drafted, not highlighted): ' + sm.notStarted + ' (' + pctOf13_(sm.notStarted, tot) + ' percent).');
+    L.push('Approved by faculty and designer, not yet reviewed (green or yellow): ' + sm.approved + ' (' + pctOf13_(sm.approved, tot) + ' percent).');
+    L.push('Handed off to the Dev team (green, yellow, purple, or struck through): ' + sm.handedOff + ' (' + pctOf13_(sm.handedOff, tot) + ' percent).');
+    L.push('Completed by the Dev team (struck through): ' + sm.devDone + ' (' + pctOf13_(sm.devDone, tot) + ' percent).');
+    Object.keys(T.mostly || {}).forEach(function (k) { L.push(T.mostly[k] + ' activities are mostly ' + k + ' and waiting on a few pieces (' + pctOf13_(T.mostly[k], tot) + ' percent).'); });
   }
-  if (r.checks.links) L.push('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '.');
+  if (r.checks.links) L.push('Settings table links: ' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + ' (' + pctOf13_(r.totals.linksPresent, r.totals.linksExpected) + ' percent).');
   if (mediaWaiting) L.push(mediaWaiting + ' completed media items are not yet added to the Dev tab.');
 
   head('By activity theme');
@@ -1146,12 +1206,12 @@ function plainLines13_(r, short) {
   if (!r.checks.stage) L.push('Not checked.');
   else if (!groups.length) L.push('No activity themes selected.');
   groups.forEach(function (g) {
-    L.push(g.name + ' is ' + g.pct + ' percent complete (' + g.ready + ' of ' + g.count + ' ready): ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + ' percent'; }).join(', ') + '.');
+    L.push(g.name + ' is ' + g.pct + ' percent complete (' + g.ready + ' of ' + g.count + ' handed off): ' + g.acts.map(function (x) { return x.moduleShort + ' ' + x.pct + ' percent'; }).join(', ') + '.');
   });
 
   head('By module');
   r.modules.forEach(function (m) {
-    L.push(m.label + (r.checks.stage ? ' is ' + m.pct + ' percent complete (' + m.ready + ' of ' + m.activities.length + ' ready)' : '') + (m.time ? ', time ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' : '') + '.');
+    L.push(m.label + (r.checks.stage ? ' is ' + m.pct + ' percent complete (' + m.ready + ' of ' + m.activities.length + ' handed off)' : '') + (m.time ? ', time ' + m.time.total + ' (' + (m.time.status.type === 'ok' ? 'within target' : m.time.status.type + ' by ' + m.time.status.diff) + ')' : '') + '.');
   });
   if (!r.modules.length) L.push('No modules found.');
 

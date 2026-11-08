@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-09 at 09:30 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-09 at 11:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -91,6 +91,14 @@
     .sechead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 6px; }
     .sechead .sec { margin:0; }
     .sechead .linkbtn { min-height:32px; padding:0 2px; }
+    .sumrow { padding:8px 0; border-top:1px solid #dde1ea; font-size:12px; }
+    .sumrow .top { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+    .sumrow .what { font-weight:bold; }
+    .sumrow b.n { font-size:16px; color:#0033a0; white-space:nowrap; }
+    .sumrow .how { font-size:11px; color:#555; margin:0; }
+    .mbar { height:8px; border:1px solid #aab2c8; border-radius:4px; background:#fff; overflow:hidden; margin:4px 0 2px; }
+    .mbar i { display:block; height:100%; }
+    .stg .p { display:block; font-size:11px; color:#555; margin-top:2px; }
     .pbar { height:10px; border:1px solid #aab2c8; border-radius:5px; background:#fff; overflow:hidden; margin:6px 0 4px; }
     .pbar i { display:block; height:100%; width:0; background:#0033a0; transition:width .4s linear; }
     .pbar.over i { background:#b26a00; }
@@ -301,7 +309,7 @@ function saveIt(dest, format, replace, then) {
     .saveStatusReport13(REPORT, dest, format, !!replace);
 }
 
-var LABEL = { untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)', purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Built in Canvas' };
+var LABEL = { untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)', purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Completed by the Dev team (struck through)' };
 var ORDER = ['untouched', 'drafted', 'green', 'purple', 'revised', 'built'];
 
 function bar(counts, total) {
@@ -315,7 +323,7 @@ function region(r, syl) {
 
 function countText(r) {
   var extra = r.modules.filter(function (m) { return m.extra; }).length, nm = r.modules.length - extra;
-  return nm + ' modules' + (extra ? ' + ' + extra + ' other sections' : '');
+  return nm + (nm === 1 ? ' module' : ' modules') + (extra ? ' + ' + extra + (extra === 1 ? ' other section' : ' other sections') : '');
 }
 var VIEW = 'module', ONLY = true;
 function setView(v) {
@@ -333,15 +341,15 @@ function actRow(a, withModule) {
 function pbar(p) { return '<div class="bar" aria-hidden="true"><i class="g" style="width:' + p + '%"></i></div>'; }
 function rows(list, withModule) {
   var shown = ONLY ? list.filter(function (a) { return !isReady(a); }) : list;
-  if (!shown.length) return '<p class="m ok">' + (list.length ? 'All ' + list.length + ' are ready.' : 'None.') + '</p>';
-  return shown.map(function (a) { return actRow(a, withModule); }).join('') + (ONLY && shown.length < list.length ? '<p class="m sh">' + (list.length - shown.length) + ' ready ' + (list.length - shown.length === 1 ? 'activity' : 'activities') + ' hidden.</p>' : '');
+  if (!shown.length) return '<p class="m ok">' + (list.length ? 'All ' + list.length + ' are handed off.' : 'None.') + '</p>';
+  return shown.map(function (a) { return actRow(a, withModule); }).join('') + (ONLY && shown.length < list.length ? '<p class="m sh">' + (list.length - shown.length) + ' handed-off ' + (list.length - shown.length === 1 ? 'activity' : 'activities') + ' hidden.</p>' : '');
 }
 function renderGroups() {
   var r = REPORT, h = '';
   if (VIEW === 'theme' && r.themes) {
     var groups = r.themes.list.concat(r.themes.other ? [r.themes.other] : []);
     groups.forEach(function (g) {
-      h += '<details class="grp"><summary><span>' + esc(g.name) + '</span><span class="st">' + g.pct + '% · ' + g.ready + ' of ' + g.count + ' ready</span></summary>' + pbar(g.pct) +
+      h += '<details class="grp"><summary><span>' + esc(g.name) + '</span><span class="st">' + g.pct + '% · ' + g.ready + ' of ' + g.count + ' handed off</span></summary>' + pbar(g.pct) +
         '<p class="m sh">' + g.acts.map(function (x) { return esc(x.moduleShort) + ' ' + x.pct + '%'; }).join(' · ') + '</p>' + rows(g.acts, true) + '</details>';
     });
     h += '<p class="m sh">Percent complete = share of each activity’s text that is highlighted (red instructions ignored), averaged across the group.</p>';
@@ -352,18 +360,18 @@ function renderGroups() {
     r.modules.forEach(function (m) {
       if (m.extra && !shownExtra) { shownExtra = true; h += '<p class="sec" style="margin-top:12px">Other sections (named, not numbered)</p><p class="m sh">Course Resources, Instructor Resources, exams, projects and any other module with a name. They are not part of the module time targets.</p>'; }
       var n = m.activities.length;
-      h += '<details class="grp"><summary><span>' + esc(m.label) + '</span><span class="st">' + (r.checks.stage ? m.pct + '% · ' + m.ready + ' of ' + n + ' ready' : n + ' activities') + '</span></summary>';
+      h += '<details class="grp"><summary><span>' + esc(m.label) + '</span><span class="st">' + (r.checks.stage ? m.pct + '% · ' + m.ready + ' of ' + n + ' handed off' : n + ' activities') + '</span></summary>';
       if (r.checks.stage) h += pbar(m.pct);
       if (m.time) {
         var s = m.time.status, pill = s.type === 'ok' ? '<span class="pill ok">✓ Within target range</span>' : s.type === 'under' ? '<span class="pill under">▼ Under target by ' + esc(s.diff) + '</span>' : '<span class="pill over">▲ Over target by ' + esc(s.diff) + '</span>';
         h += '<p class="lbl2">Time estimate</p><p style="margin:0"><b style="font-size:16px">' + esc(m.time.total) + '</b> ' + pill + '</p>';
       }
       if (r.checks.stage) {
-        h += '<p class="lbl2">Ready for the Dev Team</p>' + bar(m.counts, n);
+        h += '<p class="lbl2">Handed off to the Dev team</p>' + bar(m.counts, n);
         var notReady = [];
         if (m.counts.untouched) notReady.push(m.counts.untouched + ' still template text');
         if (m.counts.drafted) notReady.push(m.counts.drafted + ' drafted but not highlighted');
-        h += '<p class="m sh">' + (notReady.length ? 'Not ready: ' + notReady.join(', ') + '.' : 'All ' + n + ' are green, purple, yellow, or struck through.') + '</p>';
+        h += '<p class="m sh">' + (notReady.length ? 'Not handed off yet: ' + notReady.join(', ') + '.' : 'All ' + n + ' are green, purple, yellow, or struck through.') + '</p>';
       }
       h += rows(m.activities, false) + '</details>';
     });
@@ -383,18 +391,29 @@ function render(r) {
     }).join('');
   }
   if (r.checks.stage) {
-    h += '<hr><p class="sec">Course totals</p><div class="hero"><p class="big"><b>' + r.totals.ready + ' of ' + r.totals.activities + '</b> activities are Ready for the Dev Team</p>' + bar(r.totals.stages, r.totals.activities) +
-      '<p class="m sh">Ready = green, purple, yellow, or struck through. Not ready = text added but not highlighted, or template text still there.</p></div><div class="stages">' +
-      ORDER.map(function (k) { return '<div class="stg"><b>' + r.totals.stages[k] + '</b>' + esc(LABEL[k]) + '</div>'; }).join('') + '</div>';
-    var mk = Object.keys(r.totals.mostly || {});
-    if (mk.length) h += '<p class="m sh">Counted as drafted but nearly there: ' + mk.map(function (k) { return r.totals.mostly[k] + ' mostly ' + esc(k); }).join(', ') + '.</p>';
+    var T = r.totals, S = T.stages, tot = T.activities, sm = T.summary || {};
+    function pc(n) { return tot ? Math.round(100 * (n || 0) / tot) : 0; }
+    function sumRow(what, how, n, color) {
+      return '<div class="sumrow"><div class="top"><span class="what">' + esc(what) + '</span><b class="n">' + n + ' · ' + pc(n) + '%</b></div><p class="how">' + esc(how) + '</p><div class="mbar" aria-hidden="true"><i style="width:' + pc(n) + '%;background:' + color + '"></i></div></div>';
+    }
+    h += '<hr><p class="sec">Course totals</p><div class="hero"><p class="big"><b>' + pc(sm.handedOff) + '%</b> of the course activities have been handed off to the Dev team <span class="m sh">(' + (sm.handedOff || 0) + ' of ' + tot + ')</span></p>' + bar(S, tot) +
+      '<p class="m sh">Handed off = green, yellow, purple, or struck through. Struck through means the Dev team has completed it. Red builder instructions and cyan or blue highlights (designer notes or Canvas link reminders) are ignored.</p></div>' +
+      '<p class="sec" style="margin-top:12px">Where things stand</p>' +
+      sumRow('Not started', 'Untouched template + drafted but not highlighted', sm.notStarted, '#bbb') +
+      sumRow('Approved, not yet reviewed', 'Approved by the faculty and designer, waiting for review (green or yellow)', sm.approved, '#b9e0c5') +
+      sumRow('Handed off to the Dev team', 'Completed by the faculty and designer (green, yellow, purple, or struck through)', sm.handedOff, '#0033a0') +
+      sumRow('Completed by the Dev team', 'Struck through', sm.devDone, '#666') +
+      '<p class="sec" style="margin-top:12px">By stage</p><div class="stages">' +
+      ORDER.map(function (k) { return '<div class="stg"><b>' + S[k] + '</b>' + esc(LABEL[k]) + '<span class="p">' + pc(S[k]) + '% of activities</span></div>'; }).join('') + '</div>';
+    var mk = Object.keys(T.mostly || {});
+    if (mk.length) h += '<p class="m sh">Counted as drafted but nearly there: ' + mk.map(function (k) { return T.mostly[k] + ' mostly ' + esc(k) + ' (' + pc(T.mostly[k]) + '%)'; }).join(', ') + '.</p>';
   }
-  if (r.checks.links) h += '<div class="kv"><span>Settings table links present</span><b>' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + '</b></div>';
+  if (r.checks.links) h += '<div class="kv"><span>Settings table links present</span><b>' + r.totals.linksPresent + ' of ' + r.totals.linksExpected + ' (' + (r.totals.linksExpected ? Math.round(100 * r.totals.linksPresent / r.totals.linksExpected) : 0) + '%)</b></div>';
 
   h += '<hr>';
   var hasThemes = !!(r.themes && (r.themes.list.length || r.themes.other));
   h += '<div class="vtabs" role="group" aria-label="Report view"><button type="button" id="vMod" aria-pressed="true">By module</button>' + (hasThemes ? '<button type="button" id="vThe" aria-pressed="false">By activity theme</button>' : '') + '</div>';
-  if (r.checks.stage) h += '<label class="chk"><input type="checkbox" id="onlyNR" checked> <span>Show only activities that are not ready</span></label>';
+  if (r.checks.stage) h += '<label class="chk"><input type="checkbox" id="onlyNR" checked> <span>Show only activities not yet handed off</span></label>';
   h += '<div id="groups"></div>';
   if (r.time && r.time.missing.length) h += '<p class="m sh">' + r.time.missing.length + ' activit' + (r.time.missing.length === 1 ? 'y has' : 'ies have') + ' no time entered (counted as 0).</p>';
 
