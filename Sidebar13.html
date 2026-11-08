@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 20:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-09 at 09:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -91,12 +91,15 @@
     .sechead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 6px; }
     .sechead .sec { margin:0; }
     .sechead .linkbtn { min-height:32px; padding:0 2px; }
+    .pbar { height:10px; border:1px solid #aab2c8; border-radius:5px; background:#fff; overflow:hidden; margin:6px 0 4px; }
+    .pbar i { display:block; height:100%; width:0; background:#0033a0; transition:width .4s linear; }
+    .pbar.over i { background:#b26a00; }
     [hidden] { display: none !important; }
   </style>
 </head>
 <body>
 <h3>Development Status Check</h3>
-<div id="loading" class="spin">Reading the blueprint…</div>
+<div id="loading" class="spin" aria-live="polite"><div id="loadTxt">Reading the blueprint…</div><div class="pbar"><i id="loadBar"></i></div></div>
 <div id="err" class="err" hidden role="alert"></div>
 
 <div id="setup" hidden>
@@ -142,7 +145,7 @@
   <button class="btn2" type="button" id="addTheme">Add</button>
   <p class="m sh">The numbers show how many activities in this blueprint match. Your ticked activity themes are remembered for this blueprint.</p>
   <hr>
-  <div id="spin" class="spin" hidden>Checking… this can take a minute on a large blueprint.</div>
+  <div id="spin" class="spin" hidden aria-live="polite"><div id="spinTxt">Checking…</div><div class="pbar" id="spinPbar"><i id="spinBar"></i></div><div id="spinNote" class="m sh"></div></div>
   <button class="btn" type="button" id="runBtn">Run the check</button>
 </div>
 
@@ -150,13 +153,34 @@
 
 <script>
 var INIT = null, REPORT = null, tableId = null, tableTabs = [];
+
+// ── elapsed / expected time counter ──
+function fmtTime(ms) { var s = Math.max(0, Math.round(ms / 1000)), m = Math.floor(s / 60); return m + ':' + ('0' + (s % 60)).slice(-2); }
+var TIMER = null;
+function startTimer(txtId, barId, label, expectedMs, noteId, guess) {
+  var t0 = Date.now(), bar = $(barId), pbar = bar.parentNode;
+  function tick() {
+    var el = Date.now() - t0, over = expectedMs && el > expectedMs;
+    $(txtId).textContent = label + ' Elapsed ' + fmtTime(el) + (expectedMs ? ' · Expected about ' + fmtTime(expectedMs) + (guess ? ' (rough guess)' : '') : '');
+    bar.style.width = (expectedMs ? Math.min(95, 100 * el / expectedMs) : Math.min(95, 100 * (1 - Math.exp(-el / 30000)))) + '%';
+    pbar.className = 'pbar' + (over ? ' over' : '');
+    if (noteId) $(noteId).textContent = over ? 'Taking longer than expected. Large blueprints can take a few minutes. Please keep this sidebar open.' : '';
+  }
+  tick(); if (TIMER) clearInterval(TIMER); TIMER = setInterval(tick, 500);
+  return t0;
+}
+function stopTimer() { if (TIMER) clearInterval(TIMER); TIMER = null; }
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* optional */ } }
+var T_INIT = startTimer('loadTxt', 'loadBar', 'Reading the blueprint…', +lsGet('bp13_initms') || 0, null, false);
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function showErr(m) { var e = $('err'); e.hidden = !m; e.textContent = m || ''; }
 
-google.script.run.withSuccessHandler(onInit).withFailureHandler(function (e) { $('loading').hidden = true; showErr('Could not start: ' + (e && e.message || e)); }).getStatusInit13();
+google.script.run.withSuccessHandler(onInit).withFailureHandler(function (e) { stopTimer(); $('loading').hidden = true; showErr('Could not start: ' + (e && e.message || e)); }).getStatusInit13();
 
 function onInit(d) {
+  stopTimer(); lsSet('bp13_initms', String(Date.now() - T_INIT));
   INIT = d; $('loading').hidden = true;
   if (!d.devOk) { showErr('This blueprint has no “Development” tab.'); return; }
   $('setup').hidden = false;
@@ -212,7 +236,7 @@ $('devTab').addEventListener('change', function () {
   if (!id) return;
   var keep = Array.prototype.map.call(document.querySelectorAll('.th:checked'), function (c) { return c.value; });
   $('modCount').textContent = '…'; $('extraCount').textContent = '…';
-  google.script.run.withSuccessHandler(function (t) { $('modCount').textContent = t.modules; $('extraCount').textContent = t.extras; renderThemes(t.themes); $('tabNote').textContent = 'Tab changed. The numbers and activity themes below now come from this tab.'; })
+  google.script.run.withSuccessHandler(function (t) { if (INIT) INIT.acts = t.acts; $('modCount').textContent = t.modules; $('extraCount').textContent = t.extras; renderThemes(t.themes); $('tabNote').textContent = 'Tab changed. The numbers and activity themes below now come from this tab.'; })
     .withFailureHandler(function (e) { $('modCount').textContent = '?'; $('extraCount').textContent = '?'; showErr('Could not read that tab: ' + (e && e.message || e)); }).getTabInit13(id, keep);
 });
 
@@ -258,10 +282,15 @@ $('runBtn').addEventListener('click', function () {
   var gids = Array.prototype.map.call(document.querySelectorAll('.tb:checked'), function (c) { return c.value; });
   var themes = Array.prototype.map.call(document.querySelectorAll('.th:checked'), function (c) { return c.value; });
   $('runBtn').disabled = true; $('spin').hidden = false;
+  var acts = INIT && INIT.acts || 0, tm = INIT && INIT.timing, expected, guess = false;
+  if (tm && tm.ms) expected = tm.acts && acts ? tm.ms * (acts / tm.acts) : tm.ms;
+  else { expected = 6000 + 500 * acts; guess = true; }
+  startTimer('spinTxt', 'spinBar', 'Checking…', expected, 'spinNote', guess);
   google.script.run.withSuccessHandler(function (r) {
-    REPORT = r; $('spin').hidden = true; $('runBtn').disabled = false;
+    stopTimer(); REPORT = r; $('spin').hidden = true; $('runBtn').disabled = false;
+    if (INIT) INIT.timing = { ms: r.ms, acts: r.totals.activities };
     $('setup').hidden = true; render(r);
-  }).withFailureHandler(function (e) { $('spin').hidden = true; $('runBtn').disabled = false; showErr(e && e.message || e); })
+  }).withFailureHandler(function (e) { stopTimer(); $('spin').hidden = true; $('runBtn').disabled = false; showErr(e && e.message || e); })
     .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks, themes: themes, devTabId: $('devTab').value });
 });
 
@@ -343,7 +372,7 @@ function renderGroups() {
 }
 
 function render(r) {
-  var h = '<h3>Status Check Results</h3><p class="intro">' + esc(r.when) + ' · ' + r.totals.activities + ' activities · ' + countText(r) + '</p>';
+  var h = '<h3>Status Check Results</h3><p class="intro">' + esc(r.when) + ' · ' + r.totals.activities + ' activities · ' + countText(r) + (r.ms ? ' · checked in ' + fmtTime(r.ms) : '') + '</p>';
   if (r.media && r.media.found && r.media.flagged.length) h += '<div class="m bad" style="margin:0 0 8px">⚠ ' + r.media.flagged.length + ' completed media item' + (r.media.flagged.length === 1 ? '' : 's') + ' not yet added to the Dev tab (see Media deliverables, below).</div>';
   if (r.home) {
     h += '<hr><p class="sec">Home</p><p style="margin:0">' + region(r.home, false) + '</p>';

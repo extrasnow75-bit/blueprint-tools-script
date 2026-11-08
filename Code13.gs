@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 20:00 MST
+// Last updated on 2026-11-09 at 09:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 20:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-09 09:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -79,21 +79,23 @@ function getStatusInit13() {
   var doc = DocumentApp.getActiveDocument();
   var tabs = listTabs13_(doc), guess = guessDevTab13_(tabs);
   var out = { devOk: tabs.length > 0, tabs: tabs, devTabId: guess ? guess.id : '', guessed: !!guess, course: {}, modules: 0, extras: 0, table: null, tableError: null, tableUrl: null, hasBrief: false, themes: [] };
-  var dash = dashboardTab10_(doc).body;
-  out.course = {
-    credits: parseNumber13_(dashValue13_(doc, dash, /^\s*credits?\b/i)),
-    weeks: parseNumber13_(dashValue13_(doc, dash, /^\s*course\s*length\b/i)),
-    modulesPerWeek: 1,
-    creditsText: dashValue13_(doc, dash, /^\s*credits?\b/i) || '',
-    weeksText: dashValue13_(doc, dash, /^\s*course\s*length\b/i) || ''
-  };
+  var dash = dashboardTab10_(doc).body, structured = null;
+  try { structured = Docs.Documents.get(doc.getId(), { includeTabsContent: true }); } catch (eDoc) { structured = null; }
+  var cr = dashValue13_(doc, dash, /^\s*credits?\b/i, structured), wk = dashValue13_(doc, dash, /^\s*course\s*length\b/i, structured);
+  out.course = { credits: parseNumber13_(cr), weeks: parseNumber13_(wk), modulesPerWeek: 1, creditsText: cr || '', weeksText: wk || '' };
   if (guess) {
-    try { var ti = tabInfo13_(doc, devBody13_(doc, guess.id), null); out.modules = ti.modules; out.extras = ti.extras; out.themes = ti.themes; } catch (e) { /* shown as 0 */ }
+    try { var ti = tabInfo13_(doc, devBody13_(doc, guess.id), null); out.modules = ti.modules; out.extras = ti.extras; out.themes = ti.themes; out.acts = ti.acts; } catch (e) { /* shown as 0 */ }
   }
+  out.timing = readTiming13_();
   for (var i = 0; i < tabs.length; i++) if (/^\s*creative brief\s*$/i.test(tabs[i].title)) out.hasBrief = true;
   var d = getDeployInit11();
   out.table = d.table; out.tableError = d.error; out.tableUrl = d.url;
   return out;
+}
+
+/** The last check's {ms, acts} for this blueprint, or null. */
+function readTiming13_() {
+  try { var t = JSON.parse(PropertiesService.getDocumentProperties().getProperty(TIMING_PROP_13) || 'null'); return t && t.ms ? t : null; } catch (e) { return null; }
 }
 
 /** Sidebar: the user picked another tab. Returns its module and section counts and its activity-theme list. */
@@ -182,6 +184,7 @@ function scanExtraSections13_(body) {
 /** Counts and the activity-theme list for one tab. keep = theme names to leave ticked (null: use the saved ones). */
 function tabInfo13_(doc, body, keep) {
   var sec = sectionsOf13_(body), all = sec.mods.concat(sec.extras), out = { modules: sec.mods.length, extras: sec.extras.length, themes: [] };
+  all.forEach(function (m) { out.acts += m.activities.length; });
   var saved = [];
   try { saved = JSON.parse(PropertiesService.getDocumentProperties().getProperty(THEME_PROP_13) || '[]'); } catch (e) { saved = []; }
   var names = PRESET_THEMES_13.slice();
@@ -203,6 +206,7 @@ function tabInfo13_(doc, body, keep) {
  * @returns {Object} the report (see buildReport13_ for the shape)
  */
 function runStatusCheck13(opts) {
+  var runStart = Date.now();
   var doc = DocumentApp.getActiveDocument();
   var checks = opts.checks || {};
   var devBody = devBody13_(doc, opts.devTabId);
@@ -311,6 +315,9 @@ function runStatusCheck13(opts) {
     try { report.media = mediaReport13_(doc); }
     catch (e) { report.notes.push('Media deliverables could not be read: ' + (e && e.message || e)); }
   }
+
+  report.ms = Date.now() - runStart;
+  try { PropertiesService.getDocumentProperties().setProperty(TIMING_PROP_13, JSON.stringify({ ms: report.ms, acts: report.totals.activities })); } catch (eT) { /* timing memory is optional */ }
 
   return report;
 }
@@ -478,6 +485,7 @@ function barLine13_(body, label, pct) {
 // ── THEMES ───────────────────────────────────────────────────
 
 var THEME_PROP_13 = 'BP_STATUS_THEMES_13';
+var TIMING_PROP_13 = 'BP_STATUS_TIMING_13';   // {ms, acts}: how long the last check took, for the "expected time" counter
 var PRESET_THEMES_13 = ['Quizzes', 'Exams', 'Readings', 'Videos', 'Readings & Multimedia', 'Reflections', 'Assignments', 'Final Project'];
 var THEME_STOP_13 = ['the', 'and', 'for', 'with', 'your', 'from', 'this', 'that', 'into', 'about', 'week', 'module', 'unit', 'part', 'activity', 'canvas', 'page', 'discussion', 'discussions'];
 
@@ -775,16 +783,17 @@ function describeRegion13_(region, isSyllabus) {
  * (found by Greg's spike run, 2026-11-08), then fall back to plain text. "--" and
  * "Select ..." placeholders count as empty.
  */
-function dashValue13_(doc, dashBody, labelRe) {
+function dashValue13_(doc, dashBody, labelRe, structured) {
   var v = '';
-  try { v = readDashChip13_(doc, labelRe); } catch (e) { v = ''; }
+  try { v = readDashChip13_(doc, labelRe, structured); } catch (e) { v = ''; }
   if (!v) v = readDashField13_(dashBody, labelRe);
   return /^\s*(--|—|select\b.*)\s*$/i.test(v || '') ? '' : (v || '');
 }
 
-function readDashChip13_(doc, labelRe) {
+function readDashChip13_(doc, labelRe, structured) {
   var tab = null;
-  flattenDocsTabs_(Docs.Documents.get(doc.getId(), { includeTabsContent: true })).forEach(function (t) {
+  // Pass an already-downloaded document (Docs API) to avoid downloading it again for every field.
+  flattenDocsTabs_(structured || Docs.Documents.get(doc.getId(), { includeTabsContent: true })).forEach(function (t) {
     if (!tab && /dashboard/i.test((t.tabProperties || {}).title || '')) tab = t;
   });
   if (!tab) return '';
