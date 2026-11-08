@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 12:00 MST
+// Last updated on 2026-11-08 at 13:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 12:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 13:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -708,15 +708,37 @@ function mediaReport13_(doc) {
   return out;
 }
 
-/** Table (Docs API) whose first row has "Media Type" and "Final Link", or null. */
+/**
+ * Table (Docs API) whose first row has "Media Type" and "Final Link", or null.
+ * Looks inside other tables too (layout tables), not just at the top level.
+ */
 function findMediaTable13_(content) {
-  for (var i = 0; i < content.length; i++) {
+  for (var i = 0; i < (content || []).length; i++) {
     var t = content[i].table;
     if (!t || !t.tableRows || !t.tableRows.length) continue;
     var head = t.tableRows[0].tableCells.map(function (c) { return cellText13_(c); }).join(' | ');
     if (/media\s*type/i.test(head) && /final\s*link/i.test(head)) return t;
+    for (var r = 0; r < t.tableRows.length; r++) {
+      var cells = t.tableRows[r].tableCells || [];
+      for (var c = 0; c < cells.length; c++) {
+        var inner = findMediaTable13_(cells[c].content);
+        if (inner) return inner;
+      }
+    }
   }
   return null;
+}
+
+/** For the spike: one line per table (top level and nested) with its first row's text. */
+function describeTables13_(content, depth, out) {
+  (content || []).forEach(function (el) {
+    var t = el.table;
+    if (!t || !t.tableRows || !t.tableRows.length) return;
+    out.push(new Array((depth || 0) + 1).join('  ') + 'table, ' + t.tableRows.length + ' rows; first row: ' +
+      t.tableRows[0].tableCells.map(function (c) { return cellText13_(c).replace(/\s+/g, ' ').slice(0, 30); }).join(' | '));
+    t.tableRows.forEach(function (row) { (row.tableCells || []).forEach(function (c) { describeTables13_(c.content, (depth || 0) + 1, out); }); });
+  });
+  return out;
 }
 
 function paraText13_(p) {

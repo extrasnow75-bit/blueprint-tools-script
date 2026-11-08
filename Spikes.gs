@@ -136,7 +136,7 @@ function spikeStatusSpike13() {
   flattenDocsTabs_(s).forEach(function (t) { if (!tab && /^\s*creative brief\s*$/i.test((t.tabProperties || {}).title || '')) tab = t; });
   if (!tab) { Logger.log('No Creative Brief tab.'); return; }
   var content = tab.documentTab.body.content, table = findMediaTable13_(content);
-  if (!table) { Logger.log('No table under Media Deliverables.'); return; }
+  if (!table) { Logger.log('No table under Media Deliverables. Tables found in the Creative Brief tab:'); describeTables13_(content, 0, []).forEach(function (l) { Logger.log('  ' + l); }); return; }
   Logger.log('Header row: ' + JSON.stringify(table.tableRows[0].tableCells.map(cellText13_)));
   for (var r = 1; r < Math.min(table.tableRows.length, 4); r++) {
     table.tableRows[r].tableCells.forEach(function (cell, c) {
