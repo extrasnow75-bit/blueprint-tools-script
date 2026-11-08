@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 15:00 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 15:30 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -79,7 +79,11 @@
     .vtabs button:first-child { border-radius:3px 0 0 3px; } .vtabs button:last-child { border-radius:0 3px 3px 0; margin-left:-2px; }
     .vtabs button[aria-pressed=true] { background:#0033a0; color:#fff; }
     details.grp { border:1px solid #aab2c8; border-radius:3px; margin:0 0 8px; padding:0 10px 6px; }
-    details.grp > summary { min-height:44px; }
+    details.grp > summary { min-height:44px; list-style:none; }
+    details > summary::-webkit-details-marker { display:none; }
+    details > summary::before { content:'\25B8'; flex:none; width:14px; color:#0033a0; font-size:14px; }
+    details[open] > summary::before { content:'\25BE'; }
+    details.grp > summary > span:first-child { flex:1; }
     .tbox { width:100%; min-height:90px; font:12px Arial,sans-serif; border:1px solid #767676; border-radius:3px; padding:6px; margin:4px 0 6px; }
     .radio { display:flex; gap:8px; align-items:flex-start; font-size:12px; margin:0 0 6px; }
     .radio input { margin:2px 0 0; width:16px; height:16px; flex:none; }
