@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 17:30 MST
+<!-- Blueprint Tools — Sidebar13.html | Last updated on 2026-11-08 at 18:00 MST
 
      UI for "Development Status Check" (Code13.gs). Setup screen built to
      docs/dev-handoff/mockups/Main.png; results to StatusResultsB.png, in the
@@ -239,11 +239,11 @@ $('runBtn').addEventListener('click', function () {
     .runStatusCheck13({ credits: $('credits').value, weeks: $('weeks').value, modulesPerWeek: $('mpw').value, tableId: tableId, tabGids: gids, checks: checks, themes: themes });
 });
 
-function saveIt(dest, format, then) {
+function saveIt(dest, format, replace, then) {
   var box = $('saveMsg'); box.innerHTML += '<div>Saving…</div>';
   google.script.run.withSuccessHandler(function (s) { box.innerHTML += '<div>Saved: <a href="' + esc(s.url) + '">' + esc(s.label) + '</a></div>'; if (then) then(); })
     .withFailureHandler(function (e) { box.innerHTML += '<div class="bad">Could not save: ' + esc(e && e.message || e) + '</div>'; if (then) then(); })
-    .saveStatusReport13(REPORT, dest, format);
+    .saveStatusReport13(REPORT, dest, format, !!replace);
 }
 
 var LABEL = { untouched: 'Untouched template', drafted: 'Drafted, not highlighted', green: 'Ready for QA (green)', purple: 'Approved by QA (purple)', revised: 'Revised (yellow)', built: 'Built in Canvas' };
@@ -354,19 +354,23 @@ function render(r) {
     }
   }
   if (r.notes.length) h += '<hr>' + r.notes.map(function (n) { return '<p class="m no">' + esc(n) + '</p>'; }).join('');
-  h += '<hr><details class="grp" id="exportBox"><summary><span>Export the report</span><span class="st">optional, closed until you need it</span></summary>' +
-    '<p class="lbl2">Format (tick one or both)</p>' +
+  h += '<hr><details class="grp" id="exportBox"><summary><span>Export the report</span><span class="st">optional</span></summary>' +
+    '<p class="m sh">Nothing is saved until you press “Create report”.</p>' +
+    '<p class="lbl2">1. What to create (tick one or both)</p>' +
     '<label class="chk"><input type="checkbox" id="fFull" checked> <span>Full graphical report (headings, progress bars)</span></label>' +
     '<label class="chk"><input type="checkbox" id="fPlain"> <span>Plain text report (no formatting, for QuickBase or email update)</span></label>' +
-    '<div id="plainLen" hidden style="margin:0 0 8px 24px"><label class="radio"><input type="radio" name="plen" value="plain" checked><span>Complete</span></label><label class="radio"><input type="radio" name="plen" value="plainshort"><span>Short summary</span></label></div>' +
-    '<p class="lbl2">Save to</p>' +
-    '<label class="chk"><input type="checkbox" id="dTab"> <span>A new tab in this blueprint</span></label>' +
-    '<label class="chk"><input type="checkbox" id="dDoc"> <span>A new Google Doc in the blueprint’s folder</span></label>' +
-    '<p class="m sh">Ticking both formats and both places makes four items. Each format is saved separately so the plain text is easy to copy.</p>' +
+    '<div style="margin:0 0 8px 24px"><span class="m sh">Plain text length:</span><label class="radio"><input type="radio" name="plen" value="plain" checked><span>Complete</span></label><label class="radio"><input type="radio" name="plen" value="plainshort"><span>Short summary</span></label></div>' +
+    '<p class="lbl2">2. Where to save it (tick one or both)</p>' +
+    '<label class="chk"><input type="checkbox" id="dTab"> <span>A tab in this blueprint</span></label>' +
+    '<label class="chk"><input type="checkbox" id="dDoc"> <span>A Google Doc in the blueprint’s folder</span></label>' +
+    '<label class="chk"><input type="checkbox" id="rep" checked> <span><b>Replace my last report</b> of the same kind instead of adding a new one. You’ll be asked to confirm.</span></label>' +
+    '<p class="m sh">Each format and place is a separate item, so two formats in two places makes four.</p>' +
+    '<button class="btn2" type="button" id="saveGo">Create report</button>' +
+    '<div id="repBox" class="note" hidden></div>' +
     '<div id="saveMsg" class="m"></div>' +
-    '<button class="btn2" type="button" id="saveGo">Save</button>' +
-    '<button class="btn2" type="button" id="showPlain">Show the plain text here to copy</button>' +
-    '<div id="plainBox" hidden><textarea class="tbox" id="plainTxt" readonly aria-label="Plain text report"></textarea><button class="btn2" type="button" id="copyPlain">Copy</button></div>' +
+    '<p class="lbl2">Or copy the plain text without saving anything</p>' +
+    '<button class="btn2" type="button" id="showPlain">Copy plain text</button>' +
+    '<div id="plainBox" hidden><textarea class="tbox" id="plainTxt" readonly aria-label="Plain text report"></textarea><div id="copyMsg" class="m sh"></div></div>' +
     '</details>' +
     '<button class="btn" type="button" id="again" style="margin-top:10px">Run again</button>';
   $('results').innerHTML = h; $('results').hidden = false; window.scrollTo(0, 0);
@@ -376,24 +380,44 @@ function render(r) {
   if ($('vThe')) $('vThe').addEventListener('click', function () { setView('theme'); });
   if ($('onlyNR')) $('onlyNR').addEventListener('change', function () { ONLY = this.checked; renderGroups(); });
   function plainFmt() { return document.querySelector('input[name=plen]:checked').value; }
-  $('fPlain').addEventListener('change', function () { $('plainLen').hidden = !this.checked; });
+  function runJobs(jobs, replace) {
+    $('saveGo').disabled = true; $('repBox').hidden = true;
+    (function next(i) { if (i >= jobs.length) { $('saveGo').disabled = false; return; } saveIt(jobs[i][0], jobs[i][1], replace, function () { next(i + 1); }); })(0);
+  }
   $('saveGo').addEventListener('click', function () {
     var dests = [], fmts = [];
     if ($('dTab').checked) dests.push('tab'); if ($('dDoc').checked) dests.push('doc');
     if ($('fFull').checked) fmts.push('full'); if ($('fPlain').checked) fmts.push(plainFmt());
-    $('saveMsg').innerHTML = '';
-    if (!fmts.length) { $('saveMsg').innerHTML = '<span class="bad">Tick at least one format.</span>'; return; }
+    $('saveMsg').innerHTML = ''; $('repBox').hidden = true;
+    if (!fmts.length) { $('saveMsg').innerHTML = '<span class="bad">Tick at least one thing to create.</span>'; return; }
     if (!dests.length) { $('saveMsg').innerHTML = '<span class="bad">Tick at least one place to save to.</span>'; return; }
     var jobs = []; dests.forEach(function (d) { fmts.forEach(function (f) { jobs.push([d, f]); }); });
-    $('saveGo').disabled = true;
-    (function next(i) { if (i >= jobs.length) { $('saveGo').disabled = false; return; } saveIt(jobs[i][0], jobs[i][1], function () { next(i + 1); }); })(0);
+    if (!$('rep').checked) { runJobs(jobs, false); return; }
+    $('saveGo').disabled = true; $('saveMsg').textContent = 'Looking for earlier reports…';
+    google.script.run.withSuccessHandler(function (found) {
+      $('saveGo').disabled = false; $('saveMsg').textContent = '';
+      var hits = found.filter(function (x) { return x.name; });
+      if (!hits.length) { $('saveMsg').textContent = 'No earlier report of this kind was found, so new ones will be created.'; runJobs(jobs, true); return; }
+      var box = $('repBox');
+      box.innerHTML = '<b>Replace these?</b> Their contents will be rewritten with the new report. Anything you added by hand in them will be lost (a Google Doc keeps its version history).<ul>' +
+        hits.map(function (x) { return '<li>' + (x.dest === 'tab' ? 'Tab' : 'Google Doc') + ': ' + esc(x.name) + '</li>'; }).join('') + '</ul>' +
+        (hits.length < found.length ? '<p class="m">The other ' + (found.length - hits.length) + ' item(s) have no earlier report, so new ones will be created.</p>' : '') +
+        '<button class="btn" type="button" id="repGo">Replace and save</button><button class="btn2" type="button" id="repNew" style="margin-top:8px">Add new ones instead</button><button class="linkbtn" type="button" id="repNo">Cancel</button>';
+      box.hidden = false;
+      $('repGo').addEventListener('click', function () { runJobs(jobs, true); });
+      $('repNew').addEventListener('click', function () { runJobs(jobs, false); });
+      $('repNo').addEventListener('click', function () { box.hidden = true; });
+    }).withFailureHandler(function (e) { $('saveGo').disabled = false; $('saveMsg').innerHTML = '<span class="bad">Could not check for earlier reports: ' + esc(e && e.message || e) + '</span>'; }).previewStatusReplace13(dests, fmts);
   });
   $('showPlain').addEventListener('click', function () {
     var f = plainFmt();
-    $('plainTxt').value = 'Working…'; $('plainBox').hidden = false;
-    google.script.run.withSuccessHandler(function (t) { $('plainTxt').value = t; }).withFailureHandler(function (e) { $('plainTxt').value = 'Could not build the text: ' + (e && e.message || e); }).statusPlainText13(REPORT, f === 'plainshort');
+    $('plainTxt').value = 'Working…'; $('plainBox').hidden = false; $('copyMsg').textContent = '';
+    google.script.run.withSuccessHandler(function (t) {
+      var box = $('plainTxt'); box.value = t; box.focus(); box.select();
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      $('copyMsg').textContent = ok ? 'Copied to the clipboard. You can paste it now.' : 'The text is selected below. Press Ctrl+C (or Cmd+C) to copy it.';
+    }).withFailureHandler(function (e) { $('plainTxt').value = 'Could not build the text: ' + (e && e.message || e); }).statusPlainText13(REPORT, f === 'plainshort');
   });
-  $('copyPlain').addEventListener('click', function () { var t = $('plainTxt'); t.focus(); t.select(); try { document.execCommand('copy'); this.textContent = 'Copied'; } catch (e) { this.textContent = 'Select the text and copy it'; } });
 }
 </script>
 </body>

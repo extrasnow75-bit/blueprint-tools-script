@@ -7,7 +7,7 @@
 // the credit-hour guideline, settings-table tabs marked finalized, and Media
 // Deliverables that are Completed but not yet added to the Dev tab.
 // ------------------------------------------------------------
-// Last updated on 2026-11-08 at 17:00 MST
+// Last updated on 2026-11-08 at 18:00 MST
 // ------------------------------------------------------------
 //
 // Spec: docs/dev-handoff/HANDOFF.md section 3.4. Mockups: Main.png (setup),
@@ -45,7 +45,7 @@
 
 // Review stages, lowest first. 'revised' (yellow) is handled separately: any
 // yellow makes an activity Revised (Greg's rule).
-var BP_VER_Code13 = '2026-11-08 17:00';  // keep equal to "Last updated on" above; Code14.gs reads it
+var BP_VER_Code13 = '2026-11-08 18:00';  // keep equal to "Last updated on" above; Code14.gs reads it
 
 var STAGE_ORDER_13 = ['untouched', 'drafted', 'green', 'purple', 'built'];
 var STAGE_LABEL_13 = {
@@ -225,11 +225,88 @@ function runStatusCheck13(opts) {
  * Google Doc in the blueprint's folder). Never touches existing content.
  * @returns {{url: string, label: string}}
  */
-function saveStatusReport13(report, dest, format) {
+var REPORT_TITLE_RE_13 = /^Status Check (\d{4}-\d{2}-\d{2} \d{2}:\d{2})( full| plain text short| plain text)$/;
+
+function reportKind13_(format) {
+  return format === 'plainshort' ? ' plain text short' : (format === 'plain' ? ' plain text' : ' full');
+}
+
+/**
+ * Saves one report. replace = true: if an earlier Status Check report of the same
+ * kind exists in the same place (a tab in this blueprint, or a Doc in its folder),
+ * its contents are rewritten in place instead of making a new tab or Doc. The
+ * sidebar asks the user to confirm first (previewStatusReplace13); only reports
+ * named "Status Check <date> <kind>" are ever touched.
+ */
+function saveStatusReport13(report, dest, format, replace) {
   var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-  var lines = (format === 'plain' || format === 'plainshort') ? plainLines13_(report, format === 'plainshort').map(function (t) { return { text: t, h: 0 }; }) : reportLines13_(report);
-  var kind = (format === 'plain' || format === 'plainshort') ? (format === 'plainshort' ? ' plain text short' : ' plain text') : ' full';
-  return saveLines13_(lines, 'Status Check ' + stamp + kind, dest, report.blueprint);
+  var plain = (format === 'plain' || format === 'plainshort');
+  var lines = plain ? plainLines13_(report, format === 'plainshort').map(function (t) { return { text: t, h: 0 }; }) : reportLines13_(report);
+  var kind = reportKind13_(format), title = 'Status Check ' + stamp + kind;
+  if (replace) {
+    var doc = DocumentApp.getActiveDocument();
+    if (dest === 'tab') {
+      var pt = findPriorTab13_(doc, kind);
+      if (pt) {
+        var body = pt.tab.asDocumentTab().getBody();
+        body.clear();
+        writeLines13_(body, lines);
+        var renamed = false;
+        try { pt.tab.setTitle(title); renamed = true; } catch (e) { /* older runtimes: keep the old name */ }
+        return { url: doc.getUrl() + '?tab=' + encodeURIComponent(pt.tab.getId()), label: 'Replaced the contents of tab “' + (renamed ? title : pt.name) + '”' };
+      }
+    } else if (dest === 'doc') {
+      var pd = findPriorDoc13_(doc, kind);
+      if (pd) {
+        var nd = DocumentApp.openById(pd.file.getId());
+        nd.getBody().clear();
+        writeLines13_(nd.getBody(), lines);
+        nd.setName((report.blueprint || doc.getName()) + ' - ' + title);
+        nd.saveAndClose();
+        return { url: pd.file.getUrl(), label: 'Replaced the contents of Google Doc “' + (report.blueprint || doc.getName()) + ' - ' + title + '” (its version history keeps the old one)' };
+      }
+    }
+  }
+  return saveLines13_(lines, title, dest, report.blueprint);
+}
+
+/** Tells the sidebar which earlier reports a "replace" save would overwrite (nothing is changed here). */
+function previewStatusReplace13(dests, formats) {
+  var doc = DocumentApp.getActiveDocument(), out = [];
+  (dests || []).forEach(function (d) {
+    (formats || []).forEach(function (f) {
+      var kind = reportKind13_(f), found = d === 'tab' ? findPriorTab13_(doc, kind) : findPriorDoc13_(doc, kind);
+      out.push({ dest: d, format: f, name: found ? found.name : null });
+    });
+  });
+  return out;
+}
+
+/** Most recent tab in this blueprint named "Status Check <date> <kind>", or null. */
+function findPriorTab13_(doc, kind) {
+  var best = null;
+  (function walk(tabs) {
+    tabs.forEach(function (t) {
+      var m = REPORT_TITLE_RE_13.exec(t.getTitle());
+      if (m && m[2] === kind && (!best || m[1] > best.stamp)) best = { stamp: m[1], tab: t, name: t.getTitle() };
+      walk(t.getChildTabs());
+    });
+  })(doc.getTabs());
+  return best;
+}
+
+/** Most recent Doc in the blueprint's folder named "<blueprint> - Status Check <date> <kind>", or null. */
+function findPriorDoc13_(doc, kind) {
+  var parents = DriveApp.getFileById(doc.getId()).getParents();
+  if (!parents.hasNext()) return null;
+  var it = parents.next().getFilesByType(MimeType.GOOGLE_DOCS), prefix = doc.getName() + ' - ', best = null;
+  while (it.hasNext()) {
+    var f = it.next(), n = f.getName();
+    if (n.indexOf(prefix) !== 0) continue;
+    var m = REPORT_TITLE_RE_13.exec(n.slice(prefix.length));
+    if (m && m[2] === kind && (!best || m[1] > best.stamp)) best = { stamp: m[1], file: f, name: n };
+  }
+  return best;
 }
 
 /** Plain text version for the sidebar's copy box (e.g. to paste into QuickBase). */
