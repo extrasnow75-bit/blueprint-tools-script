@@ -245,7 +245,7 @@ Current scopes: `documents`, `drive` (added 2026-11-02 for Link Project Document
 | Deploy Settings Tables | Read the settings table's tab names. Writes only to the blueprint. | Sheets (read-only is enough) |
 | Development Status Check | Read settings-table tabs and the "Check when settings are finalized:" checkboxes. Save the report to a new blueprint tab (no new scope). Save it to a new Google Doc in the blueprint's folder (**see below**). | Sheets (read-only); Drive for the new-Doc option |
 | Blueprint Tools Version Check | Fetch the manifest from GitHub (`script.external_request`, already present). Same export options as the Status Check. | Drive for the new-Doc option only |
-| What Week Is This Project In? (`Code17`) | Read events on the Course Design and Development Schedule calendar. | `calendar.readonly` (**approved by Greg 2026-11-20, added**) |
+| Setup Gemini Notebook (`Code17`) | Read events on the Course Design and Development Schedule calendar. | `calendar.readonly` (**approved by Greg 2026-11-20, added**) |
 
 **Shared decision, "save to a new Google Doc in the same folder":** the Status Check and the Version Check both offer it, so one scope decision covers both. A new Doc is created in My Drive and moving it into the blueprint's folder very likely needs a broader Drive permission than read-only metadata. Not verified. Test it. If it needs a broad Drive scope, tell Greg plainly and offer to drop the option and keep only "new tab in the blueprint" (which needs no new scope).
 
@@ -400,7 +400,9 @@ Greg's plan document describes a Gemini Notebook "project work station" per proj
 5. Setup-data tool (section 11) can start once Greg supplies the sheet and answers; it shares the Sheets scope decision and may come earlier than tool 3.
 6. Ownership tool (section 12) after its spike.
 
-## 15. What Week Is This Project In? (`Code17.gs` / `Sidebar17.html`) — built 2026-11-20, not yet run in Apps Script
+## 15. Setup Gemini Notebook (`Code17.gs` / `Sidebar17.html`) — built 2026-11-20, not yet run in Apps Script
+
+Renamed from "What Week Is This Project In?" at Greg's request (2026-11-20). **So far it only does the first step: working out the project's design-cycle week.** The notebook-setup steps (gathering the project folder and reference documents as notebook sources; see section 13) are still to be built on top of it.
 
 Menu item under Development Status Check. Reads the **Design Cycle:** line on the Dashboard tab (also finds the value in the next table cell, on the next line, or in a date chip), matches it to the **Course Design and Development Schedule** calendar (`CDD_CALENDAR_ID_17`), and shows the current week and phase plus the full week-by-week schedule. Read-only; writes nothing.
 

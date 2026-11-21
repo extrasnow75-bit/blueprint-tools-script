@@ -1,12 +1,12 @@
 // ============================================================
 // Blueprint Tools — Code17.gs
-// What Week Is This Project In?
+// Setup Gemini Notebook
 // Reads the "Design Cycle:" line on the Blueprint's Dashboard tab,
 // finds the matching cycle on the Course Design and Development
 // Schedule calendar, and reports the current week and phase plus the
 // cycle's full week-by-week schedule.
 // ------------------------------------------------------------
-// Last updated on 2026-11-20 at 18:15 MST
+// Last updated on 2026-11-20 at 18:40 MST
 // ------------------------------------------------------------
 //
 // HOW THE CYCLE IS WORKED OUT
@@ -57,9 +57,9 @@ var DAY_MS_17 = 24 * 60 * 60 * 1000;
 
 // ── SIDEBAR OPENER ───────────────────────────────────────────
 
-function showProjectWeekSidebar17() {
+function showSetupNotebookSidebar17() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar17')
-    .setTitle('🎓 What Week Is This Project In?')
+    .setTitle('🎓 Setup Gemini Notebook')
     .setWidth(360);
   DocumentApp.getUi().showSidebar(html);
 }

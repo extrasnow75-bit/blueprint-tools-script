@@ -126,7 +126,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Development Status Check',               'showStatusSidebar13')
     .addSeparator()
-    .addItem('What Week Is This Project In?',          'showProjectWeekSidebar17')
+    .addItem('Setup Gemini Notebook',                  'showSetupNotebookSidebar17')
     .addSeparator()
     .addItem('KB Article',                             'showKbArticle')
     .addToUi();
