@@ -422,3 +422,14 @@ As of 2026-11-20 the work station doc yields 6 linked references and 8 "no link 
 - **To do: use the LIVE Multi-Semester List.** When Greg has the live Google Sheet, put its ID in `MULTI_SEMESTER_SHEET_ID_17`. Use it to cross-check a project's term/cycle by course code and to supply QA and Build start dates (they join mid-cycle) for a future Gantt chart tool. The copy reviewed 2026-11-20 was an .xlsx snapshot dated 11/02/2026: Apps Script can't read it directly and it goes stale.
 - **Possible next tools built on this:** a per-project Gantt chart generated from the calendar weeks (+ role windows from the Multi-Semester List); reading the Dashboard's document links for the notebook "work station" idea (section 13).
 
+### 15a. KB Copy Job (prototype, `kb-copy-job/`) — built 2026-11-20, not yet run
+
+A **separate** Apps Script project (bound to a private control Sheet Greg owns), not part of the Blueprint Tools script and not numbered. It copies Knowledge Base (Confluence Cloud, `boisestateecampus.atlassian.net`) pages into Google Docs in `15_H0_97_6ZqU-Pi8nW79PSf2_ARNtxzz` ("Gemini Notebook Project Work Station Stuff"), nightly via a time trigger, so Set Up Gemini Notebook can offer them as sources. Setup steps: `kb-copy-job/README.md`.
+
+- **Token:** one Atlassian API token (scoped, `read:page:confluence`), stored only in Greg's User Properties for that script. Never in code (this repo is public), the Sheet, or logs. IDCs never need it. Greg confirmed 2026-11-20 that he can create tokens (both classic and scoped buttons present).
+- **Pages:** Confluence links in the work station doc + column A of the Sheet's "Pages to copy" tab. As of 2026-11-20 the work station doc has none; Greg will add them.
+- **Copies:** one Doc per page, same file ID on every refresh (Drive v3 `Files.update` with an HTML upload), only rewritten when the page version changes. Description `confluence-page-id: <id>` is how `Code17` matches a Confluence link to its copy (`listKbCopies17_`). Images are replaced by a placeholder.
+- **API:** Confluence REST v2 `GET /wiki/api/v2/pages/{id}?body-format=view` (falls back to `export_view`, then `storage`). Scoped tokens go through `https://api.atlassian.com/ex/confluence/{cloudId}`; cloud ID comes from the site's public `/_edge/tenant_info`. Classic tokens use the site address. The job tries both and remembers which worked. **Unverified in practice**, especially whether `read:page:confluence` alone allows `body-format=view`; the Test connection item reports the exact problem.
+- **Scopes (that project only):** `spreadsheets.currentonly`, `script.container.ui`, `script.external_request`, `script.scriptapp`, `documents`, `drive`, plus the Drive v3 advanced service.
+- **Blueprint Tools change:** none to scopes. `Code17` reads the copies folder with the existing `drive` scope; IDCs need view access to it.
+

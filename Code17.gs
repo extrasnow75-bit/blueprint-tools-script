@@ -13,7 +13,7 @@
 // adds the sources by hand; this tool tells them exactly which ones.
 // Read-only: it changes nothing in Drive or in the Blueprint.
 // ------------------------------------------------------------
-// Last updated on 2026-11-20 at 19:30 MST
+// Last updated on 2026-11-20 at 20:30 MST
 // ------------------------------------------------------------
 //
 // WHERE THE SOURCES COME FROM
@@ -27,6 +27,9 @@
 //     Management, ...); linked bullets under an "Automate ..." or
 //     "Add Google Drive shortcuts ..." line are the documents. Unlinked
 //     ones show as "no link yet". Edit that doc to change the list.
+//     Knowledge Base (Confluence) links are swapped for their Google Doc
+//     copy in KB_COPY_FOLDER_ID_17, made by the separate KB Copy Job
+//     (kb-copy-job/ in this repo). Without a copy they show "not copied".
 //
 // REUSES (Code10.gs): MIME_DOC_10, MIME_SHEET_10, MIME_DOCX_10,
 //   MIME_SHORTCUT_10, idFromUrl10_. (Code.gs): collectTabs.
@@ -86,6 +89,11 @@ var WORKSTATION_DOC_ID_17 = '1yg_lnXDVO3RPNNf-Y9JsCmKIZMofWCcOLUytMl6Hdag';
 var MAX_PROJECT_FILES_17 = 500;
 
 var GEMINI_NOTEBOOK_URL_17 = 'https://notebook.google.com/';
+
+// Folder where the KB Copy Job (kb-copy-job/ in this repo, a separate
+// script Greg owns) keeps Google Doc copies of Knowledge Base pages.
+// Each copy's Drive description holds "confluence-page-id: <id>".
+var KB_COPY_FOLDER_ID_17 = '15_H0_97_6ZqU-Pi8nW79PSf2_ARNtxzz';
 
 // File kinds Gemini Notebook accepts as sources (Greg's list, 2026-11-20).
 var NOTEBOOK_KINDS_17 = {
@@ -264,12 +272,26 @@ function readReferenceDocs17_() {
   });
 
   var groups = parseWorkstationList17(items);
+  var kbCopies = null;   // read the copies folder only if a KB link appears
   groups.forEach(function (g) {
     g.items.forEach(function (it) {
       if (!it.url) return;
+      var pageId = confluencePageId17_(it.url);
+      if (pageId) {
+        if (!kbCopies) kbCopies = listKbCopies17_();
+        var copy = kbCopies[pageId];
+        if (copy) {
+          it.id = copy.id; it.url = copy.url; it.kind = 'Google Doc'; it.kbCopy = true;
+        } else {
+          it.kind = 'Knowledge Base page';
+          it.problem = 'Not copied to a Google Doc yet (the KB Copy Job hasn\'t run for it). ' +
+                       'Gemini Notebook can\'t open pages that need a Confluence sign-in.';
+        }
+        return;
+      }
       var id = /docs\.google\.com|drive\.google\.com/.test(it.url)
         ? idFromUrl10_(it.url) : null;
-      if (!id) { it.kind = 'Web page'; return; }   // e.g. a Confluence page
+      if (!id) { it.kind = 'Web page'; return; }   // any other website
       it.id = id;
       try {
         var f = DriveApp.getFileById(id);
@@ -285,6 +307,30 @@ function readReferenceDocs17_() {
   });
   return { ok: true, groups: groups,
            docUrl: 'https://docs.google.com/document/d/' + WORKSTATION_DOC_ID_17 + '/edit' };
+}
+
+/** Confluence page ID in a Knowledge Base link, or null. */
+function confluencePageId17_(url) {
+  var s = String(url || '');
+  if (!/^https?:\/\/[^\/]*atlassian\.net\/wiki\//i.test(s)) return null;
+  var m = s.match(/\/pages\/(\d+)/) || s.match(/[?&]pageId=(\d+)/);
+  return m ? m[1] : null;
+}
+
+/** The KB Copy Job's Docs, keyed by Confluence page ID. */
+function listKbCopies17_() {
+  var map = {};
+  try {
+    var it = DriveApp.getFolderById(KB_COPY_FOLDER_ID_17)
+      .getFilesByType('application/vnd.google-apps.document');
+    while (it.hasNext()) {
+      var f = it.next();
+      var m = String(f.getDescription() || '').match(/confluence-page-id:\s*(\d+)/);
+      if (m) map[m[1]] = { id: f.getId(),
+        url: 'https://docs.google.com/document/d/' + f.getId() + '/edit' };
+    }
+  } catch (e) { /* no access to the folder: links show as "not copied yet" */ }
+  return map;
 }
 
 /** First hyperlink (or link chip) inside a paragraph or list item. */

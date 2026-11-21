@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-20 at 19:30 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-20 at 20:30 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -176,7 +176,8 @@
           } else {
             total++;
             h += row(it.name, it.url, it.kind || '',
-              it.kind === 'Web page' ? '<span class="tag">add as a website</span>' : '');
+              it.kbCopy ? '<span class="tag">copy of KB page</span>'
+              : (it.kind === 'Web page' ? '<span class="tag">add as a website</span>' : ''));
           }
         });
         h += '</ul>';
