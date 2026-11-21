@@ -402,9 +402,17 @@ Greg's plan document describes a Gemini Notebook "project work station" per proj
 
 ## 15. Set Up Gemini Notebook (`Code17.gs` / `Sidebar17.html`) — built 2026-11-20, not yet run in Apps Script
 
-Renamed from "What Week Is This Project In?" at Greg's request (2026-11-20). **So far it only does the first step: working out the project's design-cycle week.** The notebook-setup steps (gathering the project folder and reference documents as notebook sources; see section 13) are still to be built on top of it.
+Renamed from "What Week Is This Project In?" at Greg's request (2026-11-20). Gemini Notebook has no API for Workspace accounts, so the tool builds a **checklist of sources** the IDC adds by hand (Add sources → Drive), with an "Open Gemini Notebook" button. Read-only; writes nothing. Sidebar, top to bottom:
 
-Menu item under Development Status Check. Reads the **Design Cycle:** line on the Dashboard tab (also finds the value in the next table cell, on the next line, or in a date chip), matches it to the **Course Design and Development Schedule** calendar (`CDD_CALENDAR_ID_17`), and shows the current week and phase plus the full week-by-week schedule. Read-only; writes nothing.
+1. **Steps + Open Gemini Notebook button.**
+2. **Design-cycle week** (below). Fails on its own without hiding the lists.
+3. **From the project folder:** the Blueprint's parent folder **and all subfolders** (Greg, 2026-11-20: use Drive, not Dashboard links, because the tool may run before the Dashboard is linked). Shortcuts are followed. Offered types (Greg's choice): Google Docs, Slides, Sheets, PDFs, Word. Everything else is under "Can't be added as sources". Cap: `MAX_PROJECT_FILES_17` (500). Grouped by subfolder; the Blueprint is first.
+4. **Reference documents:** read live from Greg's "How To Set Up And Use a Project Work Station" doc (`WORKSTATION_DOC_ID_17`), per Greg's choice to keep the list there. Level-1 bullets = categories; linked bullets under an "Automate …" or "Add Google Drive shortcuts …" line = documents; "Manually add …" sections are skipped; unlinked items show "No link yet". Each linked file is checked for access and type. A reference doc that is also in the project folder is listed once. Non-Drive links (e.g. Confluence) show as "add as a website". **Every user needs view access to that doc.**
+5. Checkboxes only cross items off on screen; nothing is saved.
+
+As of 2026-11-20 the work station doc yields 6 linked references and 8 "no link yet" (responsibilities doc, example Gantt chart, kickoff email template, 3 QM items, assignment templates, program specs doc).
+
+**Open question for Greg:** keep the checklist only in the sidebar (current), or also save it as a Google Doc in the user's own Drive so they can come back to it?
 
 - **Spellings accepted:** "Fall Cycle 1", "F1", "Fall1", "Fall 1", "FA 01", "Sp2", "Su 1", "Fall 2026 Cycle 1", with or without dates ("August 31", "Aug 31", "08/31/26"). A lone "S" means Spring or Summer, so a date decides. Term + cycle that disagree with the date → the tool stops and explains instead of guessing.
 - **Calendar event titles it relies on:** `<Term> Cycle <n>: Week <n> (<Phase>)`, all-day Mon–Fri. If the calendar's naming changes, update the regex in `buildCycleInstances17`.

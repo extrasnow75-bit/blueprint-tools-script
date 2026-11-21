@@ -1,13 +1,35 @@
 // ============================================================
 // Blueprint Tools — Code17.gs
 // Set Up Gemini Notebook
-// Reads the "Design Cycle:" line on the Blueprint's Dashboard tab,
-// finds the matching cycle on the Course Design and Development
-// Schedule calendar, and reports the current week and phase plus the
-// cycle's full week-by-week schedule.
+// Builds the checklist of sources an IDC adds to a project's Gemini
+// Notebook: every usable file in the project folder (the folder the
+// Blueprint sits in, including subfolders) plus the shared reference
+// documents listed in the "How To Set Up And Use a Project Work Station"
+// doc. Also shows the project's current design-cycle week (from the
+// Dashboard's "Design Cycle:" line and the Course Design and
+// Development Schedule calendar).
+//
+// Gemini Notebook has no API for Workspace accounts yet, so the user
+// adds the sources by hand; this tool tells them exactly which ones.
+// Read-only: it changes nothing in Drive or in the Blueprint.
 // ------------------------------------------------------------
-// Last updated on 2026-11-20 at 18:50 MST
+// Last updated on 2026-11-20 at 19:30 MST
 // ------------------------------------------------------------
+//
+// WHERE THE SOURCES COME FROM
+//   • Project folder: the Blueprint's parent folder and all subfolders,
+//     NOT the Dashboard links (the tool may run before anything is
+//     linked). Shortcuts are followed to the real file. Google Docs,
+//     Slides, Sheets, PDFs and Word files are offered; anything else is
+//     listed under "can't be added".
+//   • Reference documents: read live from WORKSTATION_DOC_ID_17. Its
+//     second-level bullets are the categories (Creating Quizzes, Project
+//     Management, ...); linked bullets under an "Automate ..." or
+//     "Add Google Drive shortcuts ..." line are the documents. Unlinked
+//     ones show as "no link yet". Edit that doc to change the list.
+//
+// REUSES (Code10.gs): MIME_DOC_10, MIME_SHEET_10, MIME_DOCX_10,
+//   MIME_SHORTCUT_10, idFromUrl10_. (Code.gs): collectTabs.
 //
 // HOW THE CYCLE IS WORKED OUT
 //   IDCs write the Design Cycle line in many ways ("Fall Cycle 1",
@@ -21,8 +43,8 @@
 //   unknown and the date decides.
 //
 // SPLIT FOR TESTING
-//   parseDesignCycleLine17, buildCycleInstances17, pickInstance17 and
-//   describeToday17 are pure functions (no Google services), so they can
+//   parseDesignCycleLine17, buildCycleInstances17, pickInstance17,
+//   describeToday17 and parseWorkstationList17 are pure functions (no Google services), so they can
 //   be tested outside Apps Script. Everything that touches DocumentApp or
 //   CalendarApp lives in the functions near the top.
 //
@@ -54,6 +76,27 @@ var START_DATE_TOLERANCE_DAYS_17 = 6;
 
 var DAY_MS_17 = 24 * 60 * 60 * 1000;
 
+// "How To Set Up And Use a Project Work Station With Google Gemini
+// Notebook" — the reference-document list is read from this doc. Every
+// user needs at least view access to it.
+var WORKSTATION_DOC_ID_17 = '1yg_lnXDVO3RPNNf-Y9JsCmKIZMofWCcOLUytMl6Hdag';
+
+// Stop scanning the project folder after this many files so a huge
+// folder can't make the tool time out. The sidebar says when it stopped.
+var MAX_PROJECT_FILES_17 = 500;
+
+var GEMINI_NOTEBOOK_URL_17 = 'https://notebook.google.com/';
+
+// File kinds Gemini Notebook accepts as sources (Greg's list, 2026-11-20).
+var NOTEBOOK_KINDS_17 = {
+  'application/vnd.google-apps.document':     'Google Doc',
+  'application/vnd.google-apps.presentation': 'Google Slides',
+  'application/vnd.google-apps.spreadsheet':  'Google Sheet',
+  'application/pdf':                          'PDF',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word',
+  'application/msword':                       'Word'
+};
+
 
 // ── SIDEBAR OPENER ───────────────────────────────────────────
 
@@ -66,6 +109,236 @@ function showSetupNotebookSidebar17() {
 
 
 // ── MAIN SERVER FUNCTION (called from Sidebar17) ─────────────
+
+/**
+ * Everything the sidebar shows: the design-cycle week, the project-folder
+ * sources and the reference documents. Each part fails on its own, so a
+ * problem with the calendar never hides the source list.
+ */
+function getNotebookSetup17() {
+  var doc = DocumentApp.getActiveDocument();
+  var out = {
+    notebookUrl: GEMINI_NOTEBOOK_URL_17,
+    week: safe17_(getProjectWeek17),
+    project: safe17_(function () { return scanProjectFolder17_(doc); }),
+    reference: safe17_(readReferenceDocs17_)
+  };
+  // A reference document that is also in the project folder is listed
+  // once, under the project folder.
+  if (out.project.ok && out.reference.ok) {
+    var inProject = {};
+    out.project.files.forEach(function (f) { inProject[f.id] = true; });
+    out.reference.groups.forEach(function (g) {
+      g.items.forEach(function (it) {
+        if (it.id && inProject[it.id]) it.alsoInProject = true;
+      });
+    });
+  }
+  return out;
+}
+
+function safe17_(fn) {
+  try { return fn(); }
+  catch (e) {
+    return { ok: false, message: 'Something went wrong: ' + (e && e.message ? e.message : e) };
+  }
+}
+
+
+// ── PROJECT FOLDER ───────────────────────────────────────────
+
+/**
+ * Lists the Blueprint's parent folder and every subfolder. Returns
+ * { ok, folderName, folderUrl, files:[...], unsupported:[...], truncated }.
+ * Each file: { id, name, kind, url, path, isBlueprint, shortcut }.
+ */
+function scanProjectFolder17_(doc) {
+  var parents = DriveApp.getFileById(doc.getId()).getParents();
+  if (!parents.hasNext()) {
+    return { ok: false, message:
+      'This Blueprint isn\'t inside a Drive folder, so there is no project ' +
+      'folder to read. Move it into the project folder and run this again.' };
+  }
+  var root = parents.next();
+  var files = [], unsupported = [], seen = {}, visited = {};
+  var queue = [{ folder: root, path: '' }];
+  var count = 0, truncated = false;
+
+  while (queue.length && !truncated) {
+    var cur = queue.shift();
+    var fid = cur.folder.getId();
+    if (visited[fid]) continue;
+    visited[fid] = true;
+
+    var it = cur.folder.getFiles();
+    while (it.hasNext()) {
+      if (count >= MAX_PROJECT_FILES_17) { truncated = true; break; }
+      var f = it.next(); count++;
+      var id = f.getId(), mime = f.getMimeType(), shortcut = false;
+      if (mime === MIME_SHORTCUT_10) {
+        var tid = f.getTargetId();
+        if (!tid) continue;
+        if (f.getTargetMimeType() === 'application/vnd.google-apps.folder') {
+          unsupported.push({ name: f.getName(), path: cur.path,
+            why: 'Shortcut to another folder (not opened)' });
+          continue;
+        }
+        id = tid; mime = f.getTargetMimeType(); shortcut = true;
+      }
+      if (seen[id]) continue;          // same file reached twice
+      seen[id] = true;
+      var kind = NOTEBOOK_KINDS_17[mime];
+      if (!kind) {
+        unsupported.push({ name: f.getName(), path: cur.path,
+                           why: friendlyMime17_(mime) });
+        continue;
+      }
+      files.push({ id: id, name: f.getName(), kind: kind,
+                   url: fileUrl17_(id, mime), path: cur.path,
+                   isBlueprint: id === doc.getId(), shortcut: shortcut });
+    }
+
+    var subs = cur.folder.getFolders();
+    while (subs.hasNext()) {
+      var sub = subs.next();
+      queue.push({ folder: sub,
+                   path: (cur.path ? cur.path + ' / ' : '') + sub.getName() });
+    }
+  }
+
+  files.sort(function (a, b) {
+    if (a.isBlueprint !== b.isBlueprint) return a.isBlueprint ? -1 : 1;
+    if (a.path !== b.path) return a.path < b.path ? -1 : 1;
+    return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
+  });
+  return { ok: true, folderName: root.getName(), folderUrl: root.getUrl(),
+           files: files, unsupported: unsupported, truncated: truncated };
+}
+
+function fileUrl17_(id, mime) {
+  if (mime === MIME_DOC_10)   return 'https://docs.google.com/document/d/' + id + '/edit';
+  if (mime === MIME_SHEET_10) return 'https://docs.google.com/spreadsheets/d/' + id + '/edit';
+  if (mime === 'application/vnd.google-apps.presentation')
+    return 'https://docs.google.com/presentation/d/' + id + '/edit';
+  return 'https://drive.google.com/file/d/' + id + '/view';
+}
+
+function friendlyMime17_(mime) {
+  if (/^video\//.test(mime)) return 'Video';
+  if (/^image\//.test(mime)) return 'Image';
+  if (/^audio\//.test(mime)) return 'Audio';
+  if (/zip|compressed/.test(mime)) return 'Zip file';
+  if (/presentationml|powerpoint/.test(mime)) return 'PowerPoint (save as Google Slides to add it)';
+  if (/spreadsheetml|ms-excel/.test(mime)) return 'Excel (save as a Google Sheet to add it)';
+  if (mime === 'application/vnd.google-apps.form') return 'Google Form';
+  if (mime === 'application/vnd.google-apps.drawing') return 'Google Drawing';
+  return 'File type not accepted by Gemini Notebook';
+}
+
+
+// ── REFERENCE DOCUMENTS (from the work station doc) ──────────
+
+/**
+ * Reads the work station doc's bullet list and checks each linked file.
+ * Returns { ok, docUrl, groups:[{category, items:[...]}] }.
+ * Each item: { name, url, id, kind, problem, noLink }.
+ */
+function readReferenceDocs17_() {
+  var src;
+  try { src = DocumentApp.openById(WORKSTATION_DOC_ID_17); }
+  catch (e) {
+    return { ok: false, message:
+      'I couldn\'t open the "How To Set Up And Use a Project Work Station" ' +
+      'doc, which lists the reference documents. Ask Greg Snow for view access.' };
+  }
+  var items = [];
+  collectTabs(src).forEach(function (t) {
+    var n = t.body.getNumChildren();
+    for (var i = 0; i < n; i++) {
+      var el = t.body.getChild(i);
+      if (el.getType() !== DocumentApp.ElementType.LIST_ITEM) continue;
+      var li = el.asListItem();
+      items.push({ level: li.getNestingLevel(), text: li.getText(),
+                   url: firstLinkUrl17_(li) });
+    }
+  });
+
+  var groups = parseWorkstationList17(items);
+  groups.forEach(function (g) {
+    g.items.forEach(function (it) {
+      if (!it.url) return;
+      var id = /docs\.google\.com|drive\.google\.com/.test(it.url)
+        ? idFromUrl10_(it.url) : null;
+      if (!id) { it.kind = 'Web page'; return; }   // e.g. a Confluence page
+      it.id = id;
+      try {
+        var f = DriveApp.getFileById(id);
+        var mime = f.getMimeType();
+        if (mime === MIME_SHORTCUT_10) { mime = f.getTargetMimeType(); it.id = f.getTargetId(); }
+        it.kind = NOTEBOOK_KINDS_17[mime] || friendlyMime17_(mime);
+        if (!NOTEBOOK_KINDS_17[mime]) it.problem = 'Gemini Notebook can\'t add this file type.';
+        it.url = fileUrl17_(it.id, mime);
+      } catch (e) {
+        it.problem = 'You don\'t have access to this file, or it was deleted.';
+      }
+    });
+  });
+  return { ok: true, groups: groups,
+           docUrl: 'https://docs.google.com/document/d/' + WORKSTATION_DOC_ID_17 + '/edit' };
+}
+
+/** First hyperlink (or link chip) inside a paragraph or list item. */
+function firstLinkUrl17_(el) {
+  var T = DocumentApp.ElementType;
+  for (var i = 0; i < el.getNumChildren(); i++) {
+    var c = el.getChild(i);
+    if (c.getType() === T.TEXT) {
+      var txt = c.asText();
+      var idx = txt.getTextAttributeIndices();
+      for (var j = 0; j < idx.length; j++) {
+        var u = txt.getLinkUrl(idx[j]);
+        if (u) return u;
+      }
+    } else if (c.getType() === T.RICH_LINK) {
+      var r = c.getUrl && c.getUrl();
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+/**
+ * PURE. Turns the work station doc's bullets into reference groups.
+ * @param {Array<{level:number, text:string, url:?string}>} items
+ *   level 1 = category ("Creating Quizzes"), level 2 = instruction line
+ *   ("Automate having ..." / "Manually add ..."), level 3+ = documents.
+ */
+function parseWorkstationList17(items) {
+  var groups = [], byName = {}, category = null, mode = null;
+  items.forEach(function (it) {
+    var text = String(it.text || '').replace(/\s+/g, ' ').trim();
+    if (it.level <= 0) { category = null; mode = null; return; }
+    if (it.level === 1) { category = text; mode = null; return; }
+    if (it.level === 2) {
+      mode = /^manually add/i.test(text) ? 'manual'
+           : (/shortcut|automate/i.test(text) ? 'auto' : null);
+      return;
+    }
+    if (mode !== 'auto' || !category) return;
+    // "The relevant project's Blueprint, ..." comes from the project folder.
+    if (/relevant project|project['’]s/i.test(text)) return;
+    var name = text.replace(/\[\s*embed link\s*\]/ig, '').trim();
+    if (!name) return;
+    if (!byName[category]) {
+      byName[category] = { category: category, items: [] };
+      groups.push(byName[category]);
+    }
+    byName[category].items.push({ name: name, url: it.url || null,
+                                  noLink: !it.url });
+  });
+  return groups;
+}
+
 
 /**
  * Works out the project's design cycle and where "today" falls in it.

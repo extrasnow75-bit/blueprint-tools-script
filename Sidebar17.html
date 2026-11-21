@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-20 at 18:50 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-20 at 19:30 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -13,32 +13,54 @@
       margin: 0;
     }
     h3 { color: #0033a0; margin: 0 0 12px; font-size: 15px; }
+    h4 { color: #0033a0; margin: 18px 0 6px; font-size: 13px; }
+    h5 { color: #444; margin: 10px 0 4px; font-size: 12px; }
+    a { color: #0033a0; }
+    .steps {
+      background: #f3f6fc; border: 1px solid #c9d3ea; border-radius: 4px;
+      padding: 10px 12px; line-height: 1.45;
+    }
+    .steps ol { margin: 6px 0 0; padding-left: 18px; }
+    .open-btn {
+      display: block; text-align: center; margin-top: 10px; padding: 9px;
+      background: #0033a0; color: #fff; border-radius: 4px; text-decoration: none;
+      font-weight: bold;
+    }
+    .open-btn:hover { background: #002070; }
     .card {
-      border: 1px solid #c9d3ea;
-      border-left: 4px solid #0033a0;
-      border-radius: 4px;
-      padding: 12px;
-      margin-bottom: 14px;
+      border: 1px solid #c9d3ea; border-left: 4px solid #0033a0;
+      border-radius: 4px; padding: 10px 12px; margin-top: 14px;
     }
     .cycle { font-size: 12px; color: #555; margin: 0 0 4px; }
-    .headline { font-size: 17px; font-weight: bold; color: #0033a0; margin: 0 0 6px; }
+    .headline { font-size: 15px; font-weight: bold; color: #0033a0; margin: 0 0 4px; }
     .detail { margin: 0; line-height: 1.4; }
+    .muted { color: #555; font-size: 12px; line-height: 1.4; }
     .note {
       background: #fff8e1; border: 1px solid #e6c65c; border-radius: 4px;
-      padding: 8px 10px; margin-bottom: 14px; line-height: 1.4;
+      padding: 8px 10px; margin: 8px 0; line-height: 1.4;
     }
     .error {
       background: #fdecea; border: 1px solid #d93025; border-radius: 4px;
-      padding: 10px; line-height: 1.4; color: #5f1410;
+      padding: 8px 10px; line-height: 1.4; color: #5f1410; margin: 6px 0;
     }
-    .meta { font-size: 11px; color: #555; margin: 4px 0 14px; line-height: 1.4; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { text-align: left; color: #444; border-bottom: 2px solid #c9d3ea; padding: 4px; }
-    td { padding: 4px; border-bottom: 1px solid #eee; vertical-align: top; }
+    ul.src { list-style: none; margin: 0; padding: 0; }
+    ul.src li { padding: 4px 0; border-bottom: 1px solid #eee; line-height: 1.35; }
+    ul.src label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+    ul.src input { margin-top: 2px; flex: none; }
+    .kind { color: #555; font-size: 11px; }
+    li.done a { text-decoration: line-through; color: #555; }
+    li.off { color: #555; }
+    .tag {
+      display: inline-block; font-size: 10px; padding: 0 5px; border-radius: 8px;
+      background: #e8eefb; color: #0033a0; margin-left: 4px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+    th { text-align: left; color: #444; border-bottom: 2px solid #c9d3ea; padding: 3px; }
+    td { padding: 3px; border-bottom: 1px solid #eee; vertical-align: top; }
     tr.current td { background: #e8eefb; font-weight: bold; }
-    details summary { cursor: pointer; font-weight: bold; color: #0033a0; margin-bottom: 8px; }
+    details summary { cursor: pointer; font-weight: bold; color: #0033a0; margin-top: 8px; }
     .again-btn {
-      margin-top: 16px; width: 100%; padding: 8px;
+      margin-top: 18px; width: 100%; padding: 8px;
       background: #555; color: white; border: none; border-radius: 4px;
       font-size: 13px; font-family: Arial, sans-serif; cursor: pointer;
     }
@@ -54,7 +76,7 @@
 
   <div id="progress" role="status" aria-live="polite">
     <div class="spinner" aria-hidden="true">⏳</div>
-    <p>Reading the Dashboard and the design-cycle calendar…</p>
+    <p>Reading the project folder, the reference list, and the design-cycle calendar…</p>
   </div>
 
   <div id="result" aria-live="polite"></div>
@@ -68,54 +90,143 @@
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
+    var uid = 0;
 
-    function show(html) {
-      document.getElementById('progress').style.display = 'none';
-      document.getElementById('result').innerHTML = html;
-      document.getElementById('again').style.display = 'block';
+    // One checklist row. Ticking only crosses it off on screen, to help
+    // the user keep track while adding sources; nothing is saved.
+    function row(name, url, kind, extra) {
+      var id = 'c' + (uid++);
+      return '<li><label for="' + id + '"><input type="checkbox" id="' + id +
+        '" onchange="this.closest(\'li\').classList.toggle(\'done\', this.checked)">' +
+        '<span><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(name) +
+        '</a> <span class="kind">' + esc(kind) + '</span>' + (extra || '') +
+        '</span></label></li>';
+    }
+
+    function renderWeek(w) {
+      if (!w || !w.ok) {
+        return '<div class="card"><p class="muted"><strong>Design-cycle week:</strong> ' +
+          esc(w && w.message ? w.message : 'not available') + '</p></div>';
+      }
+      var h = '<div class="card">' +
+        '<p class="cycle">' + esc(w.cycleLabel) + ' · ' + esc(w.cycleDates) +
+        ' · ' + w.totalWeeks + ' weeks</p>' +
+        '<p class="headline">' + esc(w.status.headline) + '</p>' +
+        '<p class="detail">' + esc(w.status.detail) + '</p>';
+      if (w.note) h += '<div class="note">' + esc(w.note) + '</div>';
+      h += '<details><summary>Full cycle schedule</summary><table>' +
+           '<thead><tr><th scope="col">Week</th><th scope="col">Dates</th>' +
+           '<th scope="col">Phase</th></tr></thead><tbody>';
+      w.weeks.forEach(function (x) {
+        h += '<tr' + (x.isCurrent ? ' class="current" aria-current="true"' : '') + '>' +
+             '<td>' + x.week + '</td><td>' + esc(x.dates) + '</td><td>' + esc(x.phase) + '</td></tr>';
+      });
+      return h + '</tbody></table></details></div>';
+    }
+
+    function renderProject(p) {
+      if (!p.ok) return '<h4>From the project folder</h4><div class="error">' + esc(p.message) + '</div>';
+      var h = '<h4>From the project folder (' + p.files.length + ')</h4>' +
+        '<p class="muted">Folder: <a href="' + esc(p.folderUrl) + '" target="_blank" rel="noopener">' +
+        esc(p.folderName) + '</a>, including subfolders.</p>';
+      if (p.truncated) {
+        h += '<div class="note">This folder is very large, so I stopped after the first ' +
+             'files. Some files may be missing from the list.</div>';
+      }
+      if (!p.files.length) h += '<p class="muted">No Docs, Slides, Sheets, PDFs or Word files found.</p>';
+      var path = null;
+      p.files.forEach(function (f) {
+        if (f.path !== path) {
+          if (path !== null) h += '</ul>';
+          path = f.path;
+          h += '<h5>' + esc(path || 'Main folder') + '</h5><ul class="src">';
+        }
+        h += row(f.name, f.url, f.kind,
+          (f.isBlueprint ? '<span class="tag">this Blueprint</span>' : '') +
+          (f.shortcut ? '<span class="tag">shortcut</span>' : ''));
+      });
+      if (path !== null) h += '</ul>';
+      if (p.unsupported.length) {
+        h += '<details><summary>Can\'t be added as sources (' + p.unsupported.length +
+             ')</summary><ul class="src">';
+        p.unsupported.forEach(function (u) {
+          h += '<li class="off">' + esc(u.name) + ' <span class="kind">' + esc(u.why) +
+               (u.path ? ' · ' + esc(u.path) : '') + '</span></li>';
+        });
+        h += '</ul></details>';
+      }
+      return h;
+    }
+
+    function renderReference(r) {
+      if (!r.ok) return '<h4>Reference documents</h4><div class="error">' + esc(r.message) + '</div>';
+      var total = 0, missing = 0;
+      var h = '';
+      r.groups.forEach(function (g) {
+        h += '<h5>' + esc(g.category) + '</h5><ul class="src">';
+        g.items.forEach(function (it) {
+          if (it.alsoInProject) return;          // already listed above
+          if (it.noLink) {
+            missing++;
+            h += '<li class="off">' + esc(it.name) +
+                 ' <span class="kind">No link yet in the work station doc</span></li>';
+          } else if (it.problem) {
+            h += '<li class="off"><a href="' + esc(it.url) + '" target="_blank" rel="noopener">' +
+                 esc(it.name) + '</a> <span class="kind">' + esc(it.problem) + '</span></li>';
+          } else {
+            total++;
+            h += row(it.name, it.url, it.kind || '',
+              it.kind === 'Web page' ? '<span class="tag">add as a website</span>' : '');
+          }
+        });
+        h += '</ul>';
+      });
+      var head = '<h4>Reference documents (' + total + ')</h4>' +
+        '<p class="muted">Shared policies and templates, listed in the ' +
+        '<a href="' + esc(r.docUrl) + '" target="_blank" rel="noopener">work station doc</a>. ' +
+        'Add only the groups this notebook needs.' +
+        (missing ? ' ' + missing + ' item' + (missing === 1 ? ' has' : 's have') +
+          ' no link yet; add links in that doc to include them.' : '') + '</p>';
+      return head + h;
     }
 
     function render(r) {
-      if (!r.ok) {
-        var h = '<div class="error">' + esc(r.message) + '</div>';
-        if (r.line != null) {
-          h += '<p class="meta">Design Cycle line: “' + esc(r.line) + '”' +
-               (r.parsed ? '<br>' + esc(r.parsed) : '') + '</p>';
-        }
-        show(h);
-        return;
-      }
-      var h = '<div class="card">' +
-        '<p class="cycle">' + esc(r.cycleLabel) + ' · ' + esc(r.cycleDates) +
-        ' · ' + r.totalWeeks + ' weeks</p>' +
-        '<p class="headline">' + esc(r.status.headline) + '</p>' +
-        '<p class="detail">' + esc(r.status.detail) + '</p></div>';
-      if (r.note) h += '<div class="note">' + esc(r.note) + '</div>';
-      h += '<p class="meta">Read from the Dashboard: “' + esc(r.line) + '”<br>' +
-           esc(r.parsed) + '</p>';
-      h += '<details open><summary>Full cycle schedule</summary><table>' +
-           '<thead><tr><th scope="col">Week</th><th scope="col">Dates</th>' +
-           '<th scope="col">Phase</th></tr></thead><tbody>';
-      r.weeks.forEach(function (w) {
-        h += '<tr' + (w.isCurrent ? ' class="current" aria-current="true"' : '') + '>' +
-             '<td>' + w.week + '</td><td>' + esc(w.dates) + '</td>' +
-             '<td>' + esc(w.phase) + '</td></tr>';
-      });
-      h += '</tbody></table></details>';
-      show(h);
+      document.getElementById('progress').style.display = 'none';
+      var count = (r.project.ok ? r.project.files.length : 0);
+      var h = '<div class="steps"><strong>How to set up the notebook</strong><ol>' +
+        '<li>Open Gemini Notebook and click <strong>Create new notebook</strong>.</li>' +
+        '<li>Click <strong>Add sources → Drive</strong>.</li>' +
+        '<li>Search for or browse to each file below and select it. You can select ' +
+        'several files from the same folder at once.</li>' +
+        '<li>Tick each file here as you add it.</li></ol>' +
+        '<a class="open-btn" href="' + esc(r.notebookUrl) + '" target="_blank" rel="noopener">' +
+        'Open Gemini Notebook</a></div>';
+      h += renderWeek(r.week);
+      h += renderProject(r.project);
+      h += renderReference(r.reference);
+      h += '<p class="muted" style="margin-top:14px">Notebooks keep a copy of each file. ' +
+           'When a document changes, open it in the notebook and click the sync button.' +
+           (count > 40 ? ' This project has many files; check that they fit within your ' +
+           'notebook\'s source limit.' : '') + '</p>';
+      document.getElementById('result').innerHTML = h;
+      document.getElementById('again').style.display = 'block';
     }
 
     function run() {
+      uid = 0;
       document.getElementById('result').innerHTML = '';
       document.getElementById('again').style.display = 'none';
       document.getElementById('progress').style.display = 'block';
       google.script.run
         .withSuccessHandler(render)
         .withFailureHandler(function (e) {
-          show('<div class="error">Something went wrong: ' +
-               esc(e && e.message ? e.message : e) + '</div>');
+          document.getElementById('progress').style.display = 'none';
+          document.getElementById('result').innerHTML =
+            '<div class="error">Something went wrong: ' +
+            esc(e && e.message ? e.message : e) + '</div>';
+          document.getElementById('again').style.display = 'block';
         })
-        .getProjectWeek17();
+        .getNotebookSetup17();
     }
 
     run();
