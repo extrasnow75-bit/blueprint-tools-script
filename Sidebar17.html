@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-20 at 20:45 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-21 at 09:00 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -76,7 +76,7 @@
 
   <div id="progress" role="status" aria-live="polite">
     <div class="spinner" aria-hidden="true">⏳</div>
-    <p>Reading the project folder, the reference list, and the design-cycle calendar…</p>
+    <p>Reading the project folder, the reference list, the signed agreement, and the design-cycle calendar…</p>
   </div>
 
   <div id="result" aria-live="polite"></div>
@@ -122,6 +122,33 @@
              '<td>' + x.week + '</td><td>' + esc(x.dates) + '</td><td>' + esc(x.phase) + '</td></tr>';
       });
       return h + '</tbody></table></details></div>';
+    }
+
+    function renderAgreement(a) {
+      var h = '<h4>Signed agreement</h4>';
+      if (!a || !a.ok) return h + '<div class="error">' + esc(a && a.message ? a.message : 'Not available') + '</div>';
+      if (!a.pick) return h + '<p class="muted">' + esc(a.message) + '</p>';
+      var p = a.pick;
+      var termNote = p.termLabel
+        ? (p.termMatches ? '' : '<div class="note">This agreement is for ' + esc(p.termLabel) +
+            (a.target ? ', but the Blueprint\'s design cycle is ' + esc(a.target) : '') +
+            '. Check it\'s the right one.</div>')
+        : '';
+      h += '<ul class="src">' + row(p.name, p.url, p.kind || '',
+             p.termLabel ? '<span class="tag">' + esc(p.termLabel) + '</span>' : '') + '</ul>' + termNote +
+           '<div class="note"><strong>Contains personal details</strong> (the faculty developer\'s ' +
+           'Boise State ID and contact information). Only add it to a notebook shared with people ' +
+           'who should see them.</div>';
+      if (a.others && a.others.length) {
+        h += '<details><summary>Other possible agreements for ' + esc(a.course) + ' (' +
+             a.others.length + ')</summary><ul class="src">';
+        a.others.forEach(function (o) {
+          h += '<li class="off"><a href="' + esc(o.url) + '" target="_blank" rel="noopener">' +
+               esc(o.name) + '</a>' + (o.termLabel ? ' <span class="kind">' + esc(o.termLabel) + '</span>' : '') + '</li>';
+        });
+        h += '</ul></details>';
+      }
+      return h;
     }
 
     function renderProject(p) {
@@ -203,6 +230,7 @@
         '<a class="open-btn" href="' + esc(r.notebookUrl) + '" target="_blank" rel="noopener">' +
         'Open Gemini Notebook</a></div>';
       h += renderWeek(r.week);
+      h += renderAgreement(r.agreement);
       h += renderProject(r.project);
       h += renderReference(r.reference);
       h += '<p class="muted" style="margin-top:14px">Gemini Notebook says files added from ' +

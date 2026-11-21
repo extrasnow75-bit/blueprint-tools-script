@@ -434,3 +434,12 @@ A **separate** Apps Script project (bound to a private control Sheet Greg owns),
 - **Blueprint Tools change:** none to scopes. `Code17` reads the copies folder with the existing `drive` scope; IDCs need view access to it.
 - **2026-11-20 findings from Greg (phone):** the knowledge base is **private** (a private-browser tab gets Confluence's "can't find" sign-in page), so Gemini Notebook can't add KB pages as websites; the copy job is required. Gemini Notebook's Add sources menu (mobile app) offers PDF, Audio, Image, Website, YouTube, Copied text, Play Books and Drive, with **no Confluence/Atlassian connector**, and states **"Drive files are auto-synced after import."** Sidebar17's closing tip updated to match (manual sync only as a fallback). Recommended the copies folder's sharing be changed from "anyone with the link" to an eCampus group or Boise State only.
 
+### 15b. Signed agreement (added to `Code17` 2026-11-21, not yet run)
+
+Set Up Gemini Notebook now finds the project's **Online Course Design & Development Agreement** (signed by the faculty developer). Agreements are not in the project folder and their location varies (Greg: the example he shared was his own copy, so its folder means nothing), so the tool **searches all of Drive the user can open**: name containing the course code (from the Dashboard title via `findDashboardTitle10_`, else the Blueprint's name) and text containing "Development Agreement"; Google Docs and PDFs only; Blueprints excluded. Ranking: term in "Agreement for <Term> <Year>" matching the Blueprint's design cycle, then an original over a "Copy of", then a Google Doc, then most recently changed. Shown as its own "Signed agreement" section with a **caution: it contains the faculty developer's Boise State ID and contact details**. If the term doesn't match the cycle, a note says so. Other candidates are listed collapsed. Not found → plain message (named differently or no access).
+
+- Example name pattern (from Greg's copy): `CS 331-Shane Panter-Faculty Course Design …`. **Unconfirmed:** the originals' full names and whether all IDCs can open them.
+- Pure helpers tested in Node: `parseCourseCode17`, `nameMatchesCourse17`, `agreementTerm17`, `rankAgreements17`.
+- **Privacy note for Greg:** his copy of the CS 331 agreement sits in the work station folder, which was link-shared ("anyone with the link") on 2026-11-20.
+- Pickers (Drive / Confluence) were considered and **dropped by Greg** 2026-11-21.
+

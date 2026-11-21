@@ -13,7 +13,7 @@
 // adds the sources by hand; this tool tells them exactly which ones.
 // Read-only: it changes nothing in Drive or in the Blueprint.
 // ------------------------------------------------------------
-// Last updated on 2026-11-20 at 20:30 MST
+// Last updated on 2026-11-21 at 09:00 MST
 // ------------------------------------------------------------
 //
 // WHERE THE SOURCES COME FROM
@@ -30,9 +30,11 @@
 //     Knowledge Base (Confluence) links are swapped for their Google Doc
 //     copy in KB_COPY_FOLDER_ID_17, made by the separate KB Copy Job
 //     (kb-copy-job/ in this repo). Without a copy they show "not copied".
+//   • Signed agreement: found anywhere in the user's Drive by course code
+//     + "Development Agreement" (see SIGNED AGREEMENT below).
 //
 // REUSES (Code10.gs): MIME_DOC_10, MIME_SHEET_10, MIME_DOCX_10,
-//   MIME_SHORTCUT_10, idFromUrl10_. (Code.gs): collectTabs.
+//   MIME_SHORTCUT_10, idFromUrl10_, findDashboardTitle10_. (Code.gs): collectTabs.
 //
 // HOW THE CYCLE IS WORKED OUT
 //   IDCs write the Design Cycle line in many ways ("Fall Cycle 1",
@@ -131,6 +133,12 @@ function getNotebookSetup17() {
     project: safe17_(function () { return scanProjectFolder17_(doc); }),
     reference: safe17_(readReferenceDocs17_)
   };
+  out.agreement = safe17_(function () { return findAgreement17_(doc, out.week); });
+  if (out.agreement.ok && out.agreement.pick && out.project.ok) {
+    out.project.files = out.project.files.filter(function (f) {
+      return f.id !== out.agreement.pick.id;        // list it once, as the agreement
+    });
+  }
   // A reference document that is also in the project folder is listed
   // once, under the project folder.
   if (out.project.ok && out.reference.ok) {
@@ -241,6 +249,107 @@ function friendlyMime17_(mime) {
   if (mime === 'application/vnd.google-apps.form') return 'Google Form';
   if (mime === 'application/vnd.google-apps.drawing') return 'Google Drawing';
   return 'File type not accepted by Gemini Notebook';
+}
+
+
+// ── SIGNED AGREEMENT ─────────────────────────────────────────
+//
+// Every project has an "Online Course Design & Development Agreement for
+// <Term> <Year>" signed by the faculty developer. It is NOT in the project
+// folder and its location varies, so the tool searches all of Drive the
+// user can see: file name containing the course code, and text containing
+// "Development Agreement". When several match, the one whose term matches
+// the Blueprint's design cycle wins, then an original over a "Copy of",
+// then the most recently changed. It contains the faculty developer's ID
+// number and contact details, so the sidebar shows a caution.
+
+/** Returns { ok, course, pick, others, message }. */
+function findAgreement17_(doc, week) {
+  var titleLine = findDashboardTitle10_(doc);
+  var course = parseCourseCode17((titleLine && titleLine.text) || '') ||
+               parseCourseCode17(doc.getName());
+  if (!course) {
+    return { ok: false, message:
+      'I couldn\'t tell the course code (for example "CS 321") from the Dashboard ' +
+      'title or the Blueprint\'s name, so I couldn\'t look for the signed agreement.' };
+  }
+
+  var q = "title contains '" + course.number + "' and fullText contains " +
+          "'Development Agreement' and trashed = false";
+  var it = DriveApp.searchFiles(q), cands = [], n = 0;
+  while (it.hasNext() && n < 40) {
+    var f = it.next(); n++;
+    var name = f.getName(), mime = f.getMimeType();
+    if (f.getId() === doc.getId()) continue;
+    if (!nameMatchesCourse17(name, course)) continue;
+    if (/blueprint/i.test(name)) continue;
+    if (mime !== 'application/vnd.google-apps.document' && mime !== 'application/pdf') continue;
+    cands.push({ id: f.getId(), name: name, mime: mime,
+                 kind: NOTEBOOK_KINDS_17[mime], updated: f.getLastUpdated().getTime(),
+                 url: fileUrl17_(f.getId(), mime) });
+  }
+  if (!cands.length) {
+    return { ok: true, course: course.code, pick: null, others: [], message:
+      'No signed agreement for ' + course.code + ' was found in the Drive files you can open. ' +
+      'It may be named differently, or you may not have access to it.' };
+  }
+
+  // Read the term from the first few candidates that are Google Docs.
+  cands.slice(0, 6).forEach(function (c) {
+    if (c.mime !== 'application/vnd.google-apps.document') return;
+    try {
+      var text = DocumentApp.openById(c.id).getBody().getText().slice(0, 3000);
+      c.term = agreementTerm17(text);
+    } catch (e) { /* no access to the content: rank without the term */ }
+  });
+  var target = (week && week.ok) ? { term: week.term, year: week.termYear } : null;
+  var ranked = rankAgreements17(cands, target);
+  var pick = ranked[0];
+  pick.termMatches = !!(target && pick.term &&
+    pick.term.term === target.term && pick.term.year === target.year);
+  pick.termLabel = pick.term ? pick.term.term + ' ' + pick.term.year : '';
+  return { ok: true, course: course.code, pick: pick,
+           others: ranked.slice(1, 5).map(function (c) {
+             return { name: c.name, url: c.url,
+                      termLabel: c.term ? c.term.term + ' ' + c.term.year : '' };
+           }),
+           target: target ? target.term + ' ' + target.year : '' };
+}
+
+/** PURE. Course code from a title like "CS 321: Data Structures",
+ *  "UX/UX-PRO 300", "SOCWRK 481/499" or "CS 321 Blueprint". */
+function parseCourseCode17(text) {
+  var m = String(text || '').match(/\b([A-Z]{2,8}(?:[\/-][A-Z]{2,8})*)\s*-?\s*(\d{3}[A-Z]?)(?!\d)/);
+  if (!m) return null;
+  return { prefix: m[1], number: m[2], code: m[1] + ' ' + m[2] };
+}
+
+/** PURE. Does a file name name this course? ("CS 321-...", "CS321 ...") */
+function nameMatchesCourse17(name, course) {
+  var prefix = course.prefix.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
+  return new RegExp('(^|[^A-Za-z])' + prefix + '\\s*-?\\s*' + course.number + '(?![0-9])', 'i')
+    .test(String(name || ''));
+}
+
+/** PURE. {term, year} from "...Development Agreement for Fall 2026". */
+function agreementTerm17(text) {
+  var m = String(text || '').match(/agreement\s+for\s+(fall|spring|summer)\s+(\d{4})/i);
+  if (!m) return null;
+  return { term: m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase(), year: +m[2] };
+}
+
+/** PURE. Best agreement first. */
+function rankAgreements17(cands, target) {
+  function score(c) {
+    var s = 0;
+    if (target && c.term && c.term.term === target.term && c.term.year === target.year) s += 4;
+    if (!/^copy of /i.test(c.name)) s += 2;
+    if (c.mime === 'application/vnd.google-apps.document') s += 1;
+    return s;
+  }
+  return cands.slice().sort(function (a, b) {
+    return (score(b) - score(a)) || (b.updated - a.updated);
+  });
 }
 
 
@@ -456,6 +565,8 @@ function getProjectWeek17() {
     parsed: summariseParsed17(parsed, tz),
     note: pick.note || '',
     cycleLabel: pick.instance.term + ' Cycle ' + pick.instance.cycle,
+    term: pick.instance.term,
+    termYear: pick.instance.start.getFullYear(),
     cycleDates: fmt17(pick.instance.start, tz) + ' – ' +
                 fmt17(pick.instance.end, tz) + ', ' +
                 Utilities.formatDate(pick.instance.end, tz, 'yyyy'),
