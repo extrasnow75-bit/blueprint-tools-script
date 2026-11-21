@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-20 at 20:30 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-20 at 20:45 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -205,8 +205,9 @@
       h += renderWeek(r.week);
       h += renderProject(r.project);
       h += renderReference(r.reference);
-      h += '<p class="muted" style="margin-top:14px">Notebooks keep a copy of each file. ' +
-           'When a document changes, open it in the notebook and click the sync button.' +
+      h += '<p class="muted" style="margin-top:14px">Gemini Notebook says files added from ' +
+           'Drive sync automatically after import. If a source still looks out of date, open ' +
+           'it in the notebook and click the sync button.' +
            (count > 40 ? ' This project has many files; check that they fit within your ' +
            'notebook\'s source limit.' : '') + '</p>';
       document.getElementById('result').innerHTML = h;
