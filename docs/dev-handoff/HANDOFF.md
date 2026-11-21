@@ -245,6 +245,7 @@ Current scopes: `documents`, `drive` (added 2026-11-02 for Link Project Document
 | Deploy Settings Tables | Read the settings table's tab names. Writes only to the blueprint. | Sheets (read-only is enough) |
 | Development Status Check | Read settings-table tabs and the "Check when settings are finalized:" checkboxes. Save the report to a new blueprint tab (no new scope). Save it to a new Google Doc in the blueprint's folder (**see below**). | Sheets (read-only); Drive for the new-Doc option |
 | Blueprint Tools Version Check | Fetch the manifest from GitHub (`script.external_request`, already present). Same export options as the Status Check. | Drive for the new-Doc option only |
+| What Week Is This Project In? (`Code17`) | Read events on the Course Design and Development Schedule calendar. | `calendar.readonly` (**approved by Greg 2026-11-20, added**) |
 
 **Shared decision, "save to a new Google Doc in the same folder":** the Status Check and the Version Check both offer it, so one scope decision covers both. A new Doc is created in My Drive and moving it into the blueprint's folder very likely needs a broader Drive permission than read-only metadata. Not verified. Test it. If it needs a broad Drive scope, tell Greg plainly and offer to drop the option and keep only "new tab in the blueprint" (which needs no new scope).
 
@@ -398,3 +399,16 @@ Greg's plan document describes a Gemini Notebook "project work station" per proj
 4. Tool 3 (Draft Settings Tables, `Code12`), then tool 4 (Development Status Check, `Code13`), then tool 5 (Version Check, `Code14`).
 5. Setup-data tool (section 11) can start once Greg supplies the sheet and answers; it shares the Sheets scope decision and may come earlier than tool 3.
 6. Ownership tool (section 12) after its spike.
+
+## 15. What Week Is This Project In? (`Code17.gs` / `Sidebar17.html`) — built 2026-11-20, not yet run in Apps Script
+
+Menu item under Development Status Check. Reads the **Design Cycle:** line on the Dashboard tab (also finds the value in the next table cell, on the next line, or in a date chip), matches it to the **Course Design and Development Schedule** calendar (`CDD_CALENDAR_ID_17`), and shows the current week and phase plus the full week-by-week schedule. Read-only; writes nothing.
+
+- **Spellings accepted:** "Fall Cycle 1", "F1", "Fall1", "Fall 1", "FA 01", "Sp2", "Su 1", "Fall 2026 Cycle 1", with or without dates ("August 31", "Aug 31", "08/31/26"). A lone "S" means Spring or Summer, so a date decides. Term + cycle that disagree with the date → the tool stops and explains instead of guessing.
+- **Calendar event titles it relies on:** `<Term> Cycle <n>: Week <n> (<Phase>)`, all-day Mon–Fri. If the calendar's naming changes, update the regex in `buildCycleInstances17`.
+- **Each user must have the calendar** under "Other calendars"; otherwise the sidebar shows the calendar ID to subscribe with.
+- **Tested** only outside Apps Script (Node, mock calendar built from the Multi-Semester List cycle dates): 21 spellings, weekend "between weeks" case. Greg: run it on the CS 321 GAS-test Blueprint copy.
+- **Same tool, earlier numbering:** also on the private repo branch `claude/pensive-heisenberg-4u7iu9` as `Code11.gs` (numbered before this branch's plan was known). This branch's `Code17` is the copy to keep.
+- **To do: use the LIVE Multi-Semester List.** When Greg has the live Google Sheet, put its ID in `MULTI_SEMESTER_SHEET_ID_17`. Use it to cross-check a project's term/cycle by course code and to supply QA and Build start dates (they join mid-cycle) for a future Gantt chart tool. The copy reviewed 2026-11-20 was an .xlsx snapshot dated 11/02/2026: Apps Script can't read it directly and it goes stale.
+- **Possible next tools built on this:** a per-project Gantt chart generated from the calendar weeks (+ role windows from the Multi-Semester List); reading the Dashboard's document links for the notebook "work station" idea (section 13).
+

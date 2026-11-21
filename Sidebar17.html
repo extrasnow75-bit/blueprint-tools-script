@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!-- Blueprint Tools — Sidebar17.html | What Week Is This Project In? | Last updated on 2026-11-20 at 18:15 MST -->
+<html lang="en">
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      padding: 16px;
+      color: #333;
+      margin: 0;
+    }
+    h3 { color: #0033a0; margin: 0 0 12px; font-size: 15px; }
+    .card {
+      border: 1px solid #c9d3ea;
+      border-left: 4px solid #0033a0;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .cycle { font-size: 12px; color: #555; margin: 0 0 4px; }
+    .headline { font-size: 17px; font-weight: bold; color: #0033a0; margin: 0 0 6px; }
+    .detail { margin: 0; line-height: 1.4; }
+    .note {
+      background: #fff8e1; border: 1px solid #e6c65c; border-radius: 4px;
+      padding: 8px 10px; margin-bottom: 14px; line-height: 1.4;
+    }
+    .error {
+      background: #fdecea; border: 1px solid #d93025; border-radius: 4px;
+      padding: 10px; line-height: 1.4; color: #5f1410;
+    }
+    .meta { font-size: 11px; color: #555; margin: 4px 0 14px; line-height: 1.4; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; color: #444; border-bottom: 2px solid #c9d3ea; padding: 4px; }
+    td { padding: 4px; border-bottom: 1px solid #eee; vertical-align: top; }
+    tr.current td { background: #e8eefb; font-weight: bold; }
+    details summary { cursor: pointer; font-weight: bold; color: #0033a0; margin-bottom: 8px; }
+    .again-btn {
+      margin-top: 16px; width: 100%; padding: 8px;
+      background: #555; color: white; border: none; border-radius: 4px;
+      font-size: 13px; font-family: Arial, sans-serif; cursor: pointer;
+    }
+    .again-btn:hover { background: #333; }
+    #progress { text-align: center; padding: 30px 0; }
+    .spinner { font-size: 28px; display: inline-block; animation: spin 1.2s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  </style>
+</head>
+<body>
+  <h3>What Week Is This Project In?</h3>
+
+  <div id="progress" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true">⏳</div>
+    <p>Reading the Dashboard and the design-cycle calendar…</p>
+  </div>
+
+  <div id="result" aria-live="polite"></div>
+
+  <button class="again-btn" id="again" type="button" style="display:none"
+          onclick="run()">Check again</button>
+
+  <script>
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function show(html) {
+      document.getElementById('progress').style.display = 'none';
+      document.getElementById('result').innerHTML = html;
+      document.getElementById('again').style.display = 'block';
+    }
+
+    function render(r) {
+      if (!r.ok) {
+        var h = '<div class="error">' + esc(r.message) + '</div>';
+        if (r.line != null) {
+          h += '<p class="meta">Design Cycle line: “' + esc(r.line) + '”' +
+               (r.parsed ? '<br>' + esc(r.parsed) : '') + '</p>';
+        }
+        show(h);
+        return;
+      }
+      var h = '<div class="card">' +
+        '<p class="cycle">' + esc(r.cycleLabel) + ' · ' + esc(r.cycleDates) +
+        ' · ' + r.totalWeeks + ' weeks</p>' +
+        '<p class="headline">' + esc(r.status.headline) + '</p>' +
+        '<p class="detail">' + esc(r.status.detail) + '</p></div>';
+      if (r.note) h += '<div class="note">' + esc(r.note) + '</div>';
+      h += '<p class="meta">Read from the Dashboard: “' + esc(r.line) + '”<br>' +
+           esc(r.parsed) + '</p>';
+      h += '<details open><summary>Full cycle schedule</summary><table>' +
+           '<thead><tr><th scope="col">Week</th><th scope="col">Dates</th>' +
+           '<th scope="col">Phase</th></tr></thead><tbody>';
+      r.weeks.forEach(function (w) {
+        h += '<tr' + (w.isCurrent ? ' class="current" aria-current="true"' : '') + '>' +
+             '<td>' + w.week + '</td><td>' + esc(w.dates) + '</td>' +
+             '<td>' + esc(w.phase) + '</td></tr>';
+      });
+      h += '</tbody></table></details>';
+      show(h);
+    }
+
+    function run() {
+      document.getElementById('result').innerHTML = '';
+      document.getElementById('again').style.display = 'none';
+      document.getElementById('progress').style.display = 'block';
+      google.script.run
+        .withSuccessHandler(render)
+        .withFailureHandler(function (e) {
+          show('<div class="error">Something went wrong: ' +
+               esc(e && e.message ? e.message : e) + '</div>');
+        })
+        .getProjectWeek17();
+    }
+
+    run();
+  </script>
+</body>
+</html>
