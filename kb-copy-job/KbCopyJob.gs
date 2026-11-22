@@ -5,7 +5,7 @@
 // notebook sources. Gemini Notebook can't read pages that need a
 // Confluence sign-in; it can read Google Docs.
 // ------------------------------------------------------------
-// Last updated on 2026-11-20 at 20:30 MST
+// Last updated on 2026-11-22 at 11:00 MST
 // ------------------------------------------------------------
 //
 // THIS IS NOT PART OF THE BLUEPRINT TOOLS SCRIPT.
@@ -20,8 +20,8 @@
 //   never in logs. The public GitHub repo holds no secret.
 //
 // WHICH PAGES
-//   1. Every Confluence page linked in the "How To Set Up And Use a
-//      Project Work Station" doc (WORKSTATION_DOC_ID), and
+//   1. Every Confluence page linked in the "Gemini Notebook Reference
+//      List" Sheet (REFERENCE_SHEET_ID), and
 //   2. any extra page links pasted into column A of this Sheet's
 //      "Pages to copy" tab (handy for testing).
 //
@@ -41,7 +41,9 @@
 // ============================================================
 
 var CONFLUENCE_SITE  = 'https://boisestateecampus.atlassian.net';
-var WORKSTATION_DOC_ID = '1yg_lnXDVO3RPNNf-Y9JsCmKIZMofWCcOLUytMl6Hdag';
+// "Gemini Notebook Reference List" Sheet: every Knowledge Base link in it
+// gets copied. Same Sheet Set Up Gemini Notebook reads (REFERENCE_SHEET_ID_17).
+var REFERENCE_SHEET_ID = '1991TCf1UoWGRyl_3YdDR9cBMrdS4eouRhr8tnwpjGz4';
 // "Gemini Notebook Project Work Station Stuff"
 var OUTPUT_FOLDER_ID = '15_H0_97_6ZqU-Pi8nW79PSf2_ARNtxzz';
 
@@ -103,7 +105,7 @@ function menuTestConnection() {
   var pages = collectPages_();
   if (!pages.length) {
     ui.alert('No Confluence page links found yet. Paste one into column A of the "' +
-      PAGES_TAB + '" tab (or add some to the work station doc), then test again.');
+      PAGES_TAB + '" tab (or add some to the Gemini Notebook Reference List), then test again.');
     return;
   }
   var r = fetchPage_(pages[0].id);
@@ -195,17 +197,24 @@ function copyAllPages() {
 
 // ── WHICH PAGES ──────────────────────────────────────────────
 
-/** Confluence page links from the work station doc and the Pages tab,
+/** Confluence page links from the reference list Sheet and the Pages tab,
  *  one entry per page ID. */
 function collectPages_() {
   var urls = [];
   try {
-    var doc = DocumentApp.openById(WORKSTATION_DOC_ID);
-    doc.getTabs().forEach(function walk(tab) {
-      collectLinks_(tab.asDocumentTab().getBody(), urls);
-      tab.getChildTabs().forEach(walk);
+    var ref = SpreadsheetApp.openById(REFERENCE_SHEET_ID);
+    ref.getSheets().forEach(function (tab) {
+      var range = tab.getDataRange();
+      var vals = range.getDisplayValues(), rich = range.getRichTextValues();
+      vals.forEach(function (row, i) {
+        row.forEach(function (v, j) {
+          var link = rich[i][j] && rich[i][j].getLinkUrl();
+          if (link) urls.push(link);
+          if (/^https?:/i.test(v)) urls.push(v);
+        });
+      });
     });
-  } catch (e) { /* doc unreadable: carry on with the Sheet's list */ }
+  } catch (e) { /* list unreadable: carry on with this Sheet's own tab */ }
 
   var sh = SpreadsheetApp.getActive().getSheetByName(PAGES_TAB);
   if (sh && sh.getLastRow() > 1) {
@@ -224,19 +233,6 @@ function collectPages_() {
   return out;
 }
 
-/** Every hyperlink and link chip inside a document element. */
-function collectLinks_(el, out) {
-  var T = DocumentApp.ElementType, type = el.getType();
-  if (type === T.TEXT) {
-    var txt = el.asText(), idx = txt.getTextAttributeIndices();
-    idx.forEach(function (i) { var u = txt.getLinkUrl(i); if (u) out.push(u); });
-    return;
-  }
-  if (type === T.RICH_LINK) { var r = el.getUrl(); if (r) out.push(r); return; }
-  if (typeof el.getNumChildren === 'function') {
-    for (var i = 0; i < el.getNumChildren(); i++) collectLinks_(el.getChild(i), out);
-  }
-}
 
 /** PURE. The numeric page ID in a Confluence page link on our site, or null. */
 function confluencePageId(url) {

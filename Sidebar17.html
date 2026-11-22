@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-22 at 10:00 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-22 at 11:00 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -223,7 +223,7 @@
           if (it.noLink) {
             missing++;
             h += '<li class="off">' + esc(it.name) +
-                 ' <span class="kind">No link yet in the work station doc</span></li>';
+                 ' <span class="kind">No link yet in the reference list</span></li>';
           } else if (it.problem) {
             h += '<li class="off"><a href="' + esc(it.url) + '" target="_blank" rel="noopener">' +
                  esc(it.name) + '</a> <span class="kind">' + esc(it.problem) + '</span></li>';
@@ -238,10 +238,10 @@
       });
       var head = '<h4>Reference documents (' + total + ')</h4>' +
         '<p class="muted">Shared policies and templates, listed in the ' +
-        '<a href="' + esc(r.docUrl) + '" target="_blank" rel="noopener">work station doc</a>. ' +
+        '<a href="' + esc(r.docUrl) + '" target="_blank" rel="noopener">Gemini Notebook Reference List</a>. ' +
         'Add only the groups this notebook needs.' +
         (missing ? ' ' + missing + ' item' + (missing === 1 ? ' has' : 's have') +
-          ' no link yet; add links in that doc to include them.' : '') + '</p>';
+          ' no link yet; add links in that Sheet to include them.' : '') + '</p>';
       return head + h;
     }
 

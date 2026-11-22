@@ -13,7 +13,7 @@
 // adds the sources by hand; this tool tells them exactly which ones.
 // Read-only: it changes nothing in Drive or in the Blueprint.
 // ------------------------------------------------------------
-// Last updated on 2026-11-22 at 10:00 MST
+// Last updated on 2026-11-22 at 11:00 MST
 // ------------------------------------------------------------
 //
 // WHERE THE SOURCES COME FROM
@@ -22,11 +22,10 @@
 //     linked). Shortcuts are followed to the real file. Google Docs,
 //     Slides, Sheets, PDFs and Word files are offered; anything else is
 //     listed under "can't be added".
-//   • Reference documents: read live from WORKSTATION_DOC_ID_17. Its
-//     second-level bullets are the categories (Creating Quizzes, Project
-//     Management, ...); linked bullets under an "Automate ..." or
-//     "Add Google Drive shortcuts ..." line are the documents. Unlinked
-//     ones show as "no link yet". Edit that doc to change the list.
+//   • Reference documents: read live from the "Gemini Notebook Reference
+//     List" Sheet (REFERENCE_SHEET_ID_17), one row per document:
+//     Category | Name | Link | Notes. Rows without a link show as
+//     "no link yet". Edit the Sheet to change the list.
 //     Knowledge Base (Confluence) links are swapped for their Google Doc
 //     copy in KB_COPY_FOLDER_ID_17, made by the separate KB Copy Job
 //     (kb-copy-job/ in this repo). Without a copy they show "not copied".
@@ -53,7 +52,7 @@
 //
 // SPLIT FOR TESTING
 //   parseDesignCycleLine17, buildCycleInstances17, pickInstance17,
-//   describeToday17 and parseWorkstationList17 are pure functions (no Google services), so they can
+//   describeToday17 and parseReferenceRows17 are pure functions (no Google services), so they can
 //   be tested outside Apps Script. Everything that touches DocumentApp or
 //   CalendarApp lives in the functions near the top.
 //
@@ -85,10 +84,13 @@ var START_DATE_TOLERANCE_DAYS_17 = 6;
 
 var DAY_MS_17 = 24 * 60 * 60 * 1000;
 
-// "How To Set Up And Use a Project Work Station With Google Gemini
-// Notebook" — the reference-document list is read from this doc. Every
-// user needs at least view access to it.
-var WORKSTATION_DOC_ID_17 = '1yg_lnXDVO3RPNNf-Y9JsCmKIZMofWCcOLUytMl6Hdag';
+// "Gemini Notebook Reference List" Google Sheet (tab "References":
+// Category | Name | Link | Notes). The shared reference documents are
+// read from it on every run; edit the Sheet to change the list. Every
+// user needs at least view access to it. (Until 2026-11-22 the list was
+// read from Greg's planning doc, which is now planning-only.)
+var REFERENCE_SHEET_ID_17 = '1991TCf1UoWGRyl_3YdDR9cBMrdS4eouRhr8tnwpjGz4';
+var REFERENCE_TAB_17 = 'References';
 
 // Stop scanning the project folder after this many files so a huge
 // folder can't make the tool time out. The sidebar says when it stopped.
@@ -506,34 +508,35 @@ function rankSpecs17(cands, prefix, program) {
 }
 
 
-// ── REFERENCE DOCUMENTS (from the work station doc) ──────────
+// ── REFERENCE DOCUMENTS (from the reference list Sheet) ──────
 
 /**
- * Reads the work station doc's bullet list and checks each linked file.
+ * Reads the reference list Sheet and checks each linked file.
  * Returns { ok, docUrl, groups:[{category, items:[...]}] }.
  * Each item: { name, url, id, kind, problem, noLink }.
  */
 function readReferenceDocs17_() {
-  var src;
-  try { src = DocumentApp.openById(WORKSTATION_DOC_ID_17); }
-  catch (e) {
+  var sheet;
+  try {
+    var ss = SpreadsheetApp.openById(REFERENCE_SHEET_ID_17);
+    sheet = ss.getSheetByName(REFERENCE_TAB_17) || ss.getSheets()[0];
+  } catch (e) {
     return { ok: false, message:
-      'I couldn\'t open the "How To Set Up And Use a Project Work Station" ' +
-      'doc, which lists the reference documents. Ask Greg Snow for view access.' };
+      'I couldn\'t open the "Gemini Notebook Reference List" Sheet, which lists the ' +
+      'reference documents. Ask Greg Snow for view access.' };
   }
-  var items = [];
-  collectTabs(src).forEach(function (t) {
-    var n = t.body.getNumChildren();
-    for (var i = 0; i < n; i++) {
-      var el = t.body.getChild(i);
-      if (el.getType() !== DocumentApp.ElementType.LIST_ITEM) continue;
-      var li = el.asListItem();
-      items.push({ level: li.getNestingLevel(), text: li.getText(),
-                   url: firstLinkUrl17_(li) });
-    }
+  var range = sheet.getDataRange();
+  var values = range.getDisplayValues();
+  var rich = range.getRichTextValues();
+  // A link may be typed as a URL or put on the cell's text as a hyperlink.
+  var rows = values.map(function (r, i) {
+    return r.map(function (v, j) {
+      var link = rich[i][j] && rich[i][j].getLinkUrl();
+      return link && !/^https?:/i.test(v) ? link : v;
+    });
   });
 
-  var groups = parseWorkstationList17(items);
+  var groups = parseReferenceRows17(rows);
   var kbCopies = null;   // read the copies folder only if a KB link appears
   groups.forEach(function (g) {
     g.items.forEach(function (it) {
@@ -568,7 +571,7 @@ function readReferenceDocs17_() {
     });
   });
   return { ok: true, groups: groups,
-           docUrl: 'https://docs.google.com/document/d/' + WORKSTATION_DOC_ID_17 + '/edit' };
+           docUrl: 'https://docs.google.com/spreadsheets/d/' + REFERENCE_SHEET_ID_17 + '/edit' };
 }
 
 /** Confluence page ID in a Knowledge Base link, or null. */
@@ -595,54 +598,34 @@ function listKbCopies17_() {
   return map;
 }
 
-/** First hyperlink (or link chip) inside a paragraph or list item. */
-function firstLinkUrl17_(el) {
-  var T = DocumentApp.ElementType;
-  for (var i = 0; i < el.getNumChildren(); i++) {
-    var c = el.getChild(i);
-    if (c.getType() === T.TEXT) {
-      var txt = c.asText();
-      var idx = txt.getTextAttributeIndices();
-      for (var j = 0; j < idx.length; j++) {
-        var u = txt.getLinkUrl(idx[j]);
-        if (u) return u;
-      }
-    } else if (c.getType() === T.RICH_LINK) {
-      var r = c.getUrl && c.getUrl();
-      if (r) return r;
-    }
-  }
-  return null;
-}
 
 /**
- * PURE. Turns the work station doc's bullets into reference groups.
- * @param {Array<{level:number, text:string, url:?string}>} items
- *   level 1 = category ("Creating Quizzes"), level 2 = instruction line
- *   ("Automate having ..." / "Manually add ..."), level 3+ = documents.
+ * PURE. Turns the reference Sheet's rows into groups by category.
+ * Row 1 is the header; columns are found by name (Category, Name, Link),
+ * so they can be reordered. Blank rows are skipped; a row with a name but
+ * no link shows as "no link yet".
+ * @param {string[][]} rows  display values, header first
  */
-function parseWorkstationList17(items) {
-  var groups = [], byName = {}, category = null, mode = null;
-  items.forEach(function (it) {
-    var text = String(it.text || '').replace(/\s+/g, ' ').trim();
-    if (it.level <= 0) { category = null; mode = null; return; }
-    if (it.level === 1) { category = text; mode = null; return; }
-    if (it.level === 2) {
-      mode = /^manually add/i.test(text) ? 'manual'
-           : (/shortcut|automate/i.test(text) ? 'auto' : null);
-      return;
-    }
-    if (mode !== 'auto' || !category) return;
-    // "The relevant project's Blueprint, ..." comes from the project folder.
-    if (/relevant project|project['’]s/i.test(text)) return;
-    var name = text.replace(/\[\s*embed link\s*\]/ig, '').trim();
-    if (!name) return;
+function parseReferenceRows17(rows) {
+  if (!rows || !rows.length) return [];
+  var head = rows[0].map(function (h) { return String(h || '').trim().toLowerCase(); });
+  var col = function (name, fallback) {
+    var i = head.indexOf(name); return i >= 0 ? i : fallback;
+  };
+  var cCat = col('category', 0), cName = col('name', 1), cLink = col('link', 2);
+  var groups = [], byName = {};
+  rows.slice(1).forEach(function (r) {
+    var name = String(r[cName] || '').replace(/\s+/g, ' ').trim();
+    var link = String(r[cLink] || '').trim();
+    if (!name && !link) return;
+    if (!name) name = link;
+    var category = String(r[cCat] || '').trim() || 'Other';
     if (!byName[category]) {
       byName[category] = { category: category, items: [] };
       groups.push(byName[category]);
     }
-    byName[category].items.push({ name: name, url: it.url || null,
-                                  noLink: !it.url });
+    var url = /^https?:\/\//i.test(link) ? link : null;
+    byName[category].items.push({ name: name, url: url, noLink: !url });
   });
   return groups;
 }
