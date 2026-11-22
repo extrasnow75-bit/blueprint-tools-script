@@ -3,7 +3,7 @@
 // Answers: can a script create a notebook and fill it with the kinds
 // of sources Set Up Gemini Notebook would add?
 // ------------------------------------------------------------
-// Last updated on 2026-11-22 at 13:00 MST
+// Last updated on 2026-11-22 at 13:30 MST
 // ------------------------------------------------------------
 //
 // RUN THIS IN A PERSONAL GOOGLE ACCOUNT ONLY. The API is in preview and
@@ -25,7 +25,9 @@
 //   4. Add a public web page         → baseline
 //   5. Add your test Google Doc as a PDF upload       (snapshot)
 //   6. Add your test Google Doc as Markdown text      (snapshot)
-//   7. Add your test Google Doc's link as a web page  (probably fails)
+//   7. Add your test Google Doc as a web page, three ways: its normal
+//      /edit link, its plain-text export link, and (optional) its
+//      "Publish to web" link. Set the Doc to "Anyone with the link" first.
 //   8. Wait, then report each source's state: ACTIVE / FAILED / PROCESSING
 // ============================================================
 
@@ -34,6 +36,10 @@
 var TEST_DOC_ID = 'PASTE_A_GOOGLE_DOC_ID_HERE';
 // Any public web page.
 var PUBLIC_URL = 'https://en.wikipedia.org/wiki/Instructional_design';
+// Optional: for tests 7a–7c, set the test Doc's sharing to "Anyone with
+// the link". For test 7c, also use File → Share → Publish to web and paste
+// the published link here (it contains /pub). Leave blank to skip 7c.
+var PUBLISHED_URL = '';
 // ─────────────────────────────────────────────────────────────
 
 var API = 'https://notebook.googleapis.com/v1/';
@@ -89,10 +95,25 @@ function runAllTests() {
         })
       : md);
 
-    record('7. Google Doc link as a web page', call_('post', API + notebook + '/sources', {
-      displayName: docName + ' (Doc link as web page)',
+    var shared = DriveApp.getFileById(TEST_DOC_ID).getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK;
+    results.push('   (Test Doc sharing: ' + (shared ? 'anyone with the link' : 'NOT public') + ')');
+
+    record('7a. Doc\'s normal /edit link as a web page', call_('post', API + notebook + '/sources', {
+      displayName: docName + ' (edit link as web page)',
       webContent: { url: 'https://docs.google.com/document/d/' + TEST_DOC_ID + '/edit' }
     }));
+    record('7b. Doc\'s plain-text export link as a web page', call_('post', API + notebook + '/sources', {
+      displayName: docName + ' (text export link as web page)',
+      webContent: { url: 'https://docs.google.com/document/d/' + TEST_DOC_ID + '/export?format=txt' }
+    }));
+    if (PUBLISHED_URL) {
+      record('7c. Doc\'s "Publish to web" link as a web page', call_('post', API + notebook + '/sources', {
+        displayName: docName + ' (published link as web page)',
+        webContent: { url: PUBLISHED_URL }
+      }));
+    } else {
+      results.push('⏭️  7c skipped: no PUBLISHED_URL set.');
+    }
   }
 
   // Sources are processed in the background; give them a moment.

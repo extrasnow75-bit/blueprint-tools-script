@@ -15,8 +15,9 @@ preview and limited to personal accounts. Use **copies** of test documents.
 | Upload a file (such as a PDF) as a source | |
 
 So the test checks whether a Google Doc works when the script **converts it to a
-PDF or to Markdown text and uploads it**. That makes a snapshot, which won't
-update when the Doc changes.
+PDF or to Markdown text and uploads it**, or when the Doc is made public and added
+as a **web page**. All of these are snapshots: in Gemini Notebook only sources
+added from Drive update automatically.
 
 ## Setup (about 20 minutes, once)
 
@@ -42,6 +43,11 @@ update when the Doc changes.
 7. **A test Doc.** Put a copy of a test Google Doc in this personal Drive.
    Copy its ID (the long part of its link between `/d/` and `/edit`) into
    `TEST_DOC_ID` at the top of the script.
+8. **Public-link tests (7a–7c).** Set that test Doc's sharing to **Anyone with
+   the link (Viewer)**. Optionally also choose **File → Share → Publish to web →
+   Publish**, and paste the published link (it contains `/pub`) into
+   `PUBLISHED_URL`. Do this only with test copies: "anyone with the link" means
+   anyone on the internet who has the link can read it.
 
 ## Run it
 
@@ -57,7 +63,8 @@ update when the Doc changes.
    ✅ 4. Public web page source
    ✅ 5. Google Doc uploaded as a PDF
    ✅ 6. Google Doc added as Markdown text
-   ❌ 7. Google Doc link as a web page — HTTP 400 …
+   ❌ 7a. Doc's normal /edit link as a web page — …
+   ✅ 7b. Doc's plain-text export link as a web page
    8. Source states after 20 seconds:
       ✅ API test – plain text: ACTIVE
       ⏳ My test doc (PDF upload): PROCESSING
