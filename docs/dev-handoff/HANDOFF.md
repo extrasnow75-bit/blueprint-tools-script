@@ -443,3 +443,14 @@ Set Up Gemini Notebook now finds the project's **Online Course Design & Developm
 - **Privacy note for Greg:** his copy of the CS 331 agreement sits in the work station folder, which was link-shared ("anyone with the link") on 2026-11-20.
 - Pickers (Drive / Confluence) were considered and **dropped by Greg** 2026-11-21.
 
+### 15c. Program Canvas specifications (added to `Code17` 2026-11-22, not yet run)
+
+Program courses follow a program's "Canvas Specifications" doc; faculty courses and some programs have none (Greg). Order:
+1. **Dashboard link** on the "Program Canvas Specifications" line (`findDashLabel10_`) → used as-is ("linked on the Dashboard").
+2. Otherwise **Drive search** `title contains 'Canvas Spec'` (Docs, Slides, Sheets, PDF, Word), skipping names starting Archive / Copy of / Old or containing template / example / sample / draft. `rankSpecs17` matches the course prefix as a whole word (`RESPCARE Canvas Specifications`, `Canvas Specifications - BUSMGT, …`, `BAS/IPS …`), words of the program title read from the signed agreement's "Program Title (if applicable)" row (`agreementProgram17`; "Canvas Specifications - Public Service"), or the program title's initials (`ODP`, `BAS`). Shown as "best match" with a prompt to check it and link it on the Dashboard; others collapsed.
+3. If the Dashboard's **Project Type** contains "Faculty Course", no pick is made ("no program specifications are expected"); any matches are offered collapsed.
+
+Greg's naming examples (screenshot 2026-11-22): RESPCARE / IMGSCI / ODP / BAS/IPS / GENCOUN Canvas Specifications, "Canvas Specifications - Public Ser…", "Canvas Specifications - BUSMGT,…", "BAS/IPS Canvas Specifications For…", "Archive - IMGSCI Canvas Specifica…". All tested in Node. The Drive connector used during development could not search Greg's spec docs, so matching is built from the screenshot only.
+
+**Work station doc links (checked 2026-11-22 from Greg's account):** opens: quiz formatting, quiz-writing rules, CDD/Maintenance Teams Roles and Responsibilities (Sheet, owner ecampuscdd@), QM+ Review Compilation for Example Use (Sheet). "Not found" (not shared with Greg, or deleted): IDC Quickbase and Ownership Email Template, both Week 14-15 Course Complete emails, Template Activity Directions 2.0, Quality Matters + Standards and Annotations. Greg to check these in his browser. Still unlinked: Example Gantt Chart, QM Review Template, Various assignment templates, Appropriate program specs doc (now covered by 15c).
+

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-22 at 09:00 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-22 at 10:00 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -76,7 +76,7 @@
 
   <div id="progress" role="status" aria-live="polite">
     <div class="spinner" aria-hidden="true">⏳</div>
-    <p>Reading the project folder, the reference list, the signed agreement, and the design-cycle calendar…</p>
+    <p>Reading the project folder, the reference list, the signed agreement, the Canvas specifications, and the design-cycle calendar…</p>
   </div>
 
   <div id="result" aria-live="polite"></div>
@@ -145,6 +145,33 @@
         a.others.forEach(function (o) {
           h += '<li class="off"><a href="' + esc(o.url) + '" target="_blank" rel="noopener">' +
                esc(o.name) + '</a>' + (o.termLabel ? ' <span class="kind">' + esc(o.termLabel) + '</span>' : '') + '</li>';
+        });
+        h += '</ul></details>';
+      }
+      return h;
+    }
+
+    function renderSpecs(sp) {
+      var h = '<h4>Program Canvas specifications</h4>';
+      if (!sp || !sp.ok) return h + '<div class="error">' + esc(sp && sp.message ? sp.message : 'Not available') + '</div>';
+      if (sp.status === 'linked') {
+        h += '<ul class="src">' + row(sp.pick.name, sp.pick.url, sp.pick.kind,
+               '<span class="tag">linked on the Dashboard</span>') + '</ul>';
+      } else if (sp.status === 'found') {
+        h += '<ul class="src">' + row(sp.pick.name, sp.pick.url, sp.pick.kind,
+               '<span class="tag">best match</span>') + '</ul>' +
+             '<p class="muted">Found by searching Drive (matched on ' + esc(sp.pick.matchedOn) +
+             '). Spec names vary, so check it\'s the right program. Then link it on the ' +
+             'Dashboard\'s "Program Canvas Specifications" line so the next search isn\'t needed.</p>';
+      } else {
+        h += '<p class="muted">' + esc(sp.message) + '</p>';
+      }
+      if (sp.others && sp.others.length) {
+        h += '<details><summary>' + (sp.status === 'found' ? 'Other possible matches' : 'Possible matches') +
+             ' (' + sp.others.length + ')</summary><ul class="src">';
+        sp.others.forEach(function (o) {
+          h += '<li class="off"><a href="' + esc(o.url) + '" target="_blank" rel="noopener">' +
+               esc(o.name) + '</a> <span class="kind">' + esc(o.matchedOn) + '</span></li>';
         });
         h += '</ul></details>';
       }
@@ -231,6 +258,7 @@
         'Open Gemini Notebook</a></div>';
       h += renderWeek(r.week);
       h += renderAgreement(r.agreement);
+      h += renderSpecs(r.specs);
       h += renderProject(r.project);
       h += renderReference(r.reference);
       h += '<p class="muted" style="margin-top:14px">Gemini Notebook says files added from ' +

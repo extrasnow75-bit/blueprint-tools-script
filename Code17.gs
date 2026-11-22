@@ -13,7 +13,7 @@
 // adds the sources by hand; this tool tells them exactly which ones.
 // Read-only: it changes nothing in Drive or in the Blueprint.
 // ------------------------------------------------------------
-// Last updated on 2026-11-21 at 09:00 MST
+// Last updated on 2026-11-22 at 10:00 MST
 // ------------------------------------------------------------
 //
 // WHERE THE SOURCES COME FROM
@@ -32,9 +32,13 @@
 //     (kb-copy-job/ in this repo). Without a copy they show "not copied".
 //   • Signed agreement: found anywhere in the user's Drive by course code
 //     + "Development Agreement" (see SIGNED AGREEMENT below).
+//   • Program Canvas Specifications: the Dashboard link, else a Drive
+//     search by course prefix / program title (see PROGRAM CANVAS
+//     SPECIFICATIONS below).
 //
 // REUSES (Code10.gs): MIME_DOC_10, MIME_SHEET_10, MIME_DOCX_10,
-//   MIME_SHORTCUT_10, idFromUrl10_, findDashboardTitle10_. (Code.gs): collectTabs.
+//   MIME_SHORTCUT_10, idFromUrl10_, findDashboardTitle10_, dashboardTab10_,
+//   findDashLabel10_. (Code.gs): collectTabs.
 //
 // HOW THE CYCLE IS WORKED OUT
 //   IDCs write the Design Cycle line in many ways ("Fall Cycle 1",
@@ -134,6 +138,12 @@ function getNotebookSetup17() {
     reference: safe17_(readReferenceDocs17_)
   };
   out.agreement = safe17_(function () { return findAgreement17_(doc, out.week); });
+  out.specs = safe17_(function () { return findCanvasSpecs17_(doc, out.agreement); });
+  if (out.specs.ok && out.specs.pick && out.project.ok) {
+    out.project.files = out.project.files.filter(function (f) {
+      return f.id !== out.specs.pick.id;            // list it once, as the specs
+    });
+  }
   if (out.agreement.ok && out.agreement.pick && out.project.ok) {
     out.project.files = out.project.files.filter(function (f) {
       return f.id !== out.agreement.pick.id;        // list it once, as the agreement
@@ -289,7 +299,7 @@ function findAgreement17_(doc, week) {
                  url: fileUrl17_(f.getId(), mime) });
   }
   if (!cands.length) {
-    return { ok: true, course: course.code, pick: null, others: [], message:
+    return { ok: true, course: course.code, prefix: course.prefix, pick: null, others: [], message:
       'No signed agreement for ' + course.code + ' was found in the Drive files you can open. ' +
       'It may be named differently, or you may not have access to it.' };
   }
@@ -298,8 +308,9 @@ function findAgreement17_(doc, week) {
   cands.slice(0, 6).forEach(function (c) {
     if (c.mime !== 'application/vnd.google-apps.document') return;
     try {
-      var text = DocumentApp.openById(c.id).getBody().getText().slice(0, 3000);
+      var text = DocumentApp.openById(c.id).getBody().getText().slice(0, 4000);
       c.term = agreementTerm17(text);
+      c.program = agreementProgram17(text);
     } catch (e) { /* no access to the content: rank without the term */ }
   });
   var target = (week && week.ok) ? { term: week.term, year: week.termYear } : null;
@@ -308,7 +319,8 @@ function findAgreement17_(doc, week) {
   pick.termMatches = !!(target && pick.term &&
     pick.term.term === target.term && pick.term.year === target.year);
   pick.termLabel = pick.term ? pick.term.term + ' ' + pick.term.year : '';
-  return { ok: true, course: course.code, pick: pick,
+  return { ok: true, course: course.code, prefix: course.prefix, pick: pick,
+           program: pick.program || '',
            others: ranked.slice(1, 5).map(function (c) {
              return { name: c.name, url: c.url,
                       termLabel: c.term ? c.term.term + ' ' + c.term.year : '' };
@@ -338,6 +350,14 @@ function agreementTerm17(text) {
   return { term: m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase(), year: +m[2] };
 }
 
+/** PURE. Program title from the agreement's "Program Title (if applicable):"
+ *  row, or '' for blank / "n/a". Table cells come through on separate lines. */
+function agreementProgram17(text) {
+  var m = String(text || '').match(/program\s+title[^:\n]*:[ \t]*\n?[ \t]*([^\n]*)/i);
+  var v = m ? m[1].trim() : '';
+  return /^(n\/?a|none|-+)?$/i.test(v) ? '' : v;
+}
+
 /** PURE. Best agreement first. */
 function rankAgreements17(cands, target) {
   function score(c) {
@@ -350,6 +370,139 @@ function rankAgreements17(cands, target) {
   return cands.slice().sort(function (a, b) {
     return (score(b) - score(a)) || (b.updated - a.updated);
   });
+}
+
+
+// ── PROGRAM CANVAS SPECIFICATIONS ────────────────────────────
+//
+// Program courses follow a program's "Canvas Specifications" doc; faculty
+// courses (not part of a program) have none, and some programs have none.
+// 1. If the Dashboard's "Program Canvas Specifications" line is linked,
+//    use that.
+// 2. Otherwise, unless the Dashboard's Project Type says "Faculty Course",
+//    search Drive for files named "...Canvas Spec..." and match them to the
+//    course prefix ("RESPCARE Canvas Specifications", "Canvas Specifications
+//    - BUSMGT, ...", "BAS/IPS Canvas Specifications For...") or to words of
+//    the program title on the signed agreement ("Canvas Specifications -
+//    Public Service"). Names are inconsistent, so a search result is always
+//    shown as "check this is right", never as certain. Archives, copies,
+//    templates and examples are skipped.
+
+/** Returns { ok, status:'linked'|'found'|'none', pick, others, message }. */
+function findCanvasSpecs17_(doc, agreement) {
+  var dash = dashboardTab10_(doc);
+  var lab = findDashLabel10_(dash.body, '^\\s*Program Canvas Specifications?');
+  if (lab && lab.existing) {
+    var id = idFromUrl10_(lab.existing);
+    var file = null;
+    try { file = id ? DriveApp.getFileById(id) : null; } catch (e) { file = null; }
+    if (file) {
+      var mime = file.getMimeType();
+      return { ok: true, status: 'linked', others: [],
+               pick: { id: id, name: file.getName(), url: fileUrl17_(id, mime),
+                       kind: NOTEBOOK_KINDS_17[mime] || friendlyMime17_(mime) } };
+    }
+    return { ok: true, status: 'none', others: [], message:
+      'The Dashboard links Program Canvas Specifications, but you can\'t open that file ' +
+      '(no access, or it was deleted).' };
+  }
+
+  var projectType = dashValue17_(dash.body, /project\s*type\s*:/i);
+  var facultyCourse = /faculty\s+course/i.test(projectType);
+
+  var titleLine = findDashboardTitle10_(doc);
+  var course = parseCourseCode17((titleLine && titleLine.text) || '') ||
+               parseCourseCode17(doc.getName());
+  var program = agreement && agreement.ok ? (agreement.program || '') : '';
+
+  var cands = [];
+  var it = DriveApp.searchFiles("title contains 'Canvas Spec' and trashed = false");
+  var n = 0;
+  while (it.hasNext() && n < 200) {
+    var f = it.next(); n++;
+    var mime2 = f.getMimeType();
+    if (!NOTEBOOK_KINDS_17[mime2]) continue;
+    cands.push({ id: f.getId(), name: f.getName(), mime: mime2,
+                 kind: NOTEBOOK_KINDS_17[mime2], updated: f.getLastUpdated().getTime(),
+                 url: fileUrl17_(f.getId(), mime2) });
+  }
+  var ranked = rankSpecs17(cands, course ? course.prefix : '', program);
+  var why = facultyCourse ? 'This is a faculty course, so no program specifications are expected.' : '';
+
+  if (!ranked.length) {
+    return { ok: true, status: 'none', others: [], facultyCourse: facultyCourse, message: why ||
+      'No Canvas specifications doc was found for ' + (course ? course.prefix : 'this course') +
+      (program ? ' or the "' + program + '" program' : '') +
+      '. The program may not have one. If it does, link it on the Dashboard\'s ' +
+      '"Program Canvas Specifications" line.' };
+  }
+  if (facultyCourse) {
+    // A faculty course normally has none; offer matches without picking one.
+    return { ok: true, status: 'none', facultyCourse: true, message: why,
+             others: ranked.slice(0, 4).map(slimSpec17_) };
+  }
+  return { ok: true, status: 'found', pick: ranked[0],
+           others: ranked.slice(1, 5).map(slimSpec17_) };
+}
+
+function slimSpec17_(c) { return { name: c.name, url: c.url, matchedOn: c.matchedOn }; }
+
+/** Text after a Dashboard label such as "Project Type:" on the same line. */
+function dashValue17_(body, labelRe) {
+  var lines = body.getText().split(/\n/);
+  for (var i = 0; i < lines.length; i++) {
+    var m = lines[i].match(labelRe);
+    if (m) return lines[i].slice(m.index + m[0].length).trim();
+  }
+  return '';
+}
+
+/**
+ * PURE. Canvas specification files that match the course prefix or the
+ * program title, best first. Each kept file gets `matchedOn`.
+ */
+function rankSpecs17(cands, prefix, program) {
+  var skip = /^(archive|copy of|old\b)|\b(template|example|sample|draft)\b/i;
+  var prefixParts = String(prefix || '').toUpperCase().split(/[\/-]/)
+    .filter(function (p) { return p.length >= 2; });
+  var stop = { program: 1, programs: 1, online: 1, degree: 1, certificate: 1,
+               the: 1, and: 1, of: 1, for: 1, in: 1, bachelor: 1, master: 1,
+               masters: 1, science: 1, arts: 1, applied: 1, studies: 1 };
+  var progWords = String(program || '').toLowerCase().split(/[^a-z]+/)
+    .filter(function (w) { return w.length >= 4 && !stop[w]; });
+  var small = { of: 1, and: 1, the: 1, for: 1, in: 1 };
+  var initials = String(program || '').split(/[^A-Za-z]+/)
+    .filter(function (w) { return w && !small[w.toLowerCase()]; })
+    .map(function (w) { return w.charAt(0).toUpperCase(); }).join('');
+  if (initials.length > 6) initials = '';
+
+  var out = [];
+  cands.forEach(function (c) {
+    if (!/canvas\s*spec/i.test(c.name) || skip.test(c.name)) return;
+    var tokens = c.name.toUpperCase().split(/[^A-Z0-9]+/);
+    var score = 0, on = '';
+    if (prefixParts.length && prefixParts.every(function (p) { return tokens.indexOf(p) >= 0; })) {
+      score += 10; on = 'course prefix ' + prefix;
+    } else if (prefixParts.some(function (p) { return p.length >= 3 && tokens.indexOf(p) >= 0; })) {
+      score += 6; on = 'part of course prefix ' + prefix;
+    }
+    var lower = c.name.toLowerCase();
+    var hits = progWords.filter(function (w) {
+      return lower.indexOf(w) >= 0 || lower.indexOf(w.slice(0, 5)) >= 0;
+    });
+    if (hits.length) {
+      score += 3 * hits.length;
+      on = on ? on + ' and program title' : 'program title "' + program + '"';
+    } else if (initials.length >= 2 && tokens.indexOf(initials) >= 0) {
+      // "Online Degree Program" -> ODP, "Bachelor of Applied Science" -> BAS
+      score += 5;
+      on = on ? on + ' and program initials' : 'program initials ' + initials + ' ("' + program + '")';
+    }
+    if (!score) return;
+    out.push({ id: c.id, name: c.name, mime: c.mime, kind: c.kind, url: c.url,
+               updated: c.updated, score: score, matchedOn: on });
+  });
+  return out.sort(function (a, b) { return (b.score - a.score) || (b.updated - a.updated); });
 }
 
 
