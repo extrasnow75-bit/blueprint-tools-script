@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-21 at 09:00 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-22 at 09:00 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -136,9 +136,9 @@
         : '';
       h += '<ul class="src">' + row(p.name, p.url, p.kind || '',
              p.termLabel ? '<span class="tag">' + esc(p.termLabel) + '</span>' : '') + '</ul>' + termNote +
-           '<div class="note"><strong>Contains personal details</strong> (the faculty developer\'s ' +
-           'Boise State ID and contact information). Only add it to a notebook shared with people ' +
-           'who should see them.</div>';
+           '<p class="muted">Includes the faculty developer\'s Boise State ID and contact details. ' +
+           'Fine for a notebook shared only with the IDC and the faculty developer; if you later ' +
+           'share the notebook with others, remove this source first.</p>';
       if (a.others && a.others.length) {
         h += '<details><summary>Other possible agreements for ' + esc(a.course) + ' (' +
              a.others.length + ')</summary><ul class="src">';
