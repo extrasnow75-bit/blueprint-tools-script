@@ -3,7 +3,7 @@
 // Answers: can a script create a notebook and fill it with the kinds
 // of sources Set Up Gemini Notebook would add?
 // ------------------------------------------------------------
-// Last updated on 2026-11-22 at 13:30 MST
+// Last updated on 2026-11-22 at 14:00 MST
 // ------------------------------------------------------------
 //
 // RUN THIS IN A PERSONAL GOOGLE ACCOUNT ONLY. The API is in preview and
@@ -31,7 +31,10 @@
 //   8. Wait, then report each source's state: ACTIVE / FAILED / PROCESSING
 // ============================================================
 
-// ── SET THESE TWO ────────────────────────────────────────────
+// ── SET THESE ────────────────────────────────────────────────
+// Your Google Cloud project's ID (not its number), e.g. "notebook-api-test-123456".
+// Sent as the x-goog-user-project header so requests are billed/counted to it.
+var GCP_PROJECT_ID = 'PASTE_YOUR_PROJECT_ID_HERE';
 // A Google Doc in THIS personal account (a copy of a test document).
 var TEST_DOC_ID = 'PASTE_A_GOOGLE_DOC_ID_HERE';
 // Any public web page.
@@ -133,11 +136,17 @@ function checkSourcesAgain() {
 
 // ── HELPERS ──────────────────────────────────────────────────
 
+function authHeaders_() {
+  var h = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+  if (GCP_PROJECT_ID && GCP_PROJECT_ID.indexOf('PASTE') !== 0) h['x-goog-user-project'] = GCP_PROJECT_ID;
+  return h;
+}
+
 /** One JSON API call. Returns {ok, json, note} and never throws. */
 function call_(method, url, body) {
   var opts = {
     method: method,
-    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    headers: authHeaders_(),
     muteHttpExceptions: true
   };
   if (body) { opts.contentType = 'application/json'; opts.payload = JSON.stringify(body); }
@@ -164,7 +173,7 @@ function upload_(notebook, blob, displayName) {
       method: 'post',
       contentType: 'multipart/related; boundary=' + boundary,
       payload: bytes,
-      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      headers: authHeaders_(),
       muteHttpExceptions: true
     });
     return describe_(r);
@@ -195,8 +204,13 @@ function describe_(r) {
     hint = ' → Turn on the Gemini Notebook API in your Google Cloud project (README step 2).';
   } else if (code === 403 && /scope|insufficient/i.test(msg)) {
     hint = ' → Check appsscript.json has the notebook scope, then re-authorize.';
+  } else if (code === 403 && /user.?project|serviceusage|USER_PROJECT_DENIED/i.test(msg)) {
+    hint = ' → Check GCP_PROJECT_ID at the top of the script (the project ID, not the number).';
   } else if (code === 403) {
-    hint = ' → The API may not be available to this account (preview: personal accounts only).';
+    hint = ' → The API may not be available to this account (preview: personal accounts only; ' +
+           'Workspace accounts such as boisestate.edu get PERMISSION_DENIED).';
+  } else if (code === 404) {
+    hint = ' → Open notebook.google.com once in this account and sign in, then run again.';
   } else if (code === 401) {
     hint = ' → Re-run and approve the permissions prompt.';
   }

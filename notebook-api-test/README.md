@@ -21,10 +21,13 @@ added from Drive update automatically.
 
 ## Setup (about 20 minutes, once)
 
+0. **Sign in to Gemini Notebook once.** In the personal account, open
+   <https://notebook.google.com> and sign in. Until you have, the API answers
+   "not found" (404).
 1. **Google Cloud project.** Signed in to your personal account, go to
    <https://console.cloud.google.com>, create a project (for example
-   *Notebook API test*), and note its **Project number** (on the project's
-   Dashboard).
+   *Notebook API test*), and note its **Project number** and **Project ID**
+   (both on the project's Dashboard).
 2. **Turn on the API.** In that project, go to **APIs & Services → Library**,
    search for **Gemini Notebook API**, and click **Enable**. Also enable the
    **Google Drive API**.
@@ -42,7 +45,8 @@ added from Drive update automatically.
    number from step 1.
 7. **A test Doc.** Put a copy of a test Google Doc in this personal Drive.
    Copy its ID (the long part of its link between `/d/` and `/edit`) into
-   `TEST_DOC_ID` at the top of the script.
+   `TEST_DOC_ID` at the top of the script. Also paste the **Project ID** from
+   step 1 into `GCP_PROJECT_ID`.
 8. **Public-link tests (7a–7c).** Set that test Doc's sharing to **Anyone with
    the link (Viewer)**. Optionally also choose **File → Share → Publish to web →
    Publish**, and paste the published link (it contains `/pub`) into
@@ -86,5 +90,11 @@ The log adds a hint after each error:
 |---|---|
 | SERVICE_DISABLED / "has not been used" | Step 2: enable the Gemini Notebook API in the linked project |
 | scope / insufficient | Step 5: check `appsscript.json`, then run again and re-approve |
-| other 403 | The API may not be available to this account yet |
+| user project / USER_PROJECT_DENIED | Check `GCP_PROJECT_ID` is the project **ID**, not the number |
+| other 403 / PERMISSION_DENIED | The API isn't available to this account (Workspace accounts are refused during the preview) |
+| 404 NOT_FOUND on step 1 | Step 0: sign in at notebook.google.com once, then run again |
 | 401 | Run again and approve the permissions prompt |
+
+Note: some AI-written guides list the permission as `https://googleapis.com` or
+add `cloud-platform`. Neither is right or needed. The API's own description lists
+`https://www.googleapis.com/auth/notebook`, which is what `appsscript.json` uses.
