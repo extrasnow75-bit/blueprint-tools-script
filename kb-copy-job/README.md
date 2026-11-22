@@ -14,7 +14,7 @@ can't open Confluence pages that need a sign-in, but it can open Google Docs.
 ## Which pages it copies
 
 1. Every Confluence page linked in the **Gemini Notebook Reference List** Sheet
-   (one row per reference: Category, Name, Link, Notes).
+   (one row per reference: Category, Name, Notes, with each name linked to its page).
 2. Any page link pasted into column A of the Sheet's **Pages to copy** tab. Use
    this for testing, for example the *CDD Project Documents – Ownership and Share
    Settings* page.

@@ -5,7 +5,7 @@
 // notebook sources. Gemini Notebook can't read pages that need a
 // Confluence sign-in; it can read Google Docs.
 // ------------------------------------------------------------
-// Last updated on 2026-11-22 at 11:00 MST
+// Last updated on 2026-11-22 at 11:30 MST
 // ------------------------------------------------------------
 //
 // THIS IS NOT PART OF THE BLUEPRINT TOOLS SCRIPT.
@@ -208,8 +208,11 @@ function collectPages_() {
       var vals = range.getDisplayValues(), rich = range.getRichTextValues();
       vals.forEach(function (row, i) {
         row.forEach(function (v, j) {
-          var link = rich[i][j] && rich[i][j].getLinkUrl();
-          if (link) urls.push(link);
+          var rt = rich[i][j];
+          if (rt) {
+            if (rt.getLinkUrl()) urls.push(rt.getLinkUrl());
+            rt.getRuns().forEach(function (run) { if (run.getLinkUrl()) urls.push(run.getLinkUrl()); });
+          }
           if (/^https?:/i.test(v)) urls.push(v);
         });
       });

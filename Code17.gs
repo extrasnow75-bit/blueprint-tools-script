@@ -13,7 +13,7 @@
 // adds the sources by hand; this tool tells them exactly which ones.
 // Read-only: it changes nothing in Drive or in the Blueprint.
 // ------------------------------------------------------------
-// Last updated on 2026-11-22 at 11:00 MST
+// Last updated on 2026-11-22 at 11:30 MST
 // ------------------------------------------------------------
 //
 // WHERE THE SOURCES COME FROM
@@ -24,7 +24,8 @@
 //     listed under "can't be added".
 //   • Reference documents: read live from the "Gemini Notebook Reference
 //     List" Sheet (REFERENCE_SHEET_ID_17), one row per document:
-//     Category | Name | Link | Notes. Rows without a link show as
+//     Category | Name | Notes, with the link as a hyperlink on the Name
+//     (a separate Link column also works). Rows without a link show as
 //     "no link yet". Edit the Sheet to change the list.
 //     Knowledge Base (Confluence) links are swapped for their Google Doc
 //     copy in KB_COPY_FOLDER_ID_17, made by the separate KB Copy Job
@@ -85,7 +86,7 @@ var START_DATE_TOLERANCE_DAYS_17 = 6;
 var DAY_MS_17 = 24 * 60 * 60 * 1000;
 
 // "Gemini Notebook Reference List" Google Sheet (tab "References":
-// Category | Name | Link | Notes). The shared reference documents are
+// Category | Name | Notes; each Name is linked to its document). The shared reference documents are
 // read from it on every run; edit the Sheet to change the list. Every
 // user needs at least view access to it. (Until 2026-11-22 the list was
 // read from Greg's planning doc, which is now planning-only.)
@@ -528,15 +529,12 @@ function readReferenceDocs17_() {
   var range = sheet.getDataRange();
   var values = range.getDisplayValues();
   var rich = range.getRichTextValues();
-  // A link may be typed as a URL or put on the cell's text as a hyperlink.
-  var rows = values.map(function (r, i) {
-    return r.map(function (v, j) {
-      var link = rich[i][j] && rich[i][j].getLinkUrl();
-      return link && !/^https?:/i.test(v) ? link : v;
-    });
+  // Hyperlinks on cell text (e.g. a linked Name), cell by cell.
+  var links = rich.map(function (r) {
+    return r.map(function (c) { return (c && linkInRichText17_(c)) || ''; });
   });
 
-  var groups = parseReferenceRows17(rows);
+  var groups = parseReferenceRows17(values, links);
   var kbCopies = null;   // read the copies folder only if a KB link appears
   groups.forEach(function (g) {
     g.items.forEach(function (it) {
@@ -599,24 +597,42 @@ function listKbCopies17_() {
 }
 
 
+/** The first hyperlink anywhere in a cell's rich text, or ''. */
+function linkInRichText17_(rt) {
+  var whole = rt.getLinkUrl();
+  if (whole) return whole;
+  var runs = rt.getRuns();
+  for (var i = 0; i < runs.length; i++) {
+    var u = runs[i].getLinkUrl();
+    if (u) return u;
+  }
+  return '';
+}
+
 /**
  * PURE. Turns the reference Sheet's rows into groups by category.
  * Row 1 is the header; columns are found by name (Category, Name, Link),
- * so they can be reordered. Blank rows are skipped; a row with a name but
- * no link shows as "no link yet".
- * @param {string[][]} rows  display values, header first
+ * so they can be reordered. The link can be the Name cell's hyperlink
+ * (preferred) or a URL / hyperlink in an optional Link column. Blank rows
+ * are skipped; a row with a name but no link shows as "no link yet".
+ * @param {string[][]} rows   display values, header first
+ * @param {string[][]} [links] hyperlink on each cell's text ('' if none)
  */
-function parseReferenceRows17(rows) {
+function parseReferenceRows17(rows, links) {
+  links = links || [];
   if (!rows || !rows.length) return [];
   var head = rows[0].map(function (h) { return String(h || '').trim().toLowerCase(); });
   var col = function (name, fallback) {
     var i = head.indexOf(name); return i >= 0 ? i : fallback;
   };
-  var cCat = col('category', 0), cName = col('name', 1), cLink = col('link', 2);
+  var cCat = col('category', 0), cName = col('name', 1), cLink = col('link', -1);
   var groups = [], byName = {};
-  rows.slice(1).forEach(function (r) {
+  rows.slice(1).forEach(function (r, k) {
+    var lr = links[k + 1] || [];
     var name = String(r[cName] || '').replace(/\s+/g, ' ').trim();
-    var link = String(r[cLink] || '').trim();
+    var typed = cLink >= 0 ? String(r[cLink] || '').trim() : '';
+    var link = lr[cName] || (/^https?:\/\//i.test(typed) ? typed : '') ||
+               (cLink >= 0 ? lr[cLink] : '') || '';
     if (!name && !link) return;
     if (!name) name = link;
     var category = String(r[cCat] || '').trim() || 'Other';
