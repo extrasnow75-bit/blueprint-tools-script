@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-22 at 11:00 MST -->
+<!-- Blueprint Tools — Sidebar17.html | Set Up Gemini Notebook | Last updated on 2026-11-22 at 12:00 MST -->
 <html lang="en">
 <head>
   <base target="_top">
@@ -14,6 +14,10 @@
     }
     h3 { color: #0033a0; margin: 0 0 12px; font-size: 15px; }
     h4 { color: #0033a0; margin: 18px 0 6px; font-size: 13px; }
+    .section { margin-top: 22px; border-top: 3px solid #0033a0; padding-top: 10px; }
+    .section-title { color: #0033a0; font-size: 15px; font-weight: bold; margin: 0 0 4px; }
+    .section-intro { color: #555; font-size: 12px; line-height: 1.4; margin: 0 0 4px; }
+    .section h4:first-of-type { margin-top: 12px; }
     h5 { color: #444; margin: 10px 0 4px; font-size: 12px; }
     a { color: #0033a0; }
     .steps {
@@ -179,8 +183,8 @@
     }
 
     function renderProject(p) {
-      if (!p.ok) return '<h4>From the project folder</h4><div class="error">' + esc(p.message) + '</div>';
-      var h = '<h4>From the project folder (' + p.files.length + ')</h4>' +
+      if (!p.ok) return '<h4>Project folder</h4><div class="error">' + esc(p.message) + '</div>';
+      var h = '<h4>Project folder (' + p.files.length + ')</h4>' +
         '<p class="muted">Folder: <a href="' + esc(p.folderUrl) + '" target="_blank" rel="noopener">' +
         esc(p.folderName) + '</a>, including subfolders.</p>';
       if (p.truncated) {
@@ -213,11 +217,11 @@
     }
 
     function renderReference(r) {
-      if (!r.ok) return '<h4>Reference documents</h4><div class="error">' + esc(r.message) + '</div>';
+      if (!r.ok) return '<div class="error">' + esc(r.message) + '</div>';
       var total = 0, missing = 0;
       var h = '';
       r.groups.forEach(function (g) {
-        h += '<h5>' + esc(g.category) + '</h5><ul class="src">';
+        h += '<h4>' + esc(g.category) + '</h4><ul class="src">';
         g.items.forEach(function (it) {
           if (it.alsoInProject) return;          // already listed above
           if (it.noLink) {
@@ -236,12 +240,12 @@
         });
         h += '</ul>';
       });
-      var head = '<h4>Reference documents (' + total + ')</h4>' +
-        '<p class="muted">Shared policies and templates, listed in the ' +
-        '<a href="' + esc(r.docUrl) + '" target="_blank" rel="noopener">Gemini Notebook Reference List</a>. ' +
-        'Add only the groups this notebook needs.' +
-        (missing ? ' ' + missing + ' item' + (missing === 1 ? ' has' : 's have') +
-          ' no link yet; add links in that Sheet to include them.' : '') + '</p>';
+      r._count = total;
+      var head = missing
+        ? '<p class="muted">' + missing + ' item' + (missing === 1 ? ' has' : 's have') +
+          ' no link yet. Add links in the <a href="' + esc(r.docUrl) +
+          '" target="_blank" rel="noopener">Gemini Notebook Reference List</a> to include them.</p>'
+        : '';
       return head + h;
     }
 
@@ -257,10 +261,27 @@
         '<a class="open-btn" href="' + esc(r.notebookUrl) + '" target="_blank" rel="noopener">' +
         'Open Gemini Notebook</a></div>';
       h += renderWeek(r.week);
-      h += renderAgreement(r.agreement);
-      h += renderSpecs(r.specs);
-      h += renderProject(r.project);
-      h += renderReference(r.reference);
+
+      // Section 1: documents that belong to THIS project.
+      var projectCount = (r.project.ok ? r.project.files.length : 0) +
+        (r.agreement && r.agreement.ok && r.agreement.pick ? 1 : 0) +
+        (r.specs && r.specs.ok && r.specs.pick ? 1 : 0);
+      h += '<section class="section" aria-labelledby="sec-project">' +
+        '<h3 class="section-title" id="sec-project">This project\'s documents (' + projectCount + ')</h3>' +
+        '<p class="section-intro">Different for every project: the Blueprint and the rest of ' +
+        'the project folder, the signed agreement, and the program\'s Canvas specifications.</p>' +
+        renderProject(r.project) + renderAgreement(r.agreement) + renderSpecs(r.specs) +
+        '</section>';
+
+      // Section 2: the same documents for every project notebook.
+      var refHtml = renderReference(r.reference);
+      h += '<section class="section" aria-labelledby="sec-standard">' +
+        '<h3 class="section-title" id="sec-standard">Standard documents (' +
+        (r.reference._count || 0) + ')</h3>' +
+        '<p class="section-intro">The same for every project notebook: eCampus templates, ' +
+        'policies and guidelines from the <a href="' + esc(r.reference.docUrl || '#') +
+        '" target="_blank" rel="noopener">Gemini Notebook Reference List</a>.</p>' +
+        refHtml + '</section>';
       h += '<p class="muted" style="margin-top:14px">Gemini Notebook says files added from ' +
            'Drive sync automatically after import. If a source still looks out of date, open ' +
            'it in the notebook and click the sync button.' +

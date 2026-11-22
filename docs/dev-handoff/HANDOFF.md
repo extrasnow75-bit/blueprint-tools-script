@@ -462,3 +462,7 @@ Greg: the "How To Set Up And Use a Project Work Station" doc is **planning-only*
 - Copy job: copies every Knowledge Base link found in that Sheet (plus its own "Pages to copy" tab). Its scopes changed: `spreadsheets.currentonly` → `spreadsheets`; `documents` removed.
 - **Open issue:** the Sheet was created by the Claude connector, which is signed in as Greg's personal Gmail account, so that account owns it. A Boise State–owned copy is better (IDC access, ownership if Greg's personal account changes). If Greg makes a copy under his Boise State account, update both constants to the copy's ID.
 
+### 15e. Sidebar layout: project vs. standard documents (2026-11-22)
+
+Greg asked for project-specific and always-added documents to be separate. `Sidebar17.html` now shows, after the steps and the cycle week: **This project's documents (N)** (project folder incl. the Blueprint, signed agreement, Canvas specifications) and **Standard documents (N)** (the Reference List Sheet, by category). The old wording "Add only the groups this notebook needs" was dropped: standard documents go in every project notebook.
+
