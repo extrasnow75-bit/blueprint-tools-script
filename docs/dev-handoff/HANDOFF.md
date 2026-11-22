@@ -466,3 +466,11 @@ Greg: the "How To Set Up And Use a Project Work Station" doc is **planning-only*
 
 Greg asked for project-specific and always-added documents to be separate. `Sidebar17.html` now shows, after the steps and the cycle week: **This project's documents (N)** (project folder incl. the Blueprint, signed agreement, Canvas specifications) and **Standard documents (N)** (the Reference List Sheet, by category). The old wording "Add only the groups this notebook needs" was dropped: standard documents go in every project notebook.
 
+## 16. Gemini Notebook API: findings and personal-account test (2026-11-22)
+
+Read from Google's public discovery document (`https://notebook.googleapis.com/$discovery/rest?version=v1`, revision 20261120). Scopes: `https://www.googleapis.com/auth/notebook`, `.../notebook.readonly`. Methods: `notebooks.create | list | get | patch`, `notebooks.sources.create | get | list`, `media.upload` (`POST /upload/v1/{parent}/sources:upload`, multipart or resumable, max 200 MB). `Source` takes **`textContent` (text/plain or text/markdown) or `webContent` (url)**; uploads take a file. Source states: PROCESSING, ACTIVE, FAILED, DELETING.
+
+**Not offered:** a Google Drive source type (so no auto-syncing Drive sources via the API) and any delete method. Implication for a future "Create my notebook" button: Drive documents would have to be exported (PDF or Markdown) and uploaded as snapshots; re-running would add duplicates, since nothing can be deleted. The manual checklist (Add sources → Drive) stays the better path for live, auto-syncing sources unless Google adds a Drive type. Access: preview, personal accounts only (per the docs found 2026-11-20); no date for Workspace/Education.
+
+**Test script:** `notebook-api-test/` (standalone Apps Script, personal account, linked to a personal Google Cloud project with the API enabled). `runAllTests` lists notebooks, creates a test notebook, then adds: text, a public web page, the test Doc as a PDF upload, the test Doc as Markdown text, and the Doc's link as a web page; then reports each source's state. `checkSourcesAgain` re-checks later. README has setup steps. Not yet run.
+
